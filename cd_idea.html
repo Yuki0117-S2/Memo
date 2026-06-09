@@ -1,0 +1,2412 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>✦ CD Idea</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg2: #f5f5f5;
+    --bg3: #eeeeee;
+    --text: #1a1a1a;
+    --text2: #555555;
+    --text3: #999999;
+    --border: rgba(0,0,0,0.12);
+    --border2: rgba(0,0,0,0.22);
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --accent: #8888CC;
+    --accent2: #BB6688;
+    --accent3: #DDAACC;
+    --accent4: #CCAA88;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1e1e1e;
+      --bg2: #272727;
+      --bg3: #313131;
+      --text: #f0f0f0;
+      --text2: #aaaaaa;
+      --text3: #666666;
+      --border: rgba(255,255,255,0.1);
+      --border2: rgba(255,255,255,0.2);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  #app { max-width: none; width: 100%; margin: 0 auto; padding: 1rem 1.25rem 3rem; }
+
+  /* 탭바 */
+  #tab-bar {
+    display: flex; align-items: flex-end; gap: 3px;
+    border-bottom: 0.5px solid var(--border);
+    flex-wrap: nowrap; overflow-x: auto; padding-bottom: 0;
+  }
+  #tab-bar::-webkit-scrollbar { height: 3px; }
+  #tab-bar::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+  .tab-item {
+    display: flex; align-items: center; gap: 5px;
+    padding: 7px 13px 8px;
+    font-size: 13px; font-weight: 500; color: var(--text2);
+    border: 0.5px solid transparent; border-bottom: none;
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    cursor: pointer; white-space: nowrap; background: transparent;
+    position: relative; bottom: -0.5px; user-select: none;
+    transition: background 0.12s;
+  }
+  .tab-item:hover { color: var(--text); background: var(--bg2); }
+  .tab-item.active { color: var(--accent); background: var(--bg); border-color: var(--border); }
+  .tab-name-input {
+    font-size: 13px; font-weight: 500; color: var(--accent);
+    background: transparent; border: none; outline: none;
+    min-width: 40px; max-width: 160px; padding: 0; cursor: text;
+    font-family: inherit;
+  }
+  .tab-item:not(.active) .tab-name-input { color: var(--text2); pointer-events: none; }
+  .tab-color-dot {
+    width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
+    border: 1.5px solid rgba(255,255,255,0.5); cursor: pointer;
+  }
+  .color-picker-popup {
+    position: absolute; top: 36px; left: 0; z-index: 999;
+    background: var(--bg); border: 0.5px solid var(--border2);
+    border-radius: var(--radius-md); padding: 7px 8px;
+    display: flex; gap: 6px; flex-wrap: wrap; width: 110px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.13);
+  }
+  .color-picker-popup .cp-dot {
+    width: 18px; height: 18px; border-radius: 50%; cursor: pointer;
+    border: 2px solid transparent; transition: transform 0.1s;
+  }
+  .color-picker-popup .cp-dot:hover { transform: scale(1.18); }
+  .color-picker-popup .cp-dot.selected { border-color: var(--text); }
+  .tab-del {
+    font-size: 12px; color: var(--text3); background: none; border: none;
+    cursor: pointer; padding: 0 0 0 2px; line-height: 1; opacity: 0.5;
+    display: flex; align-items: center;
+  }
+  .tab-del:hover { opacity: 1; color: var(--accent2); }
+  #add-tab-btn {
+    padding: 6px 11px 7px; font-size: 12px; color: var(--text3);
+    background: none; border: 0.5px dashed var(--border2);
+    border-bottom: none; border-radius: var(--radius-md) var(--radius-md) 0 0;
+    cursor: pointer; white-space: nowrap; position: relative; bottom: -0.5px;
+    display: flex; align-items: center; gap: 4px; font-family: inherit;
+    transition: color 0.12s, border-color 0.12s;
+  }
+  #add-tab-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* 툴바 */
+  #toolbar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 0.8rem 0 0.8rem; flex-wrap: wrap;
+    border-bottom: 0.5px solid var(--border);
+    margin-bottom: 0.75rem;
+  }
+  .logo { font-size: 15px; font-weight: 600; color: var(--accent); letter-spacing: -0.3px; }
+  .tb-btn {
+    display: flex; align-items: center; gap: 5px;
+    background: var(--accent); color: #fff; border: none;
+    border-radius: var(--radius-md); padding: 6px 14px;
+    font-size: 13px; cursor: pointer; font-weight: 500; font-family: inherit;
+    transition: opacity 0.12s;
+  }
+  .tb-btn:hover { opacity: 0.85; }
+  .tb-btn.outline { background: transparent; color: var(--accent); border: 0.5px solid var(--accent); }
+  .tb-btn.outline:hover { background: var(--accent); color: #fff; opacity: 1; }
+  .tb-btn.active-sort { background: var(--accent2); color: #fff; border: none; }
+  #filter-bar { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; margin-left: auto; }
+  .filter-chip {
+    font-size: 12px; padding: 3px 10px; border-radius: 20px;
+    border: 0.5px solid var(--border2); background: var(--bg2);
+    color: var(--text2); cursor: pointer; user-select: none;
+    transition: all 0.12s;
+  }
+  .filter-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  /* 뷰 토글 */
+  #view-toggle { display: flex; border: 0.5px solid var(--border2); border-radius: var(--radius-md); overflow: hidden; }
+  .view-btn {
+    display: flex; align-items: center; justify-content: center;
+    width: 34px; height: 32px; background: transparent; border: none;
+    cursor: pointer; color: var(--text3); font-size: 16px;
+    transition: background 0.12s, color 0.12s; font-family: inherit;
+  }
+  .view-btn + .view-btn { border-left: 0.5px solid var(--border2); }
+  .view-btn:hover { background: var(--bg2); color: var(--text2); }
+  .view-btn.active { background: var(--accent); color: #fff; }
+
+  /* undo/redo */
+  #undo-redo { display: flex; gap: 4px; }
+  .ur-btn {
+    display: flex; align-items: center; justify-content: center;
+    width: 34px; height: 32px;
+    background: transparent; border: 0.5px solid var(--border2);
+    border-radius: var(--radius-md); color: var(--text2); cursor: pointer;
+    font-size: 16px; font-family: inherit;
+    transition: background 0.12s, color 0.12s;
+  }
+  .ur-btn:hover { background: var(--bg2); color: var(--text); }
+  .ur-btn:disabled { opacity: 0.3; cursor: default; pointer-events: none; }
+
+  /* 보드 */
+  #board-wrap { position: relative; }
+  .board { position: relative; min-height: 480px; width: 100%; display: none; }
+  .board.active { display: block; }
+  .board.grid-mode { display: none; }
+  .board.grid-mode.active {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, 228px);
+    grid-auto-rows: 1px;
+    column-gap: 6px;
+    row-gap: 0;
+    justify-content: start;
+    min-height: unset;
+    padding-top: 14px;
+  }
+  .board.grid-mode .idea-card {
+    position: static !important; width: 228px !important;
+    display: block;
+    margin: 0;
+    align-self: start;
+  }
+  .board.grid-mode .card-body { display: block; }
+  .board.grid-mode .card-memo { flex: unset; min-height: 48px; }
+  .board.grid-mode .empty-hint { grid-column: 1/-1; position: static; transform: none; padding: 3rem 0; }
+  .board.grid-mode .sorted-list { column-span: all; }
+
+  /* 카드 */
+  .idea-card {
+    position: absolute; width: 228px;
+    background: var(--bg); border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg); cursor: default;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    user-select: none;
+    z-index: 1;
+  }
+  .idea-card:hover { border-color: var(--border2); box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+  .idea-card.dragging-active { cursor: grabbing; box-shadow: 0 6px 24px rgba(0,0,0,0.14); z-index: 9999 !important; }
+  .card-header {
+    display: flex; align-items: center; gap: 6px;
+    padding: 10px 12px 6px;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    background: var(--bg2); border-bottom: 0.5px solid var(--border);
+  }
+  .stage-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; pointer-events: none; }
+  .card-title-input {
+    flex: 1; font-size: 13px; font-weight: 500; color: var(--text);
+    background: transparent; border: none; outline: none; padding: 0;
+    min-width: 0; cursor: text; font-family: inherit;
+  }
+  .card-title-input::placeholder { color: var(--text3); }
+  .card-del-btn {
+    background: none; border: none; cursor: pointer; color: var(--text3);
+    font-size: 14px; padding: 0 1px; display: flex; align-items: center; opacity: 0.45;
+  }
+  .card-del-btn:hover { opacity: 1; color: var(--accent2); }
+  .card-handle {
+    display: flex; align-items: center; justify-content: center;
+    height: 24px; cursor: grab; background: var(--bg3);
+    border-bottom: 0.5px solid var(--border); touch-action: none;
+  }
+  .card-handle:active { cursor: grabbing; }
+  .card-handle i { font-size: 15px; color: var(--text3); pointer-events: none; }
+  .card-handle .move-btns { display: none; gap: 2px; }
+  .grid-mode .card-handle .move-btns { display: flex; }
+  .move-btn {
+    display: flex; align-items: center; justify-content: center;
+    width: 22px; height: 18px; background: none; border: 0.5px solid var(--border2);
+    border-radius: 4px; cursor: pointer; color: var(--text3); font-size: 12px;
+    transition: background 0.1s, color 0.1s;
+  }
+  .move-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .move-btn:disabled { opacity: 0.25; cursor: default; pointer-events: none; }
+  .grid-drop-indicator {
+    background: var(--accent); opacity: 0.25;
+    border-radius: var(--radius-lg); pointer-events: none;
+    border: 2px dashed var(--accent);
+  }
+  .card-body { padding: 8px 12px 10px; }
+  .card-memo {
+    width: 100%; font-size: 12px; line-height: 1.6;
+    color: var(--text2); background: transparent; border: none; outline: none;
+    resize: none; padding: 0; font-family: inherit; min-height: 50px; cursor: text;
+  }
+  .card-title-input, .card-memo, .tag-add-input, .prompt-textarea {
+    touch-action: auto;
+  }
+  .card-tags { display: flex; flex-wrap: wrap; gap: 3px; margin: 5px 0; }
+  .tag {
+    font-size: 11px; padding: 2px 7px; border-radius: 20px;
+    background: var(--bg2); color: var(--text2); border: 0.5px solid var(--border);
+    cursor: pointer; transition: border-color 0.12s, color 0.12s;
+  }
+  .tag:hover { border-color: var(--accent2); color: var(--accent2); }
+  .tag-add-input {
+    font-size: 11px; border: none; border-bottom: 0.5px solid var(--border2);
+    background: transparent; outline: none; width: 90px; color: var(--text2);
+    padding: 1px 2px; cursor: text; font-family: inherit;
+  }
+  .tag-add-input::placeholder { color: var(--text3); }
+  .prompt-section { margin-top: 6px; border-top: 0.5px solid var(--border); }
+  .prompt-toggle {
+    display: flex; align-items: center; gap: 4px;
+    font-size: 11px; color: var(--accent); cursor: pointer;
+    padding: 5px 0 3px; background: none; border: none;
+    width: 100%; text-align: left; font-family: inherit;
+  }
+  .prompt-box { display: none; margin-top: 4px; }
+  .prompt-box.open { display: block; }
+  .prompt-textarea {
+    width: 100%; font-size: 11px; line-height: 1.5;
+    font-family: 'Consolas', 'Menlo', monospace; color: var(--text2);
+    background: var(--bg2); border: 0.5px solid var(--border);
+    border-radius: var(--radius-md); padding: 6px 8px; resize: none; outline: none;
+    min-height: 60px; cursor: text;
+  }
+  .prompt-copy-btn {
+    display: flex; align-items: center; gap: 4px; font-size: 11px; margin-top: 4px;
+    background: none; border: 0.5px solid var(--accent); border-radius: var(--radius-md);
+    color: var(--accent); padding: 3px 8px; cursor: pointer; width: 100%;
+    justify-content: center; font-family: inherit; transition: all 0.12s;
+  }
+  .prompt-copy-btn:hover { background: var(--accent); color: #fff; }
+  .card-stage-row {
+    display: flex; align-items: center; gap: 6px;
+    margin-top: 6px; padding-top: 6px; border-top: 0.5px solid var(--border);
+  }
+  .stage-select {
+    font-size: 11px; border: 0.5px solid var(--border); border-radius: var(--radius-md);
+    background: var(--bg2); color: var(--text2); padding: 2px 6px;
+    cursor: pointer; outline: none; flex: 1; font-family: inherit;
+  }
+
+  .empty-hint {
+    position: absolute; top: 40%; left: 50%; transform: translate(-50%,-50%);
+    color: var(--text3); font-size: 13px; text-align: center; pointer-events: none;
+  }
+  .empty-hint i { font-size: 28px; display: block; margin-bottom: 6px; opacity: 0.35; }
+
+  /* 정렬 뷰 */
+  .sorted-list { display: none; flex-direction: column; gap: 4px; width: 100%; padding-top: 4px; }
+  .sorted-list.visible { display: flex; }
+  .sorted-row {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--bg); border: 0.5px solid var(--border);
+    border-radius: var(--radius-md); padding: 9px 14px;
+    cursor: pointer; transition: border-color 0.12s, background 0.12s;
+    user-select: none;
+  }
+  .sorted-row:hover { border-color: var(--border2); background: var(--bg2); }
+  .row-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .row-title { font-size: 13px; font-weight: 500; color: var(--text); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row-stage { font-size: 11px; color: var(--text3); flex-shrink: 0; }
+  .row-chev { font-size: 14px; color: var(--text3); transition: transform 0.2s; flex-shrink: 0; }
+  .row-chev.open { transform: rotate(180deg); }
+  .sorted-detail {
+    display: none; background: var(--bg2);
+    border: 0.5px solid var(--border); border-top: none;
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+    padding: 10px 14px 12px; margin-top: -4px;
+  }
+  .sorted-detail.open { display: block; }
+  .sd-memo { font-size: 12px; color: var(--text2); line-height: 1.6; white-space: pre-wrap; margin-bottom: 6px; }
+  .sd-tags { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 6px; }
+  .sd-tag { font-size: 11px; padding: 2px 7px; border-radius: 20px; background: var(--bg); color: var(--text2); border: 0.5px solid var(--border); }
+  .sd-prompt-label { font-size: 11px; color: var(--accent); margin-bottom: 3px; }
+  .sd-prompt { font-size: 11px; font-family: 'Consolas','Menlo',monospace; color: var(--text2); background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-md); padding: 6px 8px; white-space: pre-wrap; }
+  .sd-copy {
+    display: inline-flex; align-items: center; gap: 4px; font-size: 11px; margin-top: 6px;
+    background: none; border: 0.5px solid var(--accent); border-radius: var(--radius-md);
+    color: var(--accent); padding: 3px 10px; cursor: pointer; font-family: inherit;
+    transition: all 0.12s;
+  }
+  .sd-copy:hover { background: var(--accent); color: #fff; }
+
+  /* 컨텍스트 메뉴 */
+  #ctx-menu {
+    position: fixed; z-index: 9999;
+    background: var(--bg); border: 0.5px solid var(--border2);
+    border-radius: var(--radius-md); padding: 4px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.18);
+    min-width: 180px; display: none;
+    font-family: inherit;
+  }
+  #ctx-menu.open { display: block; }
+  .ctx-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px; font-size: 13px; color: var(--text);
+    border-radius: 4px; cursor: pointer; user-select: none;
+  }
+  .ctx-item:hover { background: var(--bg2); }
+  .ctx-item.danger { color: var(--accent2); }
+  .ctx-item i { font-size: 15px; color: var(--text3); width: 16px; text-align: center; }
+  .ctx-item.danger i { color: var(--accent2); }
+  .ctx-sep { height: 0.5px; background: var(--border); margin: 4px 0; }
+  .ctx-submenu-trigger { position: relative; }
+  .ctx-submenu-trigger::after {
+    content: '›'; margin-left: auto; color: var(--text3); font-size: 14px;
+  }
+  .ctx-submenu {
+    display: none; position: absolute; left: 100%; top: 0;
+    background: var(--bg); border: 0.5px solid var(--border2);
+    border-radius: var(--radius-md); padding: 4px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.18); min-width: 140px;
+  }
+  .ctx-submenu-trigger:hover > .ctx-submenu { display: block; }
+
+  /* 일괄 선택 모드 */
+  .board.select-mode .idea-card { cursor: pointer; }
+  .board.select-mode .idea-card.selected {
+    outline: 2px solid var(--accent2); outline-offset: -2px;
+  }
+  .board.select-mode .card-handle { pointer-events: auto; cursor: grab; }
+  .board.select-mode .card-handle .move-btn { pointer-events: none; }
+  .board.select-mode input,
+  .board.select-mode textarea,
+  .board.select-mode select,
+  .board.select-mode button { pointer-events: none; }
+  #select-bar {
+    display: none; align-items: center; gap: 10px;
+    padding: 8px 14px; margin-bottom: 0.5rem;
+    background: var(--accent2); color: #fff;
+    border-radius: var(--radius-md); font-size: 13px;
+  }
+  #select-bar.visible { display: flex; }
+  #select-bar button {
+    background: rgba(255,255,255,0.18); color: #fff;
+    border: none; border-radius: 4px; padding: 4px 10px;
+    font-size: 12px; cursor: pointer; font-family: inherit;
+  }
+  #select-bar button:hover { background: rgba(255,255,255,0.28); }
+  #select-bar .grow { flex: 1; }
+
+  /* hidden 파일 input */
+  #json-import-input { display: none; }
+
+  /* 검색바 */
+  #search-bar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 12px; margin-bottom: 0.75rem;
+    background: var(--bg2); border: 0.5px solid var(--border);
+    border-radius: var(--radius-md); flex-wrap: wrap;
+  }
+  #search-bar > i.ti-search { color: var(--text3); font-size: 16px; flex-shrink: 0; }
+  #search-input {
+    flex: 1; min-width: 150px;
+    border: none; background: transparent; outline: none;
+    font-size: 13px; color: var(--text); font-family: inherit; padding: 4px 0;
+  }
+  #search-input::placeholder { color: var(--text3); }
+  #search-clear {
+    background: none; border: none; color: var(--text3);
+    cursor: pointer; display: none; padding: 2px;
+    align-items: center; font-size: 14px;
+  }
+  #search-clear.visible { display: flex; }
+  #search-clear:hover { color: var(--accent2); }
+  #active-tag-filters { display: flex; flex-wrap: wrap; gap: 4px; }
+  .tag-filter-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 11px; padding: 2px 4px 2px 8px; border-radius: 20px;
+    background: var(--accent); color: #fff; cursor: default;
+  }
+  .tag-filter-chip button {
+    background: rgba(255,255,255,0.3); border: none; color: #fff;
+    width: 14px; height: 14px; border-radius: 50%; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; padding: 0;
+  }
+  .tag-filter-chip button:hover { background: rgba(255,255,255,0.5); }
+
+  /* 카드 태그 - 호버 시 X 표시 */
+  .tag { position: relative; display: inline-flex; align-items: center; gap: 0; }
+  .tag .tag-del {
+    display: none; margin-left: 3px; font-size: 10px;
+    color: var(--text3); cursor: pointer; padding: 0;
+    background: none; border: none;
+  }
+  .tag:hover .tag-del { display: inline-flex; }
+  .tag .tag-del:hover { color: var(--accent2); }
+
+  /* 즐겨찾기 별표 */
+  .card-fav-btn {
+    background: none; border: none; cursor: pointer;
+    color: var(--text3); font-size: 14px; padding: 0 1px;
+    display: flex; align-items: center; opacity: 0.5;
+  }
+  .card-fav-btn:hover { opacity: 1; color: var(--accent4); }
+  .card-fav-btn.active { opacity: 1; color: var(--accent4); }
+
+  /* 검색 매칭 강조 */
+  .idea-card.search-match { box-shadow: 0 0 0 2px var(--accent3) !important; }
+
+  /* 이미지 섹션 */
+  .image-section { margin-top: 6px; border-top: 0.5px solid var(--border); }
+  .image-toggle {
+    display: flex; align-items: center; gap: 4px;
+    font-size: 11px; color: var(--accent); cursor: pointer;
+    padding: 5px 0 3px; background: none; border: none;
+    width: 100%; text-align: left; font-family: inherit;
+  }
+  .image-toggle .img-count {
+    font-size: 10px; color: var(--text3); margin-left: 2px;
+  }
+  .image-box { display: none; margin-top: 4px; }
+  .image-box.open { display: block; }
+  .image-drop-zone {
+    border: 1px dashed var(--border2); border-radius: var(--radius-md);
+    padding: 8px; background: var(--bg2);
+    font-size: 11px; color: var(--text3); text-align: center;
+    transition: border-color 0.12s, background 0.12s;
+  }
+  .image-drop-zone.dragover {
+    border-color: var(--accent); background: var(--bg3); color: var(--accent);
+  }
+  .image-drop-zone .dz-line { display: block; }
+  .image-controls {
+    display: flex; gap: 4px; margin-top: 4px; align-items: center;
+  }
+  .image-url-input {
+    flex: 1; font-size: 11px; padding: 3px 6px;
+    border: 0.5px solid var(--border); border-radius: var(--radius-md);
+    background: var(--bg); color: var(--text2); outline: none;
+    font-family: inherit; min-width: 0;
+  }
+  .image-url-input::placeholder { color: var(--text3); }
+  .image-pick-btn {
+    display: flex; align-items: center; justify-content: center;
+    width: 26px; height: 24px; flex-shrink: 0;
+    background: none; border: 0.5px solid var(--border2); border-radius: var(--radius-md);
+    color: var(--accent); cursor: pointer; font-size: 13px;
+  }
+  .image-pick-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .image-gallery {
+    display: flex; gap: 4px; margin-top: 4px;
+    overflow-x: auto; padding-bottom: 2px;
+  }
+  .image-gallery::-webkit-scrollbar { height: 4px; }
+  .image-gallery::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+  .image-thumb {
+    position: relative; flex-shrink: 0;
+    width: 60px; height: 60px;
+    border: 0.5px solid var(--border); border-radius: var(--radius-md);
+    overflow: hidden; cursor: pointer; background: var(--bg2);
+  }
+  .image-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .image-thumb .img-del {
+    position: absolute; top: 2px; right: 2px;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: rgba(0,0,0,0.55); color: #fff; border: none;
+    cursor: pointer; display: none; align-items: center; justify-content: center;
+    font-size: 10px; padding: 0;
+  }
+  .image-thumb:hover .img-del { display: flex; }
+  .image-thumb .img-broken {
+    width:100%;height:100%;display:flex;align-items:center;justify-content:center;
+    font-size:10px;color:var(--text3);text-align:center;padding:4px;
+  }
+
+  /* 라이트박스 */
+  #lightbox {
+    position: fixed; inset: 0; z-index: 10000;
+    background: rgba(0,0,0,0.82);
+    display: none; align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  #lightbox.open { display: flex; }
+  #lightbox img { max-width: 95%; max-height: 95%; object-fit: contain; }
+  #lightbox .lb-close {
+    position: absolute; top: 16px; right: 20px;
+    background: none; border: none; color: #fff;
+    font-size: 28px; cursor: pointer;
+  }
+  #lightbox .lb-nav {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    width: 44px; height: 44px; border-radius: 50%;
+    background: rgba(255,255,255,0.18); color: #fff; border: none;
+    cursor: pointer; font-size: 22px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #lightbox .lb-nav:hover { background: rgba(255,255,255,0.32); }
+  #lightbox .lb-prev { left: 16px; }
+  #lightbox .lb-next { right: 16px; }
+
+  /* Gist 동기화 */
+  .sync-indicator {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--text3); display: inline-block;
+    margin-left: 4px; vertical-align: middle; transition: background 0.3s;
+  }
+  .sync-indicator.synced { background: #6AC8B0; }
+  .sync-indicator.error { background: var(--accent2); }
+
+  #gist-overlay {
+    position: fixed; inset: 0; z-index: 10001;
+    background: rgba(0,0,0,0.55);
+    display: none; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  #gist-overlay.open { display: flex; }
+  .gist-modal {
+    background: var(--bg); border: 0.5px solid var(--border2);
+    border-radius: var(--radius-lg); padding: 22px;
+    width: 400px; max-width: 100%;
+    display: flex; flex-direction: column; gap: 14px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+  }
+  .gist-modal-title {
+    font-size: 16px; font-weight: 600; color: var(--accent);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .gist-section { display: flex; flex-direction: column; gap: 5px; }
+  .gist-label { font-size: 11px; color: var(--text3); letter-spacing: 0.5px; }
+  .gist-input {
+    width: 100%; background: var(--bg2); border: 0.5px solid var(--border2);
+    border-radius: var(--radius-md); color: var(--text);
+    font-family: 'Consolas','Menlo',monospace; font-size: 12px;
+    padding: 7px 10px; outline: none; transition: border-color 0.15s;
+  }
+  .gist-input:focus { border-color: var(--accent); }
+  .gist-input::placeholder { color: var(--text3); opacity: 0.7; }
+  .gist-hint { font-size: 11px; color: var(--text3); line-height: 1.5; }
+  .gist-hint a { color: var(--accent); text-decoration: none; }
+  .gist-hint a:hover { text-decoration: underline; }
+  .gist-id-row { display: flex; gap: 5px; align-items: center; }
+  .gist-id-row .gist-input { flex: 1; }
+  .gist-copy-btn {
+    padding: 6px 9px; background: var(--bg2);
+    border: 0.5px solid var(--border2); border-radius: var(--radius-md);
+    color: var(--text2); cursor: pointer; font-size: 12px;
+    white-space: nowrap; font-family: inherit;
+  }
+  .gist-copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .gist-status {
+    font-size: 11px; padding: 7px 10px; border-radius: var(--radius-md);
+    font-family: 'Consolas','Menlo',monospace; display: none;
+  }
+  .gist-status.ok { background: rgba(106,200,176,0.1); color: #6AC8B0; display: block; }
+  .gist-status.err { background: rgba(187,102,136,0.1); color: var(--accent2); display: block; }
+  .gist-status.loading { background: rgba(136,136,204,0.1); color: var(--accent); display: block; }
+  .gist-btn-row { display: flex; gap: 6px; }
+  .gist-btn {
+    flex: 1; padding: 8px 10px; border-radius: var(--radius-md);
+    border: none; cursor: pointer; font-size: 12px; font-weight: 500;
+    font-family: inherit; display: flex; align-items: center;
+    justify-content: center; gap: 4px;
+  }
+  .gist-btn-upload { background: var(--accent); color: #fff; }
+  .gist-btn-upload:hover { opacity: 0.88; }
+  .gist-btn-download { background: var(--bg2); border: 0.5px solid var(--accent); color: var(--accent); }
+  .gist-btn-download:hover { background: var(--accent); color: #fff; }
+  .gist-btn-cancel { background: transparent; border: 0.5px solid var(--border2); color: var(--text2); }
+  .gist-btn-cancel:hover { border-color: var(--accent2); color: var(--accent2); }
+
+  /* 슬롯 피커 */
+  #slot-picker-overlay {
+    position: fixed; inset: 0; z-index: 10002;
+    background: rgba(0,0,0,0.6);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .slot-picker-box {
+    background: var(--bg); border: 0.5px solid var(--border2);
+    border-radius: var(--radius-lg); padding: 20px;
+    width: 380px; max-width: 100%;
+    max-height: calc(100vh - 60px); overflow-y: auto;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .slot-picker-title { font-size: 14px; color: var(--accent); font-weight: 600; }
+  .slot-picker-sub { font-size: 11px; color: var(--text3); }
+  .slot-btn {
+    padding: 10px 12px; background: var(--bg2);
+    border: 0.5px solid var(--border); border-radius: var(--radius-md);
+    color: var(--text); cursor: pointer; text-align: left;
+    font-family: inherit; font-size: 12px;
+    display: flex; justify-content: space-between; align-items: center;
+    transition: border-color 0.15s;
+  }
+  .slot-btn:hover { border-color: var(--accent); }
+  .slot-btn .slot-title { font-weight: 600; color: var(--accent); margin-bottom: 2px; }
+  .slot-btn .slot-meta { color: var(--text3); font-size: 10px; }
+  .slot-btn .slot-arrow { color: var(--text3); font-size: 16px; }
+  .slot-cancel-btn {
+    padding: 7px; background: none;
+    border: 0.5px solid var(--border2); border-radius: var(--radius-md);
+    color: var(--text3); cursor: pointer;
+    font-family: inherit; font-size: 12px;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="tab-bar"></div>
+  <div id="toolbar">
+    <span class="logo" id="toolbar-logo">✦ 아이디어 캐디</span>
+    <button id="add-card-btn" class="tb-btn"><i class="ti ti-plus"></i> 새 카드</button>
+    <button id="sync-btn" class="tb-btn outline" title="Gist 동기화"><i class="ti ti-cloud"></i> 동기화 <span class="sync-indicator" id="sync-indicator"></span></button>
+    <div id="undo-redo">
+      <button class="ur-btn" id="undo-btn" title="되돌리기 (Ctrl+Z)"><i class="ti ti-arrow-back-up"></i></button>
+      <button class="ur-btn" id="redo-btn" title="다시 실행 (Ctrl+Y)"><i class="ti ti-arrow-forward-up"></i></button>
+    </div>
+    <div id="view-toggle">
+      <button class="view-btn active" data-view="free" title="자유 배치"><i class="ti ti-layout-board-split"></i></button>
+      <button class="view-btn" data-view="grid" title="그리드 정렬"><i class="ti ti-layout-grid"></i></button>
+      <button class="view-btn" data-view="list" title="가나다 정렬"><i class="ti ti-layout-list"></i></button>
+    </div>
+    <div id="filter-bar">
+      <div class="filter-chip active" data-stage="all">전체</div>
+      <div class="filter-chip" data-stage="러프">러프</div>
+      <div class="filter-chip" data-stage="구체화중">구체화중</div>
+      <div class="filter-chip" data-stage="완성">완성</div>
+      <div class="filter-chip" data-stage="fav" title="즐겨찾기만"><i class="ti ti-star"></i></div>
+    </div>
+  </div>
+  <div id="search-bar">
+    <i class="ti ti-search"></i>
+    <input id="search-input" type="text" placeholder="제목 / 메모 / 태그 / 프롬프트 검색... (Ctrl+F)">
+    <div id="active-tag-filters"></div>
+    <button id="search-clear" title="검색 지우기"><i class="ti ti-x"></i></button>
+  </div>
+  <div id="select-bar">
+    <span id="select-count">0개 선택됨</span>
+    <span class="grow"></span>
+    <button id="select-all-btn">전체 선택</button>
+    <button id="select-delete-btn">삭제</button>
+    <button id="select-cancel-btn">취소</button>
+  </div>
+  <div id="board-wrap"></div>
+</div>
+<div id="ctx-menu" role="menu"></div>
+<input type="file" id="json-import-input" accept="application/json,.json">
+<input type="file" id="img-picker" accept="image/*" multiple style="display:none">
+
+<!-- Gist 동기화 모달 -->
+<div id="gist-overlay">
+  <div class="gist-modal">
+    <div class="gist-modal-title"><i class="ti ti-cloud"></i> Gist 동기화</div>
+    <div class="gist-section">
+      <div class="gist-label">GitHub Personal Access Token</div>
+      <input class="gist-input" type="password" id="gist-token-input" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+      <div class="gist-hint">⚠️ 토큰은 이 기기 localStorage에만 저장돼. 절대 공유 X. <a href="https://github.com/settings/tokens/new?scopes=gist&description=CD%20Idea" target="_blank" style="color:var(--accent)">토큰 만들기 →</a> (scope: gist만)</div>
+    </div>
+    <div class="gist-section">
+      <div class="gist-label">Gist ID <span style="color:var(--text3);font-size:10px;">(처음엔 비워둬 — 업로드하면 자동 생성)</span></div>
+      <div class="gist-id-row">
+        <input class="gist-input" type="text" id="gist-id-input" placeholder="처음엔 비워두기">
+        <button class="gist-copy-btn" id="gist-copy-btn" title="Gist ID 복사">📋</button>
+      </div>
+      <div class="gist-hint">💡 다른 기기에서 불러오려면 이 ID가 필요해.</div>
+    </div>
+    <div class="gist-status" id="gist-status"></div>
+    <div class="gist-btn-row">
+      <button class="gist-btn gist-btn-upload" id="gist-upload-btn"><i class="ti ti-upload"></i> 업로드</button>
+      <button class="gist-btn gist-btn-download" id="gist-download-btn"><i class="ti ti-download"></i> 불러오기</button>
+    </div>
+    <div class="gist-hint" id="gist-autosave-hint" style="text-align:center;"></div>
+    <div class="gist-btn-row">
+      <button class="gist-btn gist-btn-cancel" id="gist-close-btn">닫기</button>
+    </div>
+  </div>
+</div>
+
+<div id="lightbox">
+  <button class="lb-close" title="닫기">×</button>
+  <button class="lb-nav lb-prev" title="이전">‹</button>
+  <img id="lb-img" alt="">
+  <button class="lb-nav lb-next" title="다음">›</button>
+</div>
+
+<script>
+const SC='#8888CC',SR='#BB6688',SP='#DDAACC';
+const STAGE_COLORS={'러프':SC,'구체화중':SP,'완성':SR};
+const TAB_COLORS=['#8888CC','#BB6688','#DDAACC','#CCAA88','#884499','#EE1166','#FF6699','#00BBDD','#FF7722','#0077DD'];
+const IQ='input,textarea,button,select,a';
+const STORE_KEY='caddy_v4';
+
+let state={tabs:[],activeTabId:null};
+let dragging=null,dragOffX=0,dragOffY=0;
+let dragStartClientX=0,dragStartClientY=0,didMoveDuringDrag=false;
+let suppressSelectClick=false;
+let viewMode='free',activeFilter='all',openSortedId=null;
+let searchQuery='', activeTagFilters=new Set();
+
+function uid(){return 'i'+Date.now()+Math.random().toString(36).slice(2,6);}
+function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+let saveErrorShown=false;
+function save(){
+  try{
+    localStorage.setItem(STORE_KEY,JSON.stringify(state));
+    saveErrorShown=false;
+  }catch(e){
+    if(!saveErrorShown){
+      saveErrorShown=true;
+      console.error('저장 실패:',e);
+      setTimeout(()=>toast('저장 실패: 브라우저 저장공간이 부족할 수 있어'),0);
+    }
+  }
+}
+
+// === 히스토리 (undo/redo) ===
+const HIST_MAX=50;
+let undoStack=[], redoStack=[];
+let histDebounceTimer=null;
+let suppressHistory=false;
+
+function snapshot(){ return JSON.stringify(state); }
+
+function pushHistoryNow(){
+  if(suppressHistory)return;
+  const snap=snapshot();
+  if(undoStack.length>0 && undoStack[undoStack.length-1]===snap)return;
+  undoStack.push(snap);
+  if(undoStack.length>HIST_MAX)undoStack.shift();
+  redoStack.length=0;
+  if(typeof updateUndoRedoBtns==='function')updateUndoRedoBtns();
+}
+
+// 텍스트 입력용 debounce (1초 후 푸시)
+function pushHistoryDebounced(){
+  if(suppressHistory)return;
+  if(histDebounceTimer)clearTimeout(histDebounceTimer);
+  histDebounceTimer=setTimeout(()=>{ pushHistoryNow(); histDebounceTimer=null; },1000);
+}
+
+// 큰 액션 직전에 호출
+function pushHistory(){
+  if(histDebounceTimer){ clearTimeout(histDebounceTimer); histDebounceTimer=null; pushHistoryNow(); }
+  pushHistoryNow();
+}
+
+function bindTextEditHistory(el){
+  if(!el)return;
+  el.addEventListener('focus',()=>{
+    if(el.dataset.editingHist==='1')return;
+    el.dataset.editingHist='1';
+    pushHistory();
+  });
+  el.addEventListener('blur',()=>{ delete el.dataset.editingHist; });
+}
+
+function undo(){
+  if(histDebounceTimer){ clearTimeout(histDebounceTimer); histDebounceTimer=null; pushHistoryNow(); }
+  if(undoStack.length===0){ toast('되돌릴 게 없어'); return; }
+  redoStack.push(snapshot());
+  const prev=undoStack.pop();
+  suppressHistory=true;
+  try{ state=JSON.parse(prev); save(); renderAll(); toast('되돌리기'); }
+  finally{ suppressHistory=false; }
+  if(typeof updateUndoRedoBtns==='function')updateUndoRedoBtns();
+}
+
+function redo(){
+  if(redoStack.length===0){ toast('다시 실행할 게 없어'); return; }
+  undoStack.push(snapshot());
+  if(undoStack.length>HIST_MAX)undoStack.shift();
+  const next=redoStack.pop();
+  suppressHistory=true;
+  try{ state=JSON.parse(next); save(); renderAll(); toast('다시 실행'); }
+  finally{ suppressHistory=false; }
+  if(typeof updateUndoRedoBtns==='function')updateUndoRedoBtns();
+}
+
+// 마지막으로 클릭/호버된 카드 (Delete 키 대상)
+let lastActiveCardId=null;
+
+window.addEventListener('keydown',e=>{
+  const isMac=navigator.platform.toLowerCase().includes('mac');
+  const mod=isMac?e.metaKey:e.ctrlKey;
+
+  // Delete/Backspace로 카드 삭제 (입력 포커스 중일 때는 무시)
+  if((e.key==='Delete'||e.key==='Backspace') && !mod){
+    const ae=document.activeElement;
+    const isInput=ae && (ae.tagName==='INPUT'||ae.tagName==='TEXTAREA'||ae.isContentEditable);
+    if(isInput)return;
+    if(selectMode)return;
+    if(!lastActiveCardId)return;
+    const tab=activeTab();
+    const data=tab.cards.find(c=>c.id===lastActiveCardId);
+    if(!data)return;
+    const cardEl=document.querySelector(`.idea-card[data-id="${lastActiveCardId}"]`);
+    e.preventDefault();
+    deleteCard(data,tab,cardEl);
+    lastActiveCardId=null;
+    return;
+  }
+
+  if(!mod)return;
+  if(e.key==='z'||e.key==='Z'){
+    if(e.shiftKey){ e.preventDefault(); redo(); }
+    else { e.preventDefault(); undo(); }
+  } else if(e.key==='y'||e.key==='Y'){
+    e.preventDefault(); redo();
+  }
+});
+
+// 카드 위에 포인터 올라가거나 클릭 시 active 등록
+document.addEventListener('mouseover',e=>{
+  const card=e.target.closest && e.target.closest('.idea-card');
+  if(card) lastActiveCardId=card.dataset.id;
+});
+document.addEventListener('mousedown',e=>{
+  const card=e.target.closest && e.target.closest('.idea-card');
+  if(card) lastActiveCardId=card.dataset.id;
+  else lastActiveCardId=null;
+},true);
+
+function updateUndoRedoBtns(){
+  const ub=document.getElementById('undo-btn');
+  const rb=document.getElementById('redo-btn');
+  if(ub) ub.disabled=undoStack.length===0;
+  if(rb) rb.disabled=redoStack.length===0;
+}
+
+function load(){
+  try{const d=localStorage.getItem(STORE_KEY);if(d){state=JSON.parse(d);return;}}catch(e){}
+  state={tabs:[{id:uid(),name:'아이디어 캐디',color:'#8888CC',cards:[]}],activeTabId:null};
+  state.activeTabId=state.tabs[0].id;
+}
+function activeTab(){return state.tabs.find(t=>t.id===state.activeTabId)||state.tabs[0];}
+
+function renderAll(){renderTabs();renderBoardWrap();updateViewToggle();}
+
+function updateLogoAndAccent(){
+  const tab=activeTab();
+  const color=tab.color||SC;
+  const logo=document.getElementById('toolbar-logo');
+  if(logo){ logo.textContent='✦ '+tab.name; logo.style.color=color; }
+  document.getElementById('add-card-btn').style.background=color;
+  document.getElementById('add-card-btn').style.borderColor=color;
+  const vBtns=document.querySelectorAll('.view-btn');
+  vBtns.forEach(b=>{ if(b.classList.contains('active')){ b.style.background=color; } else { b.style.background=''; } });
+}
+
+function renderTabs(){
+  const bar=document.getElementById('tab-bar');
+  bar.innerHTML='';
+  state.tabs.forEach(tab=>{
+    if(!tab.color) tab.color=SC;
+    const el=document.createElement('div');
+    el.className='tab-item'+(tab.id===state.activeTabId?' active':'');
+    el.dataset.id=tab.id;
+    el.style.position='relative';
+    if(tab.id===state.activeTabId) el.style.borderTopColor=tab.color;
+
+    const dot=document.createElement('div');
+    dot.className='tab-color-dot';
+    dot.style.background=tab.color;
+    dot.title='색상 변경';
+    dot.addEventListener('mousedown',e=>e.stopPropagation());
+    dot.addEventListener('click',e=>{
+      e.stopPropagation();
+      document.querySelectorAll('.color-picker-popup').forEach(p=>p.remove());
+      const popup=document.createElement('div');
+      popup.className='color-picker-popup';
+      TAB_COLORS.forEach(c=>{
+        const cd=document.createElement('div');
+        cd.className='cp-dot'+(tab.color===c?' selected':'');
+        cd.style.background=c;
+        cd.addEventListener('click',ev=>{
+          ev.stopPropagation();
+          pushHistory();tab.color=c; save(); popup.remove(); renderTabs(); updateLogoAndAccent();
+        });
+        popup.appendChild(cd);
+      });
+      el.appendChild(popup);
+      setTimeout(()=>document.addEventListener('click',()=>popup.remove(),{once:true}),10);
+    });
+    el.appendChild(dot);
+
+    const inp=document.createElement('input');
+    inp.className='tab-name-input';
+    inp.value=tab.name;
+    inp.style.color=tab.id===state.activeTabId?tab.color:null;
+    inp.style.width=Math.max(40,Math.min(160,(tab.name.length||1)*9+16))+'px';
+    inp.addEventListener('mousedown',e=>e.stopPropagation());
+    inp.addEventListener('click',e=>e.stopPropagation());
+    bindTextEditHistory(inp);
+    inp.addEventListener('input',()=>{
+      tab.name=inp.value;
+      inp.style.width=Math.max(40,Math.min(160,(inp.value.length||1)*9+16))+'px';
+      updateLogoAndAccent();
+      save();
+    });
+    inp.addEventListener('keydown',e=>{if(e.key==='Enter')inp.blur();});
+    el.appendChild(inp);
+
+    if(state.tabs.length>1){
+      const del=document.createElement('button');
+      del.className='tab-del';
+      del.innerHTML='<i class="ti ti-x"></i>';
+      del.title='탭 삭제';
+      del.addEventListener('mousedown',e=>e.stopPropagation());
+      del.addEventListener('click',e=>{e.stopPropagation();deleteTab(tab.id);});
+      el.appendChild(del);
+    }
+    el.addEventListener('mousedown',()=>{if(state.activeTabId!==tab.id)switchTab(tab.id);});
+    bar.appendChild(el);
+  });
+  const addBtn=document.createElement('button');
+  addBtn.id='add-tab-btn';
+  addBtn.innerHTML='<i class="ti ti-plus" style="font-size:11px"></i> 탭 추가';
+  addBtn.addEventListener('click',addTab);
+  bar.appendChild(addBtn);
+  updateLogoAndAccent();
+}
+
+function renderBoardWrap(){
+  const wrap=document.getElementById('board-wrap');
+  wrap.innerHTML='';
+  state.tabs.forEach(tab=>{
+    const boardDiv=document.createElement('div');
+    boardDiv.className='board'+(tab.id===state.activeTabId?' active':'');
+    boardDiv.id='board-'+tab.id;
+    const hint=document.createElement('div');
+    hint.className='empty-hint';
+    hint.id='hint-'+tab.id;
+    hint.innerHTML='<i class="ti ti-bulb"></i>새 카드를 추가해봐';
+    hint.style.display=tab.cards.length===0?'block':'none';
+    boardDiv.appendChild(hint);
+    const sl=document.createElement('div');
+    sl.className='sorted-list';
+    sl.id='sorted-'+tab.id;
+    boardDiv.appendChild(sl);
+    tab.cards.forEach(card=>boardDiv.appendChild(makeCard(card,tab)));
+    wrap.appendChild(boardDiv);
+    syncCardOrder(tab);
+  });
+}
+
+function updateViewToggle(){
+  const color=(activeTab().color)||SC;
+  document.querySelectorAll('.view-btn').forEach(b=>{
+    const on=b.dataset.view===viewMode;
+    b.classList.toggle('active',on);
+    b.style.background=on?color:'';
+    b.style.color=on?'#fff':'';
+  });
+}
+
+function switchTab(id){
+  state.activeTabId=id;
+  viewMode='free';openSortedId=null;
+  save();renderAll();
+}
+
+function addTab(){
+  pushHistory();
+  const color=TAB_COLORS[state.tabs.length % TAB_COLORS.length];
+  const tab={id:uid(),name:'새 탭',color,cards:[]};
+  state.tabs.push(tab);
+  state.activeTabId=tab.id;
+  viewMode='free';save();renderAll();
+  setTimeout(()=>{
+    const inp=document.querySelector('.tab-item.active .tab-name-input');
+    if(inp){inp.select();inp.focus();}
+  },50);
+}
+
+function deleteTab(id){
+  if(state.tabs.length<=1)return;
+  if(!confirm('이 탭을 삭제할까? 카드도 전부 사라져.'))return;
+  pushHistory();
+  state.tabs=state.tabs.filter(t=>t.id!==id);
+  if(state.activeTabId===id)state.activeTabId=state.tabs[0].id;
+  viewMode='free';save();renderAll();
+}
+
+function checkEmpty(tab){
+  const hint=document.getElementById('hint-'+tab.id);
+  if(hint)hint.style.display=tab.cards.length===0?'block':'none';
+}
+
+function renderTagsEl(container,data,tab){
+  container.innerHTML='';
+  (data.tags||[]).forEach((tag,i)=>{
+    const t=document.createElement('div');
+    t.className='tag';t.title='클릭하면 이 태그로 필터링';
+    const label=document.createElement('span');
+    label.textContent=tag;
+    t.appendChild(label);
+    const x=document.createElement('button');
+    x.className='tag-del';
+    x.innerHTML='<i class="ti ti-x"></i>';
+    x.title='태그 삭제';
+    x.addEventListener('mousedown',e=>e.stopPropagation());
+    x.addEventListener('click',e=>{
+      e.stopPropagation();
+      pushHistory();
+      data.tags.splice(i,1);
+      renderTagsEl(container,data,tab);
+      save();
+    });
+    t.appendChild(x);
+    t.addEventListener('mousedown',e=>e.stopPropagation());
+    label.addEventListener('click',e=>{
+      e.stopPropagation();
+      toggleTagFilter(tag);
+    });
+    container.appendChild(t);
+  });
+}
+
+function makeCard(data,tab){
+  const el=document.createElement('div');
+  el.className='idea-card';el.dataset.id=data.id;
+  el.style.left=data.x+'px';el.style.top=data.y+'px';
+  if(viewMode==='list')el.style.display='none';
+  el.innerHTML=`
+    <div class="card-handle">
+      <button class="move-btn move-left" title="왼쪽으로"><i class="ti ti-chevron-left"></i></button>
+      <i class="ti ti-grip-horizontal"></i>
+      <button class="move-btn move-right" title="오른쪽으로"><i class="ti ti-chevron-right"></i></button>
+    </div>
+    <div class="card-header">
+      <div class="stage-dot" style="background:${STAGE_COLORS[data.stage]||SC}"></div>
+      <input class="card-title-input" placeholder="캐릭터 이름 / 컨셉" value="${esc(data.title)}">
+      <button class="card-fav-btn${data.fav?' active':''}" title="즐겨찾기"><i class="ti ti-star"></i></button>
+      <button class="card-del-btn" title="삭제"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="card-body">
+      <textarea class="card-memo" placeholder="구상 메모...">${esc(data.memo)}</textarea>
+      <div class="card-tags"></div>
+      <div><input class="tag-add-input" placeholder="+ 태그 입력 후 Enter"></div>
+      <div class="prompt-section">
+        <button class="prompt-toggle"><i class="ti ti-code"></i> AI 프롬프트 <i class="ti ti-chevron-down"></i></button>
+        <div class="prompt-box ${data.promptOpen?'open':''}">
+          <textarea class="prompt-textarea" placeholder="AI한테 물어볼 프롬프트...">${esc(data.prompt)}</textarea>
+          <button class="prompt-copy-btn"><i class="ti ti-copy"></i> 복사</button>
+        </div>
+      </div>
+      <div class="image-section">
+        <button class="image-toggle"><i class="ti ti-photo"></i> 참고 이미지<span class="img-count"></span> <i class="ti ti-chevron-down"></i></button>
+        <div class="image-box ${data.imageOpen?'open':''}">
+          <div class="image-drop-zone">
+            <span class="dz-line">파일 드롭 / Ctrl+V 붙여넣기</span>
+          </div>
+          <div class="image-controls">
+            <input class="image-url-input" placeholder="이미지 URL 붙여넣기 후 Enter">
+            <button class="image-pick-btn" title="파일 선택"><i class="ti ti-upload"></i></button>
+          </div>
+          <div class="image-gallery"></div>
+        </div>
+      </div>
+      <div class="card-stage-row">
+        <select class="stage-select">
+          <option ${data.stage==='러프'?'selected':''}>러프</option>
+          <option ${data.stage==='구체화중'?'selected':''}>구체화중</option>
+          <option ${data.stage==='완성'?'selected':''}>완성</option>
+        </select>
+      </div>
+    </div>`;
+
+  const ti=el.querySelector('.card-title-input');
+  const memo=el.querySelector('.card-memo');
+  const tagCont=el.querySelector('.card-tags');
+  const tagInp=el.querySelector('.tag-add-input');
+  const ptoggle=el.querySelector('.prompt-toggle');
+  const pbox=el.querySelector('.prompt-box');
+  const pta=el.querySelector('.prompt-textarea');
+  const pcopy=el.querySelector('.prompt-copy-btn');
+  const sel=el.querySelector('.stage-select');
+  const dot=el.querySelector('.stage-dot');
+  const delbtn=el.querySelector('.card-del-btn');
+  const favbtn=el.querySelector('.card-fav-btn');
+
+  renderTagsEl(tagCont,data,tab);
+
+  if(favbtn){
+    favbtn.addEventListener('mousedown',e=>e.stopPropagation());
+    favbtn.addEventListener('touchstart',e=>e.stopPropagation(),{passive:true});
+    favbtn.addEventListener('click',e=>{
+      e.stopPropagation();
+      pushHistory();
+      data.fav=!data.fav;
+      favbtn.classList.toggle('active',data.fav);
+      save(); applyFilter();
+    });
+  }
+
+  bindTextEditHistory(ti);
+  bindTextEditHistory(memo);
+  ti.addEventListener('input',()=>{data.title=ti.value;save();});
+  memo.addEventListener('input',()=>{data.memo=memo.value;memo.style.height='auto';memo.style.height=memo.scrollHeight+'px';save();scheduleMasonry();});
+  if(data.memo)setTimeout(()=>{memo.style.height=memo.scrollHeight+'px';},0);
+
+  [ti,memo,tagInp,ptoggle,pta,pcopy,sel].forEach(e2=>e2.addEventListener('mousedown',e=>e.stopPropagation()));
+  tagInp.addEventListener('keydown',e=>{
+    if(e.key==='Enter'&&tagInp.value.trim()){
+      e.preventDefault();pushHistory();data.tags.push(tagInp.value.trim());tagInp.value='';
+      renderTagsEl(tagCont,data,tab);save();
+    }
+  });
+  ptoggle.addEventListener('click',()=>{data.promptOpen=!data.promptOpen;pbox.classList.toggle('open',data.promptOpen);save();scheduleMasonry();});
+  bindTextEditHistory(pta);
+  pta.addEventListener('input',()=>{data.prompt=pta.value;save();});
+  pcopy.addEventListener('click',()=>{
+    navigator.clipboard.writeText(data.prompt).then(()=>{
+      pcopy.innerHTML='<i class="ti ti-check"></i> 복사됨!';
+      setTimeout(()=>{pcopy.innerHTML='<i class="ti ti-copy"></i> 복사';},1500);
+    });
+  });
+
+  // 이미지 섹션
+  const imgToggle=el.querySelector('.image-toggle');
+  const imgBox=el.querySelector('.image-box');
+  const imgCount=el.querySelector('.img-count');
+  const imgGallery=el.querySelector('.image-gallery');
+  const imgDrop=el.querySelector('.image-drop-zone');
+  const imgUrlInp=el.querySelector('.image-url-input');
+  const imgPick=el.querySelector('.image-pick-btn');
+  if(!data.images) data.images=[];
+
+  function updateImgCount(){
+    if(imgCount) imgCount.textContent=data.images.length?` (${data.images.length})`:'';
+  }
+  function renderGallery(){
+    imgGallery.innerHTML='';
+    data.images.forEach((img,idx)=>{
+      const div=document.createElement('div');
+      div.className='image-thumb';
+      const src=typeof img==='string'?img:(img.src||'');
+      div.innerHTML=`<img loading="lazy" src="${esc(src)}" alt=""><button class="img-del" title="삭제"><i class="ti ti-x"></i></button>`;
+      const im=div.querySelector('img');
+      im.addEventListener('error',()=>{
+        im.remove();
+        const b=document.createElement('div'); b.className='img-broken'; b.textContent='로드 실패';
+        div.insertBefore(b,div.firstChild);
+      });
+      div.addEventListener('mousedown',e=>e.stopPropagation());
+      div.addEventListener('touchstart',e=>e.stopPropagation(),{passive:true});
+      div.addEventListener('click',e=>{
+        if(e.target.closest('.img-del'))return;
+        openLightbox(data.images,idx);
+      });
+      div.querySelector('.img-del').addEventListener('click',e=>{
+        e.stopPropagation();
+        pushHistory();
+        data.images.splice(idx,1);
+        renderGallery(); updateImgCount(); save(); scheduleMasonry();
+      });
+      imgGallery.appendChild(div);
+    });
+    updateImgCount();
+  }
+  renderGallery();
+
+  imgToggle.addEventListener('click',()=>{
+    data.imageOpen=!data.imageOpen;
+    imgBox.classList.toggle('open',data.imageOpen);
+    save(); scheduleMasonry();
+  });
+
+  function addImage(src){
+    if(!src)return;
+    pushHistory();
+    data.images.push(src);
+    renderGallery(); save(); scheduleMasonry();
+  }
+
+  // URL 입력
+  imgUrlInp.addEventListener('mousedown',e=>e.stopPropagation());
+  imgUrlInp.addEventListener('keydown',e=>{
+    if(e.key==='Enter' && imgUrlInp.value.trim()){
+      e.preventDefault();
+      addImage(imgUrlInp.value.trim());
+      imgUrlInp.value='';
+    }
+  });
+
+  // 파일 선택 (모바일/데탑 공통)
+  imgPick.addEventListener('mousedown',e=>e.stopPropagation());
+  imgPick.addEventListener('click',e=>{
+    e.stopPropagation();
+    const picker=document.getElementById('img-picker');
+    picker.onchange=ev=>{
+      const files=[...(ev.target.files||[])];
+      files.forEach(f=>readFileAsDataURL(f).then(src=>addImage(src)));
+      picker.value='';
+    };
+    picker.click();
+  });
+
+  // 드롭존: 드래그앤드롭 (데탑) + 클릭으로 파일 선택 (모바일 fallback)
+  imgDrop.addEventListener('mousedown',e=>e.stopPropagation());
+  imgDrop.addEventListener('click',e=>{ e.stopPropagation(); imgPick.click(); });
+  ['dragenter','dragover'].forEach(ev=>{
+    imgDrop.addEventListener(ev,e=>{ e.preventDefault(); e.stopPropagation(); imgDrop.classList.add('dragover'); });
+  });
+  ['dragleave','drop'].forEach(ev=>{
+    imgDrop.addEventListener(ev,e=>{ e.preventDefault(); e.stopPropagation(); imgDrop.classList.remove('dragover'); });
+  });
+  imgDrop.addEventListener('drop',e=>{
+    const items=[...(e.dataTransfer.files||[])];
+    if(items.length){
+      items.filter(f=>f.type.startsWith('image/'))
+        .forEach(f=>readFileAsDataURL(f).then(src=>addImage(src)));
+    } else {
+      const url=e.dataTransfer.getData('text/uri-list')||e.dataTransfer.getData('text/plain');
+      if(url) addImage(url.trim());
+    }
+  });
+
+  // 클립보드 붙여넣기 (카드 안에서 Ctrl+V 했을 때)
+  el.addEventListener('paste',e=>{
+    if(!data.imageOpen)return;
+    const items=[...(e.clipboardData?.items||[])];
+    let handled=false;
+    items.forEach(it=>{
+      if(it.type.startsWith('image/')){
+        const f=it.getAsFile();
+        if(f){ readFileAsDataURL(f).then(src=>addImage(src)); handled=true; }
+      }
+    });
+    if(handled) e.preventDefault();
+  });
+
+  sel.addEventListener('change',()=>{pushHistory();data.stage=sel.value;dot.style.background=STAGE_COLORS[data.stage]||SC;save();applyFilter();});
+  delbtn.addEventListener('mousedown',e=>e.stopPropagation());
+  delbtn.addEventListener('click',()=>{
+    if(!confirm('이 카드를 삭제할까?'))return;
+    pushHistory();
+    tab.cards=tab.cards.filter(c=>c.id!==data.id);
+    el.remove();
+    save();
+    checkEmpty(tab);
+    if(viewMode==='grid')scheduleMasonry();
+  });
+  const handle=el.querySelector('.card-handle');
+  const moveLeft=el.querySelector('.move-left');
+  const moveRight=el.querySelector('.move-right');
+
+  function updateMoveBtns(){
+    const idx=tab.cards.findIndex(c=>c.id===data.id);
+    if(moveLeft) moveLeft.disabled=(idx<=0);
+    if(moveRight) moveRight.disabled=(idx>=tab.cards.length-1);
+  }
+  updateMoveBtns();
+
+  function moveCard(dir){
+    const idx=tab.cards.findIndex(c=>c.id===data.id);
+    const newIdx=idx+dir;
+    if(newIdx<0||newIdx>=tab.cards.length)return;
+    pushHistory();
+    tab.cards.splice(idx,1);
+    tab.cards.splice(newIdx,0,data);
+    save();
+    const boardEl=document.getElementById('board-'+tab.id);
+    if(!boardEl)return;
+    const cards=[...boardEl.querySelectorAll('.idea-card')];
+    const movedEl=cards.find(c=>c.dataset.id===data.id);
+    const targetEl=cards.find(c=>c.dataset.id===tab.cards[newIdx+(dir>0?-1:1)]?.id);
+    if(movedEl&&targetEl){
+      if(dir>0) targetEl.after(movedEl); else targetEl.before(movedEl);
+    }
+    boardEl.querySelectorAll('.idea-card').forEach(c=>{
+      const d=tab.cards.find(x=>x.id===c.dataset.id);
+      if(d) c.querySelector('.move-left') && (c.querySelector('.move-left').disabled=(tab.cards.indexOf(d)<=0));
+      if(d) c.querySelector('.move-right') && (c.querySelector('.move-right').disabled=(tab.cards.indexOf(d)>=tab.cards.length-1));
+    });
+  }
+
+  if(moveLeft){
+    moveLeft.addEventListener('mousedown',e=>e.stopPropagation());
+    moveLeft.addEventListener('touchstart',e=>e.stopPropagation(),{passive:true});
+    moveLeft.addEventListener('click',e=>{e.stopPropagation();moveCard(-1);});
+  }
+  if(moveRight){
+    moveRight.addEventListener('mousedown',e=>e.stopPropagation());
+    moveRight.addEventListener('touchstart',e=>e.stopPropagation(),{passive:true});
+    moveRight.addEventListener('click',e=>{e.stopPropagation();moveCard(1);});
+  }
+
+  function startDrag(clientX,clientY){
+    dragStartClientX=clientX;
+    dragStartClientY=clientY;
+    didMoveDuringDrag=false;
+    pushHistory();
+    if(viewMode==='grid'){
+      dragging={el,data,tab,isGrid:true};
+      el.classList.add('dragging-active');
+      el.style.opacity='0.45';
+    } else {
+      const rect=el.getBoundingClientRect();
+      dragOffX=clientX-rect.left;dragOffY=clientY-rect.top;
+      el.style.zIndex=999;el.classList.add('dragging-active');
+
+      // 선택 모드에서 선택된 카드 여러 개면 같이 이동
+      let multi=null;
+      if(selectMode && selectedIds.has(data.id) && selectedIds.size>1){
+        multi=[];
+        const boardEl=document.getElementById('board-'+tab.id);
+        selectedIds.forEach(id=>{
+          if(id===data.id)return;
+          const d=tab.cards.find(c=>c.id===id);
+          const elx=boardEl&&boardEl.querySelector(`.idea-card[data-id="${id}"]`);
+          if(d&&elx){
+            multi.push({data:d,el:elx,baseX:d.x||0,baseY:d.y||0});
+          }
+        });
+      }
+      dragging={el,data,tab,isGrid:false,multi,startX:data.x||0,startY:data.y||0};
+    }
+  }
+  handle.addEventListener('mousedown',e=>{
+    if(e.target.closest('.move-btn'))return;
+    startDrag(e.clientX,e.clientY);e.preventDefault();
+  });
+  handle.addEventListener('touchstart',e=>{
+    if(e.target.closest('.move-btn'))return;
+    const t=e.touches[0];
+    startDrag(t.clientX,t.clientY);
+  },{passive:true});
+  // 자유배치에서 카드 어느 곳이든 누르면 최상위로
+  function bringToFront(){
+    if(viewMode!=='free')return;
+    if(selectMode)return;
+    const idx=tab.cards.findIndex(c=>c.id===data.id);
+    if(idx===-1||idx===tab.cards.length-1)return;
+    const [m]=tab.cards.splice(idx,1);
+    tab.cards.push(m);
+    syncCardOrder(tab);
+    save();
+  }
+  el.addEventListener('mousedown',bringToFront,true);
+  el.addEventListener('touchstart',bringToFront,{capture:true,passive:true});
+
+  observeCardForMasonry(el);
+  return el;
+}
+
+function matchesFilters(d){
+  // 단계 필터
+  if(activeFilter==='fav'){
+    if(!d.fav) return false;
+  } else if(activeFilter!=='all' && d.stage!==activeFilter) return false;
+  // 태그 필터 (AND)
+  if(activeTagFilters.size>0){
+    const tags=d.tags||[];
+    for(const t of activeTagFilters){ if(!tags.includes(t)) return false; }
+  }
+  // 검색어
+  if(searchQuery){
+    const q=searchQuery.toLowerCase();
+    const hay=[d.title,d.memo,d.prompt,(d.tags||[]).join(' ')].join('\n').toLowerCase();
+    if(!hay.includes(q)) return false;
+  }
+  return true;
+}
+
+function applyFilter(){
+  if(viewMode==='list'){renderSortedList();return;}
+  const tab=activeTab();
+  document.querySelectorAll('#board-'+tab.id+' .idea-card').forEach(el=>{
+    const d=tab.cards.find(c=>c.id===el.dataset.id);
+    if(!d)return;
+    el.style.display=matchesFilters(d)?'block':'none';
+  });
+  if(viewMode==='grid') layoutMasonry();
+}
+
+function toggleTagFilter(tag){
+  if(activeTagFilters.has(tag)) activeTagFilters.delete(tag);
+  else activeTagFilters.add(tag);
+  renderActiveTagFilters();
+  applyFilter();
+}
+
+function renderActiveTagFilters(){
+  const cont=document.getElementById('active-tag-filters');
+  if(!cont)return;
+  cont.innerHTML='';
+  activeTagFilters.forEach(tag=>{
+    const c=document.createElement('div');
+    c.className='tag-filter-chip';
+    c.innerHTML=`<span>#${esc(tag)}</span><button title="필터 해제"><i class="ti ti-x"></i></button>`;
+    c.querySelector('button').addEventListener('click',()=>toggleTagFilter(tag));
+    cont.appendChild(c);
+  });
+}
+
+function layoutMasonry(){
+  if(viewMode!=='grid')return;
+  const tab=activeTab();
+  const boardEl=document.getElementById('board-'+tab.id);
+  if(!boardEl||!boardEl.classList.contains('grid-mode'))return;
+  const GAP=6;
+  boardEl.querySelectorAll('.idea-card').forEach(card=>{
+    if(card.style.display==='none'){ card.style.gridRowEnd=''; return; }
+    const h=card.getBoundingClientRect().height;
+    const span=Math.ceil(h+GAP);
+    card.style.gridRowEnd='span '+span;
+  });
+}
+
+let masonryTimer=null;
+function scheduleMasonry(){
+  if(viewMode!=='grid')return;
+  if(masonryTimer)cancelAnimationFrame(masonryTimer);
+  masonryTimer=requestAnimationFrame(()=>{ layoutMasonry(); masonryTimer=null; });
+}
+window.addEventListener('resize',scheduleMasonry);
+
+// 카드 내부 변화 자동 감지
+const cardResizeObserver=new ResizeObserver(()=>scheduleMasonry());
+function observeCardForMasonry(el){ cardResizeObserver.observe(el); }
+
+function renderSortedList(){
+  const tab=activeTab();
+  const listEl=document.getElementById('sorted-'+tab.id);
+  if(!listEl)return;
+  listEl.innerHTML='';
+  const filtered=tab.cards.filter(matchesFilters);
+  const sorted=[...filtered].sort((a,b)=>(a.title||'').localeCompare(b.title||'','ko'));
+  if(sorted.length===0){
+    listEl.innerHTML='<div style="color:var(--text3);font-size:13px;padding:2rem;text-align:center;">카드가 없어</div>';
+    return;
+  }
+  sorted.forEach(data=>{
+    const row=document.createElement('div');
+    row.className='sorted-row';row.dataset.id=data.id;
+    row.innerHTML=`<div class="row-dot" style="background:${STAGE_COLORS[data.stage]||SC}"></div>
+      <div class="row-title">${esc(data.title)||'(제목 없음)'}</div>
+      <div class="row-stage">${data.stage}</div>
+      <i class="ti ti-chevron-down row-chev ${openSortedId===data.id?'open':''}"></i>`;
+    const detail=document.createElement('div');
+    detail.className='sorted-detail'+(openSortedId===data.id?' open':'');
+    let dh='';
+    if(data.memo)dh+=`<div class="sd-memo">${esc(data.memo)}</div>`;
+    if(data.tags&&data.tags.length)dh+=`<div class="sd-tags">${data.tags.map(t=>`<span class="sd-tag">${esc(t)}</span>`).join('')}</div>`;
+    if(data.prompt)dh+=`<div class="sd-prompt-label"><i class="ti ti-code" style="font-size:11px"></i> AI 프롬프트</div>
+      <div class="sd-prompt">${esc(data.prompt)}</div>
+      <button class="sd-copy"><i class="ti ti-copy"></i> 복사</button>`;
+    if(!dh)dh='<div style="font-size:12px;color:var(--text3);">내용 없음</div>';
+    detail.innerHTML=dh;
+    const cp=detail.querySelector('.sd-copy');
+    if(cp)cp.addEventListener('click',e=>{
+      e.stopPropagation();
+      navigator.clipboard.writeText(data.prompt).then(()=>{
+        cp.innerHTML='<i class="ti ti-check"></i> 복사됨!';
+        setTimeout(()=>{cp.innerHTML='<i class="ti ti-copy"></i> 복사';},1500);
+      });
+    });
+    row.addEventListener('click',()=>{
+      const chev=row.querySelector('.row-chev');
+      if(openSortedId===data.id){
+        openSortedId=null;detail.classList.remove('open');chev.classList.remove('open');
+      }else{
+        openSortedId=data.id;
+        listEl.querySelectorAll('.sorted-detail').forEach(d=>d.classList.remove('open'));
+        listEl.querySelectorAll('.row-chev').forEach(c=>c.classList.remove('open'));
+        detail.classList.add('open');chev.classList.add('open');
+      }
+    });
+    listEl.appendChild(row);listEl.appendChild(detail);
+  });
+}
+
+function setViewMode(mode){
+  viewMode=mode;
+  const tab=activeTab();
+  const boardEl=document.getElementById('board-'+tab.id);
+  const listEl=document.getElementById('sorted-'+tab.id);
+  if(!boardEl||!listEl)return;
+  if(mode==='grid'){
+    boardEl.classList.add('grid-mode');
+    listEl.classList.remove('visible');
+    boardEl.querySelectorAll('.idea-card').forEach(el=>el.style.display='block');
+    applyFilter();
+    scheduleMasonry();
+  } else if(mode==='list'){
+    boardEl.classList.remove('grid-mode');
+    boardEl.querySelectorAll('.idea-card').forEach(el=>{el.style.display='none';el.style.gridRowEnd='';});
+    listEl.classList.add('visible');
+    renderSortedList();
+  } else {
+    boardEl.classList.remove('grid-mode');
+    listEl.classList.remove('visible');
+    boardEl.querySelectorAll('.idea-card').forEach(el=>{el.style.display='block';el.style.gridRowEnd='';});
+    applyFilter();
+  }
+  syncCardOrder(tab);
+  updateViewToggle();
+}
+
+let gridDropTarget=null;
+let gridIndicator=null;
+
+function getGridCardAtPoint(x,y,excludeId){
+  const tab=activeTab();
+  const boardEl=document.getElementById('board-'+tab.id);
+  if(!boardEl)return null;
+  const cards=[...boardEl.querySelectorAll('.idea-card')].filter(c=>c.dataset.id!==excludeId);
+  for(const c of cards){
+    const r=c.getBoundingClientRect();
+    if(x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom) return c;
+  }
+  return null;
+}
+
+function clearGridIndicator(){
+  if(gridIndicator){gridIndicator.remove();gridIndicator=null;}
+  gridDropTarget=null;
+}
+
+function onDragMove(clientX,clientY){
+  if(!dragging)return;
+  if(Math.abs(clientX-dragStartClientX)>3 || Math.abs(clientY-dragStartClientY)>3){
+    didMoveDuringDrag=true;
+  }
+  if(dragging.isGrid){
+    const target=getGridCardAtPoint(clientX,clientY,dragging.data.id);
+    if(target!==gridDropTarget){
+      clearGridIndicator();
+      if(target){
+        gridDropTarget=target;
+        const ind=document.createElement('div');
+        ind.className='grid-drop-indicator';
+        const r=target.getBoundingClientRect();
+        ind.style.cssText=`position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;z-index:998;`;
+        document.body.appendChild(ind);
+        gridIndicator=ind;
+      }
+    }
+  } else {
+    const boardEl=document.getElementById('board-'+dragging.tab.id);
+    if(!boardEl)return;
+    const rect=boardEl.getBoundingClientRect();
+    let x=clientX-rect.left-dragOffX,y=clientY-rect.top-dragOffY;
+    x=Math.max(0,x);y=Math.max(0,y);
+    dragging.el.style.left=x+'px';dragging.el.style.top=y+'px';
+    dragging.data.x=x;dragging.data.y=y;
+
+    // 다중 선택 동시 이동
+    if(dragging.multi){
+      const dx=x-(dragging.startX||0);
+      const dy=y-(dragging.startY||0);
+      dragging.multi.forEach(m=>{
+        const nx=Math.max(0,m.baseX+dx);
+        const ny=Math.max(0,m.baseY+dy);
+        m.el.style.left=nx+'px';
+        m.el.style.top=ny+'px';
+        m.data.x=nx; m.data.y=ny;
+      });
+    }
+  }
+}
+
+function onDragEnd(){
+  if(!dragging)return;
+  if(dragging.isGrid){
+    dragging.el.classList.remove('dragging-active');
+    dragging.el.style.opacity='';
+    if(gridDropTarget){
+      const tab=dragging.tab;
+      const fromId=dragging.data.id;
+      const toId=gridDropTarget.dataset.id;
+      const fromIdx=tab.cards.findIndex(c=>c.id===fromId);
+      const toIdx=tab.cards.findIndex(c=>c.id===toId);
+      if(fromIdx!==-1&&toIdx!==-1&&fromIdx!==toIdx){
+        const [moved]=tab.cards.splice(fromIdx,1);
+        tab.cards.splice(toIdx,0,moved);
+        save();
+        const boardEl=document.getElementById('board-'+tab.id);
+        const allCards=[...boardEl.querySelectorAll('.idea-card')];
+        const movedEl=allCards.find(c=>c.dataset.id===fromId);
+        const toEl=allCards.find(c=>c.dataset.id===toId);
+        if(movedEl&&toEl){
+          if(fromIdx<toIdx) toEl.after(movedEl); else toEl.before(movedEl);
+        }
+        syncCardOrder(tab);
+        if(viewMode==='grid')scheduleMasonry();
+      }
+    }
+    clearGridIndicator();
+  } else {
+    dragging.el.style.zIndex='';
+    dragging.el.classList.remove('dragging-active');
+    // 드래그한 카드를 배열 맨 끝으로 → 자동으로 z-index 최상위 (선택 모드 제외)
+    const tab=dragging.tab;
+    if(!selectMode){
+      const idx=tab.cards.findIndex(c=>c.id===dragging.data.id);
+      if(idx!==-1 && idx!==tab.cards.length-1){
+        const [m]=tab.cards.splice(idx,1);
+        tab.cards.push(m);
+      }
+    }
+    syncCardOrder(tab);
+    save();
+  }
+  if(selectMode && didMoveDuringDrag){
+    suppressSelectClick=true;
+    setTimeout(()=>{ suppressSelectClick=false; },80);
+  }
+  dragging=null;
+}
+document.addEventListener('mousemove',e=>onDragMove(e.clientX,e.clientY));
+document.addEventListener('mouseup',onDragEnd);
+document.addEventListener('touchmove',e=>{
+  if(!dragging)return;
+  e.preventDefault();
+  const t=e.touches[0];
+  onDragMove(t.clientX,t.clientY);
+},{passive:false});
+document.addEventListener('touchend',onDragEnd);
+document.addEventListener('touchcancel',onDragEnd);
+
+document.getElementById('add-card-btn').addEventListener('click',()=>{
+  if(viewMode==='list')setViewMode('free');
+  pushHistory();
+  const tab=activeTab();
+  const offset=(tab.cards.length%6)*28;
+  const data={id:uid(),title:'',memo:'',tags:[],prompt:'',promptOpen:false,stage:'러프',x:16+offset,y:16+offset};
+  const boardEl=document.getElementById('board-'+tab.id);
+
+  // 그리드에서는 새 카드가 항상 맨 위/첫 칸에 오게 한다.
+  // 자유 배치에서는 기존처럼 마지막에 추가해서 화면 위 레이어가 되게 둔다.
+  if(viewMode==='grid'){
+    tab.cards.unshift(data);
+    save();checkEmpty(tab);
+    rerenderCards(tab,data.id);
+    requestAnimationFrame(()=>{
+      const card=boardEl.querySelector(`.idea-card[data-id="${data.id}"]`);
+      if(card){
+        const input=card.querySelector('.card-title-input');
+        if(input)input.focus();
+      }
+      scheduleMasonry();
+    });
+  }else{
+    tab.cards.push(data);
+    const card=makeCard(data,tab);
+    boardEl.appendChild(card);
+    syncCardOrder(tab);
+    save();checkEmpty(tab);
+    card.querySelector('.card-title-input').focus();
+  }
+});
+
+document.getElementById('view-toggle').addEventListener('click',e=>{
+  const btn=e.target.closest('.view-btn');
+  if(!btn)return;
+  setViewMode(btn.dataset.view);
+});
+
+document.getElementById('filter-bar').addEventListener('click',e=>{
+  const chip=e.target.closest('.filter-chip');
+  if(!chip)return;
+  activeFilter=chip.dataset.stage;
+  document.querySelectorAll('.filter-chip').forEach(c=>c.classList.toggle('active',c===chip));
+  applyFilter();
+});
+
+// === 컨텍스트 메뉴 ===
+const ctxMenu=document.getElementById('ctx-menu');
+let selectMode=false;
+let selectedIds=new Set();
+
+function closeCtxMenu(){ ctxMenu.classList.remove('open'); ctxMenu.innerHTML=''; }
+document.addEventListener('click',e=>{ if(!ctxMenu.contains(e.target)) closeCtxMenu(); });
+document.addEventListener('scroll',closeCtxMenu,true);
+
+function openCtxMenu(x,y,items){
+  ctxMenu.innerHTML='';
+  items.forEach(it=>{
+    if(it.sep){ const s=document.createElement('div'); s.className='ctx-sep'; ctxMenu.appendChild(s); return; }
+    const el=document.createElement('div');
+    el.className='ctx-item'+(it.danger?' danger':'')+(it.submenu?' ctx-submenu-trigger':'');
+    el.innerHTML=`<i class="ti ${it.icon||'ti-point'}"></i><span>${it.label}</span>`;
+    if(it.submenu){
+      const sm=document.createElement('div');
+      sm.className='ctx-submenu';
+      it.submenu.forEach(sit=>{
+        const sel=document.createElement('div');
+        sel.className='ctx-item'+(sit.danger?' danger':'');
+        sel.innerHTML=`<i class="ti ${sit.icon||'ti-point'}"></i><span>${sit.label}</span>`;
+        sel.addEventListener('click',ev=>{ ev.stopPropagation(); sit.action(); closeCtxMenu(); });
+        sm.appendChild(sel);
+      });
+      el.appendChild(sm);
+    } else if(it.action){
+      el.addEventListener('click',()=>{ it.action(); closeCtxMenu(); });
+    }
+    ctxMenu.appendChild(el);
+  });
+  ctxMenu.classList.add('open');
+  // 화면 밖 보정
+  const rect=ctxMenu.getBoundingClientRect();
+  const ww=window.innerWidth, wh=window.innerHeight;
+  if(x+rect.width>ww-8) x=ww-rect.width-8;
+  if(y+rect.height>wh-8) y=wh-rect.height-8;
+  ctxMenu.style.left=Math.max(8,x)+'px';
+  ctxMenu.style.top=Math.max(8,y)+'px';
+}
+
+// 카드 메뉴
+function cardMenuItems(data,tab,cardEl){
+  return [
+    {icon:'ti-copy', label:'카드 복제', action:()=>duplicateCard(data,tab)},
+    {icon:'ti-clipboard', label:'전체 내용 텍스트 복사', action:()=>copyCardText(data)},
+    {sep:true},
+    {icon:'ti-arrow-bar-to-left', label:'맨 앞으로', action:()=>moveCardToEdge(data,tab,'front')},
+    {icon:'ti-arrow-bar-to-right', label:'맨 뒤로', action:()=>moveCardToEdge(data,tab,'back')},
+    {sep:true},
+    {icon:'ti-palette', label:'단계 변경', submenu:[
+      {icon:'ti-circle', label:'러프', action:()=>setCardStage(data,'러프',cardEl)},
+      {icon:'ti-circle', label:'구체화중', action:()=>setCardStage(data,'구체화중',cardEl)},
+      {icon:'ti-circle', label:'완성', action:()=>setCardStage(data,'완성',cardEl)},
+    ]},
+    {sep:true},
+    {icon:'ti-trash', label:'삭제', danger:true, action:()=>deleteCard(data,tab,cardEl)},
+  ];
+}
+
+// 보드 메뉴
+function boardMenuItems(tab,x,y){
+  return [
+    {icon:'ti-plus', label:'여기에 새 카드', action:()=>addCardAt(tab,x,y)},
+    {icon:'ti-checkbox', label:'일괄 선택 모드', action:()=>enterSelectMode()},
+    {sep:true},
+    {icon:'ti-download', label:'JSON 내보내기 (현재 탭)', action:()=>exportJSON('tab')},
+    {icon:'ti-download', label:'JSON 내보내기 (전체)', action:()=>exportJSON('all')},
+    {icon:'ti-upload', label:'JSON 불러오기', action:()=>importJSON()},
+    {sep:true},
+    {icon:'ti-trash', label:'이 탭 전체 삭제', danger:true, action:()=>clearTab(tab)},
+  ];
+}
+
+// === 카드 순서 동기화 ===
+function syncCardOrder(tab){
+  const boardEl=document.getElementById('board-'+tab.id);
+  if(!boardEl)return;
+  tab.cards.forEach((d,i)=>{
+    const el=boardEl.querySelector(`.idea-card[data-id="${d.id}"]`);
+    if(!el)return;
+    // 그리드/리스트에서는 작은 order가 맨 앞 칸으로 간다.
+    // 자유 배치에서는 큰 z-index가 화면 위로 올라온다.
+    if(viewMode==='grid'||viewMode==='list'){
+      el.style.order=i;
+      el.style.zIndex='';
+    }else{
+      el.style.order='';
+      el.style.zIndex=10+i;
+    }
+    const ml=el.querySelector('.move-left'); if(ml)ml.disabled=(i<=0);
+    const mr=el.querySelector('.move-right'); if(mr)mr.disabled=(i>=tab.cards.length-1);
+  });
+}
+
+function rerenderCards(tab,focusId=null){
+  const boardEl=document.getElementById('board-'+tab.id);
+  if(!boardEl)return;
+  boardEl.querySelectorAll('.idea-card').forEach(c=>c.remove());
+  tab.cards.forEach(d=>boardEl.appendChild(makeCard(d,tab)));
+  syncCardOrder(tab);
+  applyFilter();
+  if(viewMode==='grid'){
+    requestAnimationFrame(()=>{
+      layoutMasonry();
+      if(focusId){
+        const target=boardEl.querySelector(`.idea-card[data-id="${focusId}"]`);
+        if(target) target.scrollIntoView({behavior:'smooth',block:'nearest'});
+      }
+    });
+  }
+  if(viewMode==='list')renderSortedList();
+}
+
+// === 카드 액션 ===
+function duplicateCard(data,tab){
+  pushHistory();
+  const copy=JSON.parse(JSON.stringify(data));
+  copy.id=uid();
+  copy.title=(data.title||'')+' (복제)';
+  copy.x=(data.x||0)+24; copy.y=(data.y||0)+24;
+  const idx=tab.cards.findIndex(c=>c.id===data.id);
+  tab.cards.splice(idx+1,0,copy);
+  save();
+  const boardEl=document.getElementById('board-'+tab.id);
+  const newEl=makeCard(copy,tab);
+  const origEl=boardEl.querySelector(`.idea-card[data-id="${data.id}"]`);
+  if(origEl) origEl.after(newEl); else boardEl.appendChild(newEl);
+  syncCardOrder(tab);
+  applyFilter();
+  if(viewMode==='grid')scheduleMasonry();
+  if(viewMode==='list')renderSortedList();
+}
+
+function copyCardText(data){
+  const lines=[];
+  if(data.title) lines.push('# '+data.title);
+  if(data.memo) lines.push(data.memo);
+  if(data.tags&&data.tags.length) lines.push('태그: '+data.tags.join(', '));
+  if(data.prompt) lines.push('\n[프롬프트]\n'+data.prompt);
+  lines.push('단계: '+data.stage);
+  navigator.clipboard.writeText(lines.join('\n')).then(()=>toast('복사됨'));
+}
+
+function moveCardToEdge(data,tab,where){
+  const idx=tab.cards.findIndex(c=>c.id===data.id);
+  if(idx===-1)return;
+  pushHistory();
+  const [m]=tab.cards.splice(idx,1);
+
+  // 그리드에서는 '맨 앞으로' = 첫 번째 칸.
+  // 자유 배치에서는 '맨 앞으로' = 다른 카드 위로 올라오는 것.
+  if(viewMode==='free'){
+    if(where==='front') tab.cards.push(m); else tab.cards.unshift(m);
+  }else{
+    if(where==='front') tab.cards.unshift(m); else tab.cards.push(m);
+  }
+
+  save();
+  rerenderCards(tab,data.id);
+  toast(where==='front'?'맨 앞으로 보냈어':'맨 뒤로 보냈어');
+}
+
+function setCardStage(data,stage,cardEl){
+  if(data.stage===stage)return;
+  pushHistory();
+  data.stage=stage;
+  if(cardEl){
+    const sel=cardEl.querySelector('.stage-select'); if(sel) sel.value=stage;
+    const dot=cardEl.querySelector('.stage-dot'); if(dot) dot.style.background=STAGE_COLORS[stage]||SC;
+  }
+  save(); applyFilter();
+}
+
+function deleteCard(data,tab,cardEl){
+  if(!confirm('이 카드를 삭제할까?'))return;
+  pushHistory();
+  tab.cards=tab.cards.filter(c=>c.id!==data.id);
+  if(cardEl)cardEl.remove();
+  save(); checkEmpty(tab);
+  if(viewMode==='grid')scheduleMasonry();
+}
+
+function addCardAt(tab,x,y){
+  pushHistory();
+  const boardEl=document.getElementById('board-'+tab.id);
+  const rect=boardEl.getBoundingClientRect();
+  const data={id:uid(),title:'',memo:'',tags:[],prompt:'',promptOpen:false,stage:'러프',
+    x:Math.max(0,x-rect.left),y:Math.max(0,y-rect.top)};
+  tab.cards.push(data);
+  const card=makeCard(data,tab);
+  boardEl.appendChild(card);
+  save(); checkEmpty(tab);
+  if(viewMode==='grid')scheduleMasonry();
+  card.querySelector('.card-title-input').focus();
+}
+
+// === 일괄 선택 모드 ===
+function enterSelectMode(){
+  selectMode=true; selectedIds.clear();
+  const tab=activeTab();
+  const boardEl=document.getElementById('board-'+tab.id);
+  boardEl.classList.add('select-mode');
+  document.getElementById('select-bar').classList.add('visible');
+  updateSelectCount();
+}
+function exitSelectMode(){
+  selectMode=false; selectedIds.clear();
+  document.querySelectorAll('.board').forEach(b=>b.classList.remove('select-mode'));
+  document.querySelectorAll('.idea-card.selected').forEach(c=>c.classList.remove('selected'));
+  document.getElementById('select-bar').classList.remove('visible');
+}
+function updateSelectCount(){
+  document.getElementById('select-count').textContent=selectedIds.size+'개 선택됨';
+}
+function toggleCardSelect(data,cardEl){
+  if(selectedIds.has(data.id)){ selectedIds.delete(data.id); cardEl.classList.remove('selected'); }
+  else { selectedIds.add(data.id); cardEl.classList.add('selected'); }
+  updateSelectCount();
+}
+document.getElementById('select-all-btn').addEventListener('click',()=>{
+  const tab=activeTab();
+  selectedIds.clear();
+  document.querySelectorAll('#board-'+tab.id+' .idea-card').forEach(c=>{
+    if(c.style.display==='none')return;
+    selectedIds.add(c.dataset.id); c.classList.add('selected');
+  });
+  updateSelectCount();
+});
+document.getElementById('select-delete-btn').addEventListener('click',()=>{
+  if(selectedIds.size===0)return;
+  if(!confirm(`선택한 ${selectedIds.size}개 카드를 삭제할까?`))return;
+  pushHistory();
+  const tab=activeTab();
+  tab.cards=tab.cards.filter(c=>!selectedIds.has(c.id));
+  save(); exitSelectMode(); renderAll();
+});
+document.getElementById('select-cancel-btn').addEventListener('click',exitSelectMode);
+
+// === JSON 입출력 ===
+function exportJSON(scope){
+  const ts=new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+  let payload, name;
+  if(scope==='tab'){
+    const tab=activeTab();
+    payload={ version:1, scope:'tab', exported:new Date().toISOString(), tab };
+    name=`cd_idea_${tab.name||'tab'}_${ts}.json`;
+  } else {
+    payload={ version:1, scope:'all', exported:new Date().toISOString(), state };
+    name=`cd_idea_all_${ts}.json`;
+  }
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); },100);
+}
+function importJSON(){ document.getElementById('json-import-input').click(); }
+document.getElementById('json-import-input').addEventListener('change',e=>{
+  const f=e.target.files[0]; if(!f)return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const obj=JSON.parse(reader.result);
+      if(obj.scope==='tab'&&obj.tab){
+        if(!confirm(`"${obj.tab.name}" 탭을 새로 추가할까?`))return;
+        pushHistory();
+        obj.tab.id=uid();
+        if(!obj.tab.color) obj.tab.color=TAB_COLORS[state.tabs.length%TAB_COLORS.length];
+        (obj.tab.cards||[]).forEach(c=>c.id=uid());
+        state.tabs.push(obj.tab);
+        state.activeTabId=obj.tab.id;
+      } else if(obj.scope==='all'&&obj.state){
+        if(!confirm('전체 데이터를 덮어쓸까? 현재 데이터는 사라져.'))return;
+        pushHistory();
+        state=obj.state;
+        if(!state.activeTabId&&state.tabs[0])state.activeTabId=state.tabs[0].id;
+      } else { alert('지원하지 않는 JSON 형식이야.'); return; }
+      save(); renderAll();
+      toast('불러왔어');
+    } catch(err){ alert('JSON 파싱 실패: '+err.message); }
+  };
+  reader.readAsText(f);
+  e.target.value='';
+});
+
+function clearTab(tab){
+  if(!confirm(`"${tab.name}" 탭의 카드 ${tab.cards.length}개를 모두 삭제할까?`))return;
+  pushHistory();
+  tab.cards=[]; save(); renderAll();
+}
+
+// === 토스트 ===
+let toastTimer=null;
+function toast(msg){
+  let t=document.getElementById('mini-toast');
+  if(!t){
+    t=document.createElement('div'); t.id='mini-toast';
+    t.style.cssText='position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 18px;border-radius:20px;font-size:13px;z-index:9999;opacity:0;transition:opacity 0.2s;pointer-events:none;';
+    document.body.appendChild(t);
+  }
+  t.textContent=msg; t.style.opacity='1';
+  if(toastTimer)clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>{ t.style.opacity='0'; },1500);
+}
+
+// === 우클릭 + 더블탭 트리거 ===
+document.addEventListener('contextmenu',e=>{
+  if(selectMode)return;
+  const cardEl=e.target.closest('.idea-card');
+  const boardEl=e.target.closest('.board');
+  if(cardEl){
+    e.preventDefault();
+    const tab=activeTab();
+    const data=tab.cards.find(c=>c.id===cardEl.dataset.id);
+    if(data) openCtxMenu(e.clientX,e.clientY,cardMenuItems(data,tab,cardEl));
+  } else if(boardEl){
+    e.preventDefault();
+    openCtxMenu(e.clientX,e.clientY,boardMenuItems(activeTab(),e.clientX,e.clientY));
+  }
+});
+
+// 더블탭 (모바일)
+let lastTap={t:0,x:0,y:0,target:null};
+document.addEventListener('touchend',e=>{
+  if(selectMode)return;
+  if(!e.changedTouches||!e.changedTouches[0])return;
+  const t=e.changedTouches[0];
+  const now=Date.now();
+  const dt=now-lastTap.t;
+  const dx=Math.abs(t.clientX-lastTap.x);
+  const dy=Math.abs(t.clientY-lastTap.y);
+  if(dt<350&&dx<25&&dy<25){
+    const cardEl=t.target.closest&&t.target.closest('.idea-card');
+    const boardEl=t.target.closest&&t.target.closest('.board');
+    // 입력칸 위 더블탭은 무시 (텍스트 선택 등)
+    if(t.target.closest&&t.target.closest('input,textarea,select,button'))return;
+    if(cardEl){
+      const tab=activeTab();
+      const data=tab.cards.find(c=>c.id===cardEl.dataset.id);
+      if(data){ e.preventDefault(); openCtxMenu(t.clientX,t.clientY,cardMenuItems(data,tab,cardEl)); }
+    } else if(boardEl){
+      e.preventDefault();
+      openCtxMenu(t.clientX,t.clientY,boardMenuItems(activeTab(),t.clientX,t.clientY));
+    }
+    lastTap.t=0;
+  } else {
+    lastTap={t:now,x:t.clientX,y:t.clientY,target:t.target};
+  }
+},{passive:false});
+
+// 선택 모드일 때 카드 클릭으로 토글
+document.addEventListener('click',e=>{
+  if(!selectMode)return;
+
+  // 이동 핸들을 잡은 직후 발생하는 click은 선택 해제/토글로 처리하지 않는다.
+  // 이걸 막지 않으면 선택 카드들을 드래그한 뒤 mouseup→click 순서로 선택이 풀린다.
+  if(suppressSelectClick)return;
+  if(e.target.closest('.card-handle'))return;
+
+  const cardEl=e.target.closest('.idea-card');
+  if(!cardEl)return;
+  const tab=activeTab();
+  const data=tab.cards.find(c=>c.id===cardEl.dataset.id);
+  if(data) toggleCardSelect(data,cardEl);
+});
+
+// === 이미지 헬퍼 ===
+function readFileAsDataURL(file){
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=()=>res(r.result);
+    r.onerror=()=>rej(r.error);
+    r.readAsDataURL(file);
+  });
+}
+
+// === 라이트박스 ===
+let lbImages=[], lbIdx=0;
+function openLightbox(images,idx){
+  lbImages=images.slice(); lbIdx=idx;
+  const lb=document.getElementById('lightbox');
+  showLbImage();
+  lb.classList.add('open');
+}
+function showLbImage(){
+  const lbImg=document.getElementById('lb-img');
+  const cur=lbImages[lbIdx];
+  lbImg.src=typeof cur==='string'?cur:(cur?.src||'');
+}
+function closeLightbox(){ document.getElementById('lightbox').classList.remove('open'); }
+function lbNext(){ if(lbImages.length<=1)return; lbIdx=(lbIdx+1)%lbImages.length; showLbImage(); }
+function lbPrev(){ if(lbImages.length<=1)return; lbIdx=(lbIdx-1+lbImages.length)%lbImages.length; showLbImage(); }
+(function(){
+  const lb=document.getElementById('lightbox');
+  if(!lb)return;
+  lb.querySelector('.lb-close').addEventListener('click',closeLightbox);
+  lb.querySelector('.lb-next').addEventListener('click',e=>{e.stopPropagation();lbNext();});
+  lb.querySelector('.lb-prev').addEventListener('click',e=>{e.stopPropagation();lbPrev();});
+  lb.addEventListener('click',e=>{ if(e.target===lb) closeLightbox(); });
+  window.addEventListener('keydown',e=>{
+    if(!lb.classList.contains('open'))return;
+    if(e.key==='Escape') closeLightbox();
+    else if(e.key==='ArrowRight') lbNext();
+    else if(e.key==='ArrowLeft') lbPrev();
+  });
+})();
+
+load();
+renderAll();
+(function(){
+  const ub=document.getElementById('undo-btn');
+  const rb=document.getElementById('redo-btn');
+  if(ub) ub.addEventListener('click',undo);
+  if(rb) rb.addEventListener('click',redo);
+  updateUndoRedoBtns();
+})();
+
+// === 검색바 ===
+(function(){
+  const inp=document.getElementById('search-input');
+  const clear=document.getElementById('search-clear');
+  if(!inp)return;
+  let debounceT=null;
+  inp.addEventListener('input',()=>{
+    if(debounceT)clearTimeout(debounceT);
+    debounceT=setTimeout(()=>{
+      searchQuery=inp.value.trim();
+      clear.classList.toggle('visible', !!searchQuery);
+      applyFilter();
+    },150);
+  });
+  clear.addEventListener('click',()=>{
+    inp.value=''; searchQuery=''; clear.classList.remove('visible');
+    applyFilter(); inp.focus();
+  });
+})();
+
+// === 단축키 ===
+window.addEventListener('keydown',e=>{
+  const isMac=navigator.platform.toLowerCase().includes('mac');
+  const mod=isMac?e.metaKey:e.ctrlKey;
+  if(!mod)return;
+  const ae=document.activeElement;
+  const isInput=ae && (ae.tagName==='INPUT'||ae.tagName==='TEXTAREA'||ae.isContentEditable);
+
+  // Ctrl+F: 검색 포커스
+  if(e.key==='f'||e.key==='F'){
+    e.preventDefault();
+    const si=document.getElementById('search-input');
+    if(si){ si.focus(); si.select(); }
+    return;
+  }
+  // Ctrl+N: 새 카드. 입력 중이어도 브라우저 새 창은 막는다.
+  if(e.key==='n'||e.key==='N'){
+    e.preventDefault();
+    if(!isInput) document.getElementById('add-card-btn').click();
+    return;
+  }
+  // Ctrl+D: 마지막 활성 카드 복제. 입력 중이어도 브라우저 북마크는 막는다.
+  if(e.key==='d'||e.key==='D'){
+    e.preventDefault();
+    if(!isInput && lastActiveCardId){
+      const tab=activeTab();
+      const data=tab.cards.find(c=>c.id===lastActiveCardId);
+      if(data) duplicateCard(data,tab);
+    }
+    return;
+  }
+  // Ctrl+숫자: 탭 전환
+  if(/^[1-9]$/.test(e.key)){
+    const idx=parseInt(e.key)-1;
+    if(state.tabs[idx]){
+      e.preventDefault();
+      switchTab(state.tabs[idx].id);
+    }
+    return;
+  }
+});
+
+// === Gist 동기화 ===
+const GIST_TOKEN_KEY='cd_idea_gist_token';
+const GIST_ID_KEY='cd_idea_gist_id';
+const GIST_FILE_NAME='cd_idea_data.json';
+const GIST_AUTO_INTERVAL=10*60*1000;
+let gistAutoSaveTimer=null;
+
+function openGistModal(){
+  const token=localStorage.getItem(GIST_TOKEN_KEY)||'';
+  const gistId=localStorage.getItem(GIST_ID_KEY)||'';
+  document.getElementById('gist-token-input').value=token;
+  document.getElementById('gist-id-input').value=gistId;
+  setGistStatus('','');
+  const hint=document.getElementById('gist-autosave-hint');
+  if(hint){
+    if(token&&gistId){
+      hint.textContent='⏱ 10분마다 자동저장 중';
+      hint.style.color='#6AC8B0';
+    } else {
+      hint.textContent='💡 토큰+ID 설정 후 자동저장이 활성화돼';
+      hint.style.color='var(--text3)';
+    }
+  }
+  document.getElementById('gist-overlay').classList.add('open');
+}
+function closeGistModal(){
+  document.getElementById('gist-overlay').classList.remove('open');
+}
+function setGistStatus(msg,type){
+  const el=document.getElementById('gist-status');
+  el.textContent=msg||'';
+  el.className='gist-status'+(type?' '+type:'');
+}
+function setSyncIndicator(state){
+  const el=document.getElementById('sync-indicator');
+  if(!el)return;
+  el.className='sync-indicator'+(state==='ok'?' synced':state==='err'?' error':'');
+}
+function copyGistId(){
+  const id=document.getElementById('gist-id-input').value.trim();
+  if(!id){setGistStatus('Gist ID가 없어. 먼저 업로드해봐!','err');return;}
+  navigator.clipboard.writeText(id).then(
+    ()=>setGistStatus('Gist ID 복사됨! 다른 기기에서 붙여넣어봐.','ok'),
+    ()=>setGistStatus('복사 실패. 직접 선택해서 복사해줘.','err')
+  );
+}
+
+async function gistUpload(){
+  const token=document.getElementById('gist-token-input').value.trim();
+  const gistId=document.getElementById('gist-id-input').value.trim();
+  if(!token){setGistStatus('토큰을 입력해줘!','err');return;}
+  setGistStatus('업로드 중...','loading');
+  save();
+  await pushSlot(token, gistId, '수동');
+}
+
+async function pushSlot(token, gistId, deviceLabel){
+  let slots=[];
+  if(gistId){
+    try{
+      const r=await fetch('https://api.github.com/gists/'+gistId,{
+        headers:{'Authorization':'token '+token,'Accept':'application/vnd.github.v3+json'}
+      });
+      if(r.ok){
+        const d=await r.json();
+        const fc=d.files&&d.files[GIST_FILE_NAME]&&d.files[GIST_FILE_NAME].content;
+        if(fc){
+          const p=JSON.parse(fc);
+          slots=p.slots||[];
+        }
+      }
+    }catch(e){}
+  }
+  slots.unshift({
+    savedAt:new Date().toISOString(),
+    device:deviceLabel,
+    state:JSON.parse(JSON.stringify(state))
+  });
+  if(slots.length>5) slots=slots.slice(0,5);
+  const body={
+    description:'CD Idea — 캐릭터 디자인 캐디 데이터',
+    public:false,
+    files:{[GIST_FILE_NAME]:{content:JSON.stringify({version:1,slots},null,2)}}
+  };
+  try{
+    let url='https://api.github.com/gists', method='POST';
+    if(gistId){url='https://api.github.com/gists/'+gistId;method='PATCH';}
+    const res=await fetch(url,{
+      method,
+      headers:{'Authorization':'token '+token,'Content-Type':'application/json','Accept':'application/vnd.github.v3+json'},
+      body:JSON.stringify(body)
+    });
+    if(!res.ok){
+      const err=await res.json().catch(()=>({}));
+      setGistStatus('오류: '+(err.message||res.status),'err');
+      setSyncIndicator('err');
+      return;
+    }
+    const data=await res.json();
+    localStorage.setItem(GIST_TOKEN_KEY,token);
+    localStorage.setItem(GIST_ID_KEY,data.id);
+    document.getElementById('gist-id-input').value=data.id;
+    setGistStatus('업로드 완료! Gist ID를 복사해서 다른 기기에서 써봐.','ok');
+    setSyncIndicator('ok');
+    toast('☁️ Gist 업로드 완료');
+    startAutoSave();
+  }catch(e){
+    setGistStatus('네트워크 오류: '+e.message,'err');
+    setSyncIndicator('err');
+  }
+}
+
+async function gistDownload(){
+  const token=document.getElementById('gist-token-input').value.trim();
+  const gistId=document.getElementById('gist-id-input').value.trim();
+  if(!token){setGistStatus('토큰을 입력해줘!','err');return;}
+  if(!gistId){setGistStatus('Gist ID를 입력해줘!','err');return;}
+  setGistStatus('슬롯 목록 가져오는 중...','loading');
+  try{
+    const res=await fetch('https://api.github.com/gists/'+gistId,{
+      headers:{'Authorization':'token '+token,'Accept':'application/vnd.github.v3+json'}
+    });
+    if(!res.ok){
+      const err=await res.json().catch(()=>({}));
+      setGistStatus('오류: '+(err.message||res.status),'err');
+      setSyncIndicator('err');
+      return;
+    }
+    const data=await res.json();
+    const fc=data.files&&data.files[GIST_FILE_NAME]&&data.files[GIST_FILE_NAME].content;
+    if(!fc){setGistStatus(GIST_FILE_NAME+' 파일을 못 찾았어.','err');setSyncIndicator('err');return;}
+    const parsed=JSON.parse(fc);
+    const slots=parsed.slots||[];
+    if(!slots.length){setGistStatus('불러올 데이터가 없어.','err');return;}
+    setGistStatus('','');
+    showSlotPicker(slots, token, gistId);
+  }catch(e){
+    setGistStatus('오류: '+e.message,'err');
+    setSyncIndicator('err');
+  }
+}
+
+function showSlotPicker(slots, token, gistId){
+  const existing=document.getElementById('slot-picker-overlay');
+  if(existing)existing.remove();
+  const overlay=document.createElement('div');
+  overlay.id='slot-picker-overlay';
+  const box=document.createElement('div');
+  box.className='slot-picker-box';
+  box.innerHTML='<div class="slot-picker-title">버전 선택</div><div class="slot-picker-sub">불러올 버전을 선택해봐. 현재 데이터는 덮어씌워져!</div>';
+  slots.forEach((slot,i)=>{
+    const t=slot.savedAt?new Date(slot.savedAt).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'알 수 없음';
+    const tabCount=slot.state?.tabs?.length||0;
+    const cardCount=(slot.state?.tabs||[]).reduce((s,t)=>s+(t.cards?.length||0),0);
+    const btn=document.createElement('button');
+    btn.className='slot-btn';
+    btn.innerHTML=`<div><div class="slot-title">${i===0?'🟢 최신':'📁 슬롯 '+(i+1)}</div><div class="slot-meta">${t} · ${slot.device||'알 수 없음'} · 탭 ${tabCount}개 / 카드 ${cardCount}개</div></div><span class="slot-arrow">›</span>`;
+    btn.onclick=()=>{
+      overlay.remove();
+      pushHistory(); // 현재 상태 히스토리에 남기기
+      state=slot.state;
+      if(!state.activeTabId && state.tabs?.[0]) state.activeTabId=state.tabs[0].id;
+      save();
+      renderAll();
+      localStorage.setItem(GIST_TOKEN_KEY,token);
+      localStorage.setItem(GIST_ID_KEY,gistId);
+      setGistStatus('불러오기 완료!','ok');
+      setSyncIndicator('ok');
+      toast('☁️ Gist 불러오기 완료');
+      startAutoSave();
+    };
+    box.appendChild(btn);
+  });
+  const cancelBtn=document.createElement('button');
+  cancelBtn.className='slot-cancel-btn';
+  cancelBtn.textContent='취소';
+  cancelBtn.onclick=()=>overlay.remove();
+  box.appendChild(cancelBtn);
+  overlay.appendChild(box);
+  overlay.onclick=e=>{if(e.target===overlay)overlay.remove();};
+  document.body.appendChild(overlay);
+}
+
+async function gistAutoSave(){
+  const token=localStorage.getItem(GIST_TOKEN_KEY);
+  const gistId=localStorage.getItem(GIST_ID_KEY);
+  if(!token||!gistId)return;
+  save();
+  await pushSlot(token, gistId, '자동');
+  showAutoSaveToast();
+}
+
+function showAutoSaveToast(){
+  const now=new Date();
+  const time=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
+  toast('☁️ 자동저장 완료 '+time);
+}
+
+function startAutoSave(){
+  if(gistAutoSaveTimer) clearInterval(gistAutoSaveTimer);
+  const token=localStorage.getItem(GIST_TOKEN_KEY);
+  const gistId=localStorage.getItem(GIST_ID_KEY);
+  if(token&&gistId){
+    gistAutoSaveTimer=setInterval(gistAutoSave, GIST_AUTO_INTERVAL);
+    setSyncIndicator('ok');
+  }
+}
+
+// 버튼 바인딩
+(function(){
+  const syncBtn=document.getElementById('sync-btn');
+  if(syncBtn) syncBtn.addEventListener('click',openGistModal);
+  document.getElementById('gist-upload-btn').addEventListener('click',gistUpload);
+  document.getElementById('gist-download-btn').addEventListener('click',gistDownload);
+  document.getElementById('gist-copy-btn').addEventListener('click',copyGistId);
+  document.getElementById('gist-close-btn').addEventListener('click',closeGistModal);
+  document.getElementById('gist-overlay').addEventListener('click',e=>{
+    if(e.target.id==='gist-overlay') closeGistModal();
+  });
+  // 시작 시 토큰/ID 있으면 자동저장 시작 + 인디케이터 점등
+  startAutoSave();
+})();
+
+</script>
+</body>
+</html>
