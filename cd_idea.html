@@ -2251,11 +2251,26 @@ window.addEventListener('keydown',e=>{
 });
 
 // === Gist 동기화 ===
-const GIST_TOKEN_KEY='cd_idea_gist_token';
-const GIST_ID_KEY='cd_idea_gist_id';
+const GIST_TOKEN_KEY='workshop_gist_token';
+const GIST_ID_KEY='workshop_gist_id';
 const GIST_FILE_NAME='cd_idea_data.json';
 const GIST_AUTO_INTERVAL=10*60*1000;
 let gistAutoSaveTimer=null;
+
+// 마이그레이션: 이전 키(cd_idea_*)가 있고 새 키(workshop_*)가 비어있으면 자동 복사
+(function migrateGistKeys(){
+  try{
+    const oldT='cd_idea_gist_token', oldI='cd_idea_gist_id';
+    if(!localStorage.getItem(GIST_TOKEN_KEY) && localStorage.getItem(oldT)){
+      localStorage.setItem(GIST_TOKEN_KEY, localStorage.getItem(oldT));
+      localStorage.removeItem(oldT);
+    }
+    if(!localStorage.getItem(GIST_ID_KEY) && localStorage.getItem(oldI)){
+      localStorage.setItem(GIST_ID_KEY, localStorage.getItem(oldI));
+      localStorage.removeItem(oldI);
+    }
+  }catch(e){}
+})();
 
 function openGistModal(){
   const token=localStorage.getItem(GIST_TOKEN_KEY)||'';

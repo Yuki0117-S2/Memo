@@ -45,6 +45,50 @@
   .tagline{display:flex;gap:4px;flex-wrap:wrap}.tag{font-size:11px;padding:2px 7px;background:var(--bg2);border:.5px solid var(--border);border-radius:999px;color:var(--text2);cursor:pointer}.tag:hover{border-color:var(--accent);color:var(--accent)}
   .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:9px 13px;border-radius:999px;font-size:12px;z-index:9999;box-shadow:0 8px 28px rgba(0,0,0,.18);opacity:0;pointer-events:none;transition:.18s}.toast.show{opacity:1}
   #file-input,#import-input{position:absolute;width:1px;height:1px;padding:0;border:0;clip:rect(0 0 0 0);overflow:hidden;opacity:0;pointer-events:none}
+
+  /* Gist 동기화 */
+  .sync-indicator{width:7px;height:7px;border-radius:50%;background:var(--text3);display:inline-block;margin-left:4px;vertical-align:middle;transition:background 0.3s}
+  .sync-indicator.synced{background:#6AC8B0}
+  .sync-indicator.error{background:var(--danger)}
+  #gist-overlay{position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,0.55);display:none;align-items:center;justify-content:center;padding:20px}
+  #gist-overlay.open{display:flex}
+  .gist-modal{background:var(--bg);border:0.5px solid var(--border2);border-radius:var(--radius);padding:22px;width:400px;max-width:100%;display:flex;flex-direction:column;gap:14px;box-shadow:0 12px 40px rgba(0,0,0,0.3)}
+  .gist-modal-title{font-size:16px;font-weight:600;color:var(--accent);display:flex;align-items:center;gap:6px}
+  .gist-section{display:flex;flex-direction:column;gap:5px}
+  .gist-label{font-size:11px;color:var(--text3);letter-spacing:0.5px}
+  .gist-input{width:100%;background:var(--bg2);border:0.5px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-family:'Consolas','Menlo',monospace;font-size:12px;padding:7px 10px;outline:none;transition:border-color 0.15s}
+  .gist-input:focus{border-color:var(--accent)}
+  .gist-input::placeholder{color:var(--text3);opacity:0.7}
+  .gist-hint{font-size:11px;color:var(--text3);line-height:1.5}
+  .gist-hint a{color:var(--accent);text-decoration:none}
+  .gist-hint a:hover{text-decoration:underline}
+  .gist-id-row{display:flex;gap:5px;align-items:center}
+  .gist-id-row .gist-input{flex:1}
+  .gist-copy-btn{padding:6px 9px;background:var(--bg2);border:0.5px solid var(--border2);border-radius:var(--radius-sm);color:var(--text2);cursor:pointer;font-size:12px;white-space:nowrap;font-family:inherit}
+  .gist-copy-btn:hover{border-color:var(--accent);color:var(--accent)}
+  .gist-status{font-size:11px;padding:7px 10px;border-radius:var(--radius-sm);font-family:'Consolas','Menlo',monospace;display:none}
+  .gist-status.ok{background:rgba(106,200,176,0.1);color:#6AC8B0;display:block}
+  .gist-status.err{background:rgba(187,102,136,0.1);color:var(--danger);display:block}
+  .gist-status.loading{background:rgba(136,136,204,0.1);color:var(--accent);display:block}
+  .gist-btn-row{display:flex;gap:6px}
+  .gist-btn{flex:1;padding:8px 10px;border-radius:var(--radius-sm);border:none;cursor:pointer;font-size:12px;font-weight:500;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:4px}
+  .gist-btn-upload{background:var(--accent);color:#fff}
+  .gist-btn-upload:hover{opacity:0.88}
+  .gist-btn-download{background:var(--bg2);border:0.5px solid var(--accent);color:var(--accent)}
+  .gist-btn-download:hover{background:var(--accent);color:#fff}
+  .gist-btn-cancel{background:transparent;border:0.5px solid var(--border2);color:var(--text2)}
+  .gist-btn-cancel:hover{border-color:var(--danger);color:var(--danger)}
+  /* 슬롯 피커 */
+  #slot-picker-overlay{position:fixed;inset:0;z-index:10002;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;padding:20px}
+  .slot-picker-box{background:var(--bg);border:0.5px solid var(--border2);border-radius:var(--radius);padding:20px;width:380px;max-width:100%;max-height:calc(100vh - 60px);overflow-y:auto;display:flex;flex-direction:column;gap:10px}
+  .slot-picker-title{font-size:14px;color:var(--accent);font-weight:600}
+  .slot-picker-sub{font-size:11px;color:var(--text3)}
+  .slot-btn{padding:10px 12px;background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);cursor:pointer;text-align:left;font-family:inherit;font-size:12px;display:flex;justify-content:space-between;align-items:center;transition:border-color 0.15s}
+  .slot-btn:hover{border-color:var(--accent)}
+  .slot-btn .slot-title{font-weight:600;color:var(--accent);margin-bottom:2px}
+  .slot-btn .slot-meta{color:var(--text3);font-size:10px}
+  .slot-btn .slot-arrow{color:var(--text3);font-size:16px}
+  .slot-cancel-btn{padding:7px;background:none;border:0.5px solid var(--border2);border-radius:var(--radius-sm);color:var(--text3);cursor:pointer;font-family:inherit;font-size:12px}
   @media(max-width:1050px){.split{grid-template-columns:220px 1fr}.detail-panel{grid-column:1/-1}}
   @media(max-width:720px){#app{padding:.75rem .8rem 2rem}.split{grid-template-columns:1fr}.toolbar{width:100%}.btn{padding:7px 10px}#list{grid-template-columns:1fr}.panel-body{padding:10px}.logo{width:100%;margin-bottom:2px}}
 </style>
@@ -59,6 +103,7 @@
       <button class="btn outline" id="manual-btn">수동 추가</button>
       <button class="btn outline" id="export-btn">내보내기</button>
       <button class="btn outline" id="import-btn">불러오기</button>
+      <button class="btn outline" id="sync-btn" title="Gist 동기화">☁️ 동기화 <span class="sync-indicator" id="sync-indicator"></span></button>
       <button class="btn ghost" id="clear-filter-btn">필터 초기화</button>
     </div>
   </header>
@@ -139,6 +184,35 @@
 <input type="file" id="file-input" multiple>
 <input type="file" id="import-input" accept="application/json,.json">
 <div class="toast" id="toast"></div>
+
+<!-- Gist 동기화 모달 -->
+<div id="gist-overlay">
+  <div class="gist-modal">
+    <div class="gist-modal-title">☁️ Gist 동기화</div>
+    <div class="gist-section">
+      <div class="gist-label">GitHub Personal Access Token</div>
+      <input class="gist-input" type="password" id="gist-token-input" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+      <div class="gist-hint">⚠️ 토큰은 이 기기 localStorage에만 저장돼. 절대 공유 X. <a href="https://github.com/settings/tokens/new?scopes=gist&description=Workshop" target="_blank">토큰 만들기 →</a> (scope: gist만)</div>
+    </div>
+    <div class="gist-section">
+      <div class="gist-label">Gist ID <span style="color:var(--text3);font-size:10px;">(작업실 전체 공용 · 처음엔 비워두기)</span></div>
+      <div class="gist-id-row">
+        <input class="gist-input" type="text" id="gist-id-input" placeholder="처음엔 비워두기">
+        <button class="gist-copy-btn" id="gist-copy-btn" title="Gist ID 복사">📋</button>
+      </div>
+      <div class="gist-hint">💡 cd_idea와 같은 Gist를 공유해. 처음 한 번만 입력하면 두 도구 모두 같은 ID로 동기화돼.</div>
+    </div>
+    <div class="gist-status" id="gist-status"></div>
+    <div class="gist-btn-row">
+      <button class="gist-btn gist-btn-upload" id="gist-upload-btn">⬆ 업로드</button>
+      <button class="gist-btn gist-btn-download" id="gist-download-btn">⬇ 불러오기</button>
+    </div>
+    <div class="gist-hint" id="gist-autosave-hint" style="text-align:center;"></div>
+    <div class="gist-btn-row">
+      <button class="gist-btn gist-btn-cancel" id="gist-close-btn">닫기</button>
+    </div>
+  </div>
+</div>
 <script>
 const STORE_KEY='archive_v1';
 const PREVIEW_LIMIT=3000;
@@ -282,6 +356,201 @@ $('#toggle-fav-btn').onclick=()=>{const it=current();if(!it)return;it.fav=!it.fa
 $('#delete-btn').onclick=()=>{const it=current();if(!it)return;if(!confirm('이 항목을 삭제할까? 원본 파일은 삭제되지 않아.'))return;state.items=state.items.filter(x=>x.id!==it.id);state.selectedId=state.items[0]?.id||null;save();render();toast('삭제했어')};
 const dz=$('#drop-zone'); ['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('dragover')})); ['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('dragover')})); dz.addEventListener('drop',e=>addFiles(e.dataTransfer.files)); dz.addEventListener('click',()=>$('#file-input').click()); dz.style.cursor='pointer';
 window.addEventListener('keydown',e=>{const mod=e.ctrlKey||e.metaKey;if(mod&&e.key.toLowerCase()==='f'){e.preventDefault();$('#search').focus()} if(mod&&e.key.toLowerCase()==='s'){e.preventDefault();saveDetail()}});
+// === Gist 동기화 (workshop 공용 키) ===
+const GIST_TOKEN_KEY='workshop_gist_token';
+const GIST_ID_KEY='workshop_gist_id';
+const GIST_FILE_NAME='archive_data.json';
+const GIST_AUTO_INTERVAL=10*60*1000;
+let gistAutoSaveTimer=null;
+
+function openGistModal(){
+  const token=localStorage.getItem(GIST_TOKEN_KEY)||'';
+  const gistId=localStorage.getItem(GIST_ID_KEY)||'';
+  $('#gist-token-input').value=token;
+  $('#gist-id-input').value=gistId;
+  setGistStatus('','');
+  const hint=$('#gist-autosave-hint');
+  if(hint){
+    if(token&&gistId){hint.textContent='⏱ 10분마다 자동저장 중';hint.style.color='#6AC8B0';}
+    else{hint.textContent='💡 토큰+ID 설정 후 자동저장이 활성화돼';hint.style.color='var(--text3)';}
+  }
+  $('#gist-overlay').classList.add('open');
+}
+function closeGistModal(){$('#gist-overlay').classList.remove('open');}
+function setGistStatus(msg,type){
+  const el=$('#gist-status');
+  el.textContent=msg||'';
+  el.className='gist-status'+(type?' '+type:'');
+}
+function setSyncIndicator(state){
+  const el=$('#sync-indicator');
+  if(!el)return;
+  el.className='sync-indicator'+(state==='ok'?' synced':state==='err'?' error':'');
+}
+function copyGistId(){
+  const id=$('#gist-id-input').value.trim();
+  if(!id){setGistStatus('Gist ID가 없어. 먼저 업로드해봐!','err');return;}
+  navigator.clipboard.writeText(id).then(
+    ()=>setGistStatus('Gist ID 복사됨! cd_idea나 다른 기기에서 붙여넣어봐.','ok'),
+    ()=>setGistStatus('복사 실패. 직접 선택해서 복사해줘.','err')
+  );
+}
+async function gistUpload(){
+  const token=$('#gist-token-input').value.trim();
+  const gistId=$('#gist-id-input').value.trim();
+  if(!token){setGistStatus('토큰을 입력해줘!','err');return;}
+  setGistStatus('업로드 중...','loading');
+  save();
+  await pushSlot(token, gistId, '수동');
+}
+async function pushSlot(token, gistId, deviceLabel){
+  // 기존 슬롯 가져오기 (archive 파일만)
+  let slots=[];
+  if(gistId){
+    try{
+      const r=await fetch('https://api.github.com/gists/'+gistId,{
+        headers:{'Authorization':'token '+token,'Accept':'application/vnd.github.v3+json'}
+      });
+      if(r.ok){
+        const d=await r.json();
+        const fc=d.files&&d.files[GIST_FILE_NAME]&&d.files[GIST_FILE_NAME].content;
+        if(fc){
+          try{const p=JSON.parse(fc); slots=p.slots||[];}catch(e){}
+        }
+      }
+    }catch(e){}
+  }
+  slots.unshift({savedAt:new Date().toISOString(),device:deviceLabel,state:JSON.parse(JSON.stringify(state))});
+  if(slots.length>5)slots=slots.slice(0,5);
+  // PATCH: archive 파일만 보냄 → 같은 gist의 다른 파일(cd_idea_data.json 등)은 안 건드림
+  const body={
+    description:'Workshop — 작업실 통합 데이터',
+    public:false,
+    files:{[GIST_FILE_NAME]:{content:JSON.stringify({version:1,slots},null,2)}}
+  };
+  try{
+    let url='https://api.github.com/gists',method='POST';
+    if(gistId){url='https://api.github.com/gists/'+gistId;method='PATCH';}
+    const res=await fetch(url,{
+      method,
+      headers:{'Authorization':'token '+token,'Content-Type':'application/json','Accept':'application/vnd.github.v3+json'},
+      body:JSON.stringify(body)
+    });
+    if(!res.ok){
+      const err=await res.json().catch(()=>({}));
+      setGistStatus('오류: '+(err.message||res.status),'err');
+      setSyncIndicator('err');
+      return;
+    }
+    const data=await res.json();
+    localStorage.setItem(GIST_TOKEN_KEY,token);
+    localStorage.setItem(GIST_ID_KEY,data.id);
+    $('#gist-id-input').value=data.id;
+    setGistStatus('업로드 완료! Gist ID를 cd_idea에도 똑같이 넣으면 같은 gist를 공유해.','ok');
+    setSyncIndicator('ok');
+    toast('☁️ Gist 업로드 완료');
+    startAutoSave();
+  }catch(e){
+    setGistStatus('네트워크 오류: '+e.message,'err');
+    setSyncIndicator('err');
+  }
+}
+async function gistDownload(){
+  const token=$('#gist-token-input').value.trim();
+  const gistId=$('#gist-id-input').value.trim();
+  if(!token){setGistStatus('토큰을 입력해줘!','err');return;}
+  if(!gistId){setGistStatus('Gist ID를 입력해줘!','err');return;}
+  setGistStatus('슬롯 목록 가져오는 중...','loading');
+  try{
+    const res=await fetch('https://api.github.com/gists/'+gistId,{
+      headers:{'Authorization':'token '+token,'Accept':'application/vnd.github.v3+json'}
+    });
+    if(!res.ok){
+      const err=await res.json().catch(()=>({}));
+      setGistStatus('오류: '+(err.message||res.status),'err');
+      setSyncIndicator('err');
+      return;
+    }
+    const data=await res.json();
+    const fc=data.files&&data.files[GIST_FILE_NAME]&&data.files[GIST_FILE_NAME].content;
+    if(!fc){setGistStatus(GIST_FILE_NAME+' 파일을 못 찾았어. (이 gist는 cd_idea 전용일 수도 — archive 업로드를 먼저 해봐)','err');setSyncIndicator('err');return;}
+    const parsed=JSON.parse(fc);
+    const slots=parsed.slots||[];
+    if(!slots.length){setGistStatus('불러올 데이터가 없어.','err');return;}
+    setGistStatus('','');
+    showSlotPicker(slots, token, gistId);
+  }catch(e){
+    setGistStatus('오류: '+e.message,'err');
+    setSyncIndicator('err');
+  }
+}
+function showSlotPicker(slots, token, gistId){
+  const existing=$('#slot-picker-overlay');
+  if(existing)existing.remove();
+  const overlay=document.createElement('div');
+  overlay.id='slot-picker-overlay';
+  const box=document.createElement('div');
+  box.className='slot-picker-box';
+  box.innerHTML='<div class="slot-picker-title">버전 선택</div><div class="slot-picker-sub">불러올 버전을 선택해봐. 현재 데이터는 덮어씌워져!</div>';
+  slots.forEach((slot,i)=>{
+    const t=slot.savedAt?new Date(slot.savedAt).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'알 수 없음';
+    const itemCount=slot.state&&slot.state.items?slot.state.items.length:0;
+    const favCount=slot.state&&slot.state.items?slot.state.items.filter(i=>i&&i.fav).length:0;
+    const btn=document.createElement('button');
+    btn.className='slot-btn';
+    btn.innerHTML='<div><div class="slot-title">'+(i===0?'🟢 최신':'📁 슬롯 '+(i+1))+'</div><div class="slot-meta">'+t+' · '+(slot.device||'알 수 없음')+' · 항목 '+itemCount+'개'+(favCount?' / 즐겨찾기 '+favCount+'개':'')+'</div></div><span class="slot-arrow">›</span>';
+    btn.onclick=()=>{
+      overlay.remove();
+      state=slot.state;
+      if(!state.selectedId && state.items && state.items[0]) state.selectedId=state.items[0].id;
+      save();render();
+      localStorage.setItem(GIST_TOKEN_KEY,token);
+      localStorage.setItem(GIST_ID_KEY,gistId);
+      setGistStatus('불러오기 완료!','ok');
+      setSyncIndicator('ok');
+      toast('☁️ Gist 불러오기 완료');
+      startAutoSave();
+    };
+    box.appendChild(btn);
+  });
+  const cancelBtn=document.createElement('button');
+  cancelBtn.className='slot-cancel-btn';
+  cancelBtn.textContent='취소';
+  cancelBtn.onclick=()=>overlay.remove();
+  box.appendChild(cancelBtn);
+  overlay.appendChild(box);
+  overlay.onclick=e=>{if(e.target===overlay)overlay.remove();};
+  document.body.appendChild(overlay);
+}
+async function gistAutoSave(){
+  const token=localStorage.getItem(GIST_TOKEN_KEY);
+  const gistId=localStorage.getItem(GIST_ID_KEY);
+  if(!token||!gistId)return;
+  save();
+  await pushSlot(token, gistId, '자동');
+  const now=new Date();
+  const time=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
+  toast('☁️ 자동저장 완료 '+time);
+}
+function startAutoSave(){
+  if(gistAutoSaveTimer)clearInterval(gistAutoSaveTimer);
+  const token=localStorage.getItem(GIST_TOKEN_KEY);
+  const gistId=localStorage.getItem(GIST_ID_KEY);
+  if(token&&gistId){
+    gistAutoSaveTimer=setInterval(gistAutoSave, GIST_AUTO_INTERVAL);
+    setSyncIndicator('ok');
+  }
+}
+// 버튼 바인딩
+$('#sync-btn').addEventListener('click',openGistModal);
+$('#gist-upload-btn').addEventListener('click',gistUpload);
+$('#gist-download-btn').addEventListener('click',gistDownload);
+$('#gist-copy-btn').addEventListener('click',copyGistId);
+$('#gist-close-btn').addEventListener('click',closeGistModal);
+$('#gist-overlay').addEventListener('click',e=>{if(e.target.id==='gist-overlay')closeGistModal();});
+// 시작 시 토큰/ID 있으면 자동저장 시작
+startAutoSave();
+
 load(); render();
 </script>
 </body>
