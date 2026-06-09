@@ -107,6 +107,15 @@
     margin-bottom: 0.75rem;
   }
   .logo { font-size: 15px; font-weight: 600; color: var(--accent); letter-spacing: -0.3px; }
+  #back-to-hub {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px;
+    color: var(--text3); text-decoration: none;
+    border-radius: var(--radius-md);
+    transition: color 0.12s, background 0.12s;
+    font-size: 16px;
+  }
+  #back-to-hub:hover { color: var(--accent); background: var(--bg2); }
   .tb-btn {
     display: flex; align-items: center; gap: 5px;
     background: var(--accent); color: #fff; border: none;
@@ -645,6 +654,7 @@
 <div id="app">
   <div id="tab-bar"></div>
   <div id="toolbar">
+    <a id="back-to-hub" href="index.html" title="작업실로"><i class="ti ti-arrow-left"></i></a>
     <span class="logo" id="toolbar-logo">✦ 아이디어 캐디</span>
     <button id="add-card-btn" class="tb-btn"><i class="ti ti-plus"></i> 새 카드</button>
     <button id="sync-btn" class="tb-btn outline" title="Gist 동기화"><i class="ti ti-cloud"></i> 동기화 <span class="sync-indicator" id="sync-indicator"></span></button>
