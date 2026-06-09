@@ -1,0 +1,12 @@
+{
+  "name": "memo-hub",
+  "version": "1.0.0",
+  "description": "Memo Hub — 메모 도구 모음",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^42.0.0"
+  }
+}

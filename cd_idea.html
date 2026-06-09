@@ -744,6 +744,23 @@ let suppressSelectClick=false;
 let viewMode='free',activeFilter='all',openSortedId=null;
 let searchQuery='', activeTagFilters=new Set();
 
+// 탭별 뷰 설정 동기화 (탭에 저장된 값 → 전역 변수)
+function pullTabPrefs(){
+  const tab=activeTab();
+  if(!tab) return;
+  viewMode = tab.viewMode || 'free';
+  activeFilter = tab.activeFilter || 'all';
+  activeTagFilters = new Set(tab.tagFilters || []);
+}
+// 전역 변수 → 활성 탭에 저장
+function pushTabPrefs(){
+  const tab=activeTab();
+  if(!tab) return;
+  tab.viewMode = viewMode;
+  tab.activeFilter = activeFilter;
+  tab.tagFilters = [...activeTagFilters];
+}
+
 function uid(){return 'i'+Date.now()+Math.random().toString(36).slice(2,6);}
 function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 let saveErrorShown=false;
@@ -881,7 +898,30 @@ function load(){
 }
 function activeTab(){return state.tabs.find(t=>t.id===state.activeTabId)||state.tabs[0];}
 
-function renderAll(){renderTabs();renderBoardWrap();updateViewToggle();}
+function renderAll(){
+  renderTabs();
+  renderBoardWrap();
+  updateViewToggle();
+  // 저장된 뷰모드 적용 (free가 아니면 보드 클래스/리스트 토글 필요)
+  if(viewMode!=='free'){
+    const tab=activeTab();
+    const boardEl=document.getElementById('board-'+tab.id);
+    const listEl=document.getElementById('sorted-'+tab.id);
+    if(boardEl&&listEl){
+      if(viewMode==='grid'){
+        boardEl.classList.add('grid-mode');
+        applyFilter();
+        scheduleMasonry();
+      } else if(viewMode==='list'){
+        boardEl.querySelectorAll('.idea-card').forEach(el=>el.style.display='none');
+        listEl.classList.add('visible');
+        renderSortedList();
+      }
+    }
+  } else {
+    applyFilter();
+  }
+}
 
 function updateLogoAndAccent(){
   const tab=activeTab();
@@ -1002,7 +1042,8 @@ function updateViewToggle(){
 
 function switchTab(id){
   state.activeTabId=id;
-  viewMode='free';openSortedId=null;
+  openSortedId=null;
+  pullTabPrefs();
   save();renderAll();
 }
 
@@ -1426,6 +1467,8 @@ function toggleTagFilter(tag){
   else activeTagFilters.add(tag);
   renderActiveTagFilters();
   applyFilter();
+  pushTabPrefs();
+  save();
 }
 
 function renderActiveTagFilters(){
@@ -1543,6 +1586,8 @@ function setViewMode(mode){
   }
   syncCardOrder(tab);
   updateViewToggle();
+  pushTabPrefs();
+  save();
 }
 
 let gridDropTarget=null;
@@ -1711,6 +1756,8 @@ document.getElementById('filter-bar').addEventListener('click',e=>{
   activeFilter=chip.dataset.stage;
   document.querySelectorAll('.filter-chip').forEach(c=>c.classList.toggle('active',c===chip));
   applyFilter();
+  pushTabPrefs();
+  save();
 });
 
 // === 컨텍스트 메뉴 ===
@@ -2123,7 +2170,16 @@ function lbPrev(){ if(lbImages.length<=1)return; lbIdx=(lbIdx-1+lbImages.length)
 })();
 
 load();
+pullTabPrefs();
 renderAll();
+
+// 시작 시 필터칩 UI 상태 동기화
+(function(){
+  document.querySelectorAll('.filter-chip').forEach(c=>{
+    c.classList.toggle('active', c.dataset.stage===activeFilter);
+  });
+  renderActiveTagFilters();
+})();
 (function(){
   const ub=document.getElementById('undo-btn');
   const rb=document.getElementById('redo-btn');
