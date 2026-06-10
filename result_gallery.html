@@ -92,6 +92,10 @@ header{display:flex;align-items:center;gap:10px;border-bottom:.5px solid var(--b
 /* 컨텍스트 메뉴 */
 #ctx-menu{position:fixed;z-index:9999;background:var(--bg);border:.5px solid var(--border2);border-radius:var(--radius-sm);padding:4px;box-shadow:0 6px 24px rgba(0,0,0,.18);min-width:180px;display:none;font-family:inherit}
 #ctx-menu.open{display:block}.ctx-item{display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:13px;color:var(--text);border-radius:4px;cursor:pointer;user-select:none}.ctx-item:hover{background:var(--bg2)}.ctx-item.danger{color:var(--danger)}.ctx-icon{font-size:14px;width:18px;text-align:center;display:inline-block;flex-shrink:0}.ctx-sep{height:.5px;background:var(--border);margin:4px 0}.ctx-submenu-trigger{position:relative}.ctx-submenu-trigger::after{content:'›';margin-left:auto;color:var(--text3);font-size:14px}.ctx-submenu{display:none;position:absolute;left:100%;top:0;background:var(--bg);border:.5px solid var(--border2);border-radius:var(--radius-sm);padding:4px;box-shadow:0 6px 24px rgba(0,0,0,.18);min-width:160px;max-height:300px;overflow-y:auto}.ctx-submenu-trigger:hover>.ctx-submenu{display:block}#ctx-menu.flip-submenu .ctx-submenu{left:auto;right:100%}
+  /* 서브메뉴 좌우 방향은 각 항목 위치 기준으로 개별 보정 */
+  #ctx-menu .ctx-submenu-trigger.submenu-flip > .ctx-submenu{left:auto;right:100%}
+  #ctx-menu .ctx-submenu-trigger:not(.submenu-flip) > .ctx-submenu{left:100%;right:auto}
+
 
 /* Gist 동기화 */
 .sync-indicator{width:7px;height:7px;border-radius:50%;background:var(--text3);display:inline-block;margin-left:4px;vertical-align:middle;transition:background 0.3s}
@@ -537,7 +541,86 @@ function setItemStatus(it,status){it.status=status;it.updatedAt=Date.now();save(
 function toggleItemFav(it){it.fav=!it.fav;it.updatedAt=Date.now();save();render()}
 function deleteItem(it){if(!confirm('이 결과를 삭제할까? 원본 파일은 삭제되지 않아.'))return;state.items=state.items.filter(x=>x.id!==it.id);if(state.selectedId===it.id)state.selectedId=state.items[0]?.id||null;save();render();toast('삭제했어')}
 function closeCtxMenu(){const m=$('#ctx-menu');if(!m)return;m.classList.remove('open');m.innerHTML=''}
-function openCtxMenu(x,y,items){const m=$('#ctx-menu');m.innerHTML='';m.classList.remove('flip-submenu');items.forEach(it=>{if(it.sep){const s=document.createElement('div');s.className='ctx-sep';m.appendChild(s);return}const el=document.createElement('div');el.className='ctx-item'+(it.danger?' danger':'')+(it.submenu?' ctx-submenu-trigger':'');el.innerHTML='<span class="ctx-icon">'+(it.icon||'•')+'</span><span>'+esc(it.label)+'</span>';if(it.submenu){const sm=document.createElement('div');sm.className='ctx-submenu';it.submenu.forEach(sit=>{const se=document.createElement('div');se.className='ctx-item'+(sit.danger?' danger':'');se.innerHTML='<span class="ctx-icon">'+(sit.icon||'•')+'</span><span>'+esc(sit.label)+'</span>';se.onclick=ev=>{ev.stopPropagation();sit.action();closeCtxMenu()};sm.appendChild(se)});el.appendChild(sm)}else if(it.action){el.onclick=()=>{it.action();closeCtxMenu()}}m.appendChild(el)});m.classList.add('open');let r=m.getBoundingClientRect(),ww=innerWidth,wh=innerHeight;if(x+r.width>ww-8)x=ww-r.width-8;if(y+r.height>wh-8)y=wh-r.height-8;m.style.left=Math.max(8,x)+'px';m.style.top=Math.max(8,y)+'px';if(x+r.width+170>ww)m.classList.add('flip-submenu')}
+function adjustCtxSubmenus(menu, ww, wh){
+  const margin=8;
+  menu.classList.remove('flip-submenu');
+  menu.querySelectorAll('.ctx-submenu').forEach(sm=>{
+    const trigger=sm.parentElement;
+    if(!trigger)return;
+
+    trigger.classList.remove('submenu-flip');
+    sm.style.top='0px';
+    sm.style.left='';
+    sm.style.right='';
+    sm.style.maxHeight=Math.max(120,wh-margin*2)+'px';
+
+    const oldDisplay=sm.style.display;
+    const oldVisibility=sm.style.visibility;
+    sm.style.visibility='hidden';
+    sm.style.display='block';
+
+    const tr=trigger.getBoundingClientRect();
+    let sr=sm.getBoundingClientRect();
+    const sw=sr.width || 160;
+    const rightSpace=ww-margin-tr.right;
+    const leftSpace=tr.left-margin;
+    const rightFits=rightSpace>=sw;
+    const leftFits=leftSpace>=sw;
+
+    // 오른쪽이 실제로 들어가면 오른쪽 우선. 오른쪽이 잘릴 때만 왼쪽으로 보냄.
+    if(!rightFits && (leftFits || leftSpace>rightSpace)){
+      trigger.classList.add('submenu-flip');
+    }else{
+      trigger.classList.remove('submenu-flip');
+    }
+
+    sr=sm.getBoundingClientRect();
+    let top=0;
+    if(tr.top+sr.height>wh-margin)top=wh-margin-sr.height-tr.top;
+    if(tr.top+top<margin)top=margin-tr.top;
+    sm.style.top=Math.round(top)+'px';
+
+    sm.style.display=oldDisplay;
+    sm.style.visibility=oldVisibility;
+  });
+}
+
+function openCtxMenu(x,y,items){
+  const m=$('#ctx-menu');
+  m.innerHTML='';
+  m.classList.remove('flip-submenu');
+  items.forEach(it=>{
+    if(it.sep){const s=document.createElement('div');s.className='ctx-sep';m.appendChild(s);return}
+    const el=document.createElement('div');
+    el.className='ctx-item'+(it.danger?' danger':'')+(it.submenu?' ctx-submenu-trigger':'');
+    el.innerHTML='<span class="ctx-icon">'+(it.icon||'•')+'</span><span>'+esc(it.label)+'</span>';
+    if(it.submenu){
+      const sm=document.createElement('div');
+      sm.className='ctx-submenu';
+      it.submenu.forEach(sit=>{
+        const se=document.createElement('div');
+        se.className='ctx-item'+(sit.danger?' danger':'');
+        se.innerHTML='<span class="ctx-icon">'+(sit.icon||'•')+'</span><span>'+esc(sit.label)+'</span>';
+        se.onclick=ev=>{ev.stopPropagation();sit.action();closeCtxMenu()};
+        sm.appendChild(se)
+      });
+      el.appendChild(sm)
+    }else if(it.action){
+      el.onclick=()=>{it.action();closeCtxMenu()}
+    }
+    m.appendChild(el)
+  });
+  m.classList.add('open');
+  let r=m.getBoundingClientRect();
+  const vv=window.visualViewport;
+  const ww=vv?vv.width:window.innerWidth;
+  const wh=vv?vv.height:window.innerHeight;
+  if(x+r.width>ww-8)x=ww-r.width-8;
+  if(y+r.height>wh-8)y=wh-r.height-8;
+  m.style.left=Math.max(8,x)+'px';
+  m.style.top=Math.max(8,y)+'px';
+  adjustCtxSubmenus(m,ww,wh);
+}
 function cardMenuItems(it){return[{icon:it.fav?'★':'☆',label:it.fav?'즐겨찾기 해제':'즐겨찾기',action:()=>toggleItemFav(it)},{sep:true},{icon:'📋',label:'카드 복제',action:()=>duplicateItem(it)},{icon:'📄',label:'메타 텍스트 복사',action:()=>copyItemMeta(it)},{icon:'＋',label:'일괄 선택 모드',action:()=>enterSelectMode()},{sep:true},{icon:'🏷',label:'상태 변경',submenu:['보류','성공','재작업','폐기'].map(st=>({icon:it.status===st?'●':' ',label:st,action:()=>setItemStatus(it,st)}))},{sep:true},{icon:'🗑',label:'삭제',danger:true,action:()=>deleteItem(it)}]}
 function boardMenuItems(){return[{icon:'＋',label:'이미지 추가',action:()=>$('#file-input').click()},{icon:'☐',label:'일괄 선택 모드',action:()=>enterSelectMode()},{sep:true},{icon:'⤺',label:'필터 초기화',action:()=>{$('#clear-filter-btn').click()}},{icon:'⬆',label:'JSON 내보내기',action:()=>exportData()},{icon:'⬇',label:'JSON 불러오기',action:()=>$('#import-input').click()}]}
 
