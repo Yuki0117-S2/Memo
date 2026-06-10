@@ -166,7 +166,7 @@
           <div class="stat"><b id="stat-items">0</b><span>항목</span></div>
           <div class="stat"><b id="stat-raw">0</b><span>원문 포함</span></div>
           <div class="stat"><b id="stat-preview">0KB</b><span>미리보기</span></div>
-          <div class="stat"><b id="stat-store">0KB</b><span>저장량 추정</span></div>
+          <div class="stat"><b id="stat-store">0KB</b><span>저장량 추정</span></div><div class="stat"><b id="stat-gist">0KB</b><span>Gist 예상</span></div>
         </div>
       </div>
     </aside>
@@ -271,6 +271,8 @@ const $=s=>document.querySelector(s);
 function uid(){return 'a'+Date.now()+Math.random().toString(36).slice(2,7)}
 function esc(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 function bytes(n){if(!n)return '0KB'; if(n<1024)return n+'B'; if(n<1024*1024)return (n/1024).toFixed(n<10240?1:0)+'KB'; return (n/1024/1024).toFixed(2)+'MB'}
+function utf8Bytes(s){try{return new Blob([s]).size}catch(e){return new TextEncoder().encode(s).length}}
+function estimateGistPayloadBytes(){try{return utf8Bytes(JSON.stringify({version:1,slots:[{savedAt:new Date().toISOString(),device:'예상',state:JSON.parse(JSON.stringify(state))}]},null,2))}catch(e){return 0}}
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),1700)}
 function save(){try{localStorage.setItem(STORE_KEY,JSON.stringify(state))}catch(e){toast('저장 실패: 항목이 너무 무거울 수 있어')}}
 function load(){try{const s=localStorage.getItem(STORE_KEY);if(s){state=JSON.parse(s)}}catch(e){}}
@@ -392,7 +394,7 @@ function renderStats(){
   const raw=state.items.filter(i=>i.hasRaw).length;
   const previewBytes=state.items.reduce((n,i)=>n+(i.preview||'').length*2,0);
   let store=0; try{store=JSON.stringify(state).length*2}catch(e){}
-  $('#stat-items').textContent=state.items.length; $('#stat-raw').textContent=raw; $('#stat-preview').textContent=bytes(previewBytes); $('#stat-store').textContent=bytes(store);
+  $('#stat-items').textContent=state.items.length; $('#stat-raw').textContent=raw; $('#stat-preview').textContent=bytes(previewBytes); $('#stat-store').textContent=bytes(store); const ge=$('#stat-gist'); if(ge)ge.textContent=bytes(estimateGistPayloadBytes());
 }
 function render(){
   $('#search').value=state.query; $('#search-clear').classList.toggle('visible',!!state.query); $('#sort-select').value=state.sort; $('#raw-filter').value=state.rawFilter; $('#fav-only').checked=state.favOnly;

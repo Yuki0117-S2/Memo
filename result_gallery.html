@@ -195,7 +195,7 @@ header{display:flex;align-items:center;gap:10px;border-bottom:.5px solid var(--b
         <div class="stat"><b id="stat-items">0</b><span>이미지</span></div>
         <div class="stat"><b id="stat-meta">0</b><span>메타 감지</span></div>
         <div class="stat"><b id="stat-fav">0</b><span>즐겨찾기</span></div>
-        <div class="stat"><b id="stat-store">0KB</b><span>저장량 추정</span></div>
+        <div class="stat"><b id="stat-store">0KB</b><span>저장량 추정</span></div><div class="stat"><b id="stat-gist">0KB</b><span>Gist 예상</span></div>
       </div>
     </div>
   </aside>
@@ -298,6 +298,8 @@ const $=s=>document.querySelector(s);
 function uid(){return 'r'+Date.now()+Math.random().toString(36).slice(2,7)}
 function esc(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 function bytes(n){if(!n)return '0KB'; if(n<1024)return n+'B'; if(n<1024*1024)return (n/1024).toFixed(n<10240?1:0)+'KB'; return (n/1024/1024).toFixed(2)+'MB'}
+function utf8Bytes(s){try{return new Blob([s]).size}catch(e){return new TextEncoder().encode(s).length}}
+function estimateGistPayloadBytes(){try{return utf8Bytes(JSON.stringify({version:1,slots:[{savedAt:new Date().toISOString(),device:'예상',state:stripStateForSync(state)}]},null,2))}catch(e){return 0}}
 function uniq(a){return [...new Set((a||[]).map(x=>String(x).trim()).filter(Boolean))]}
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),1700)}
 function save(){try{localStorage.setItem(STORE_KEY,JSON.stringify(state))}catch(e){toast('저장 실패: 이미지가 너무 많거나 클 수 있어')}}
@@ -523,7 +525,7 @@ function renderList(){
 }
 function current(){return state.items.find(i=>i.id===state.selectedId)}
 function renderDetail(){const it=current();$('#detail-empty').style.display=it?'none':'block';$('#detail').style.display=it?'block':'none';$('#selected-state').textContent=it?'편집 중':'선택 없음';if(!it)return;const m=it.meta||{};$('#d-img').src=it.thumb||'';$('#d-title').value=it.title||'';$('#d-status').value=it.status||'보류';$('#d-score').value=String(it.score||0);$('#d-tags').value=(it.tags||[]).join(', ');$('#d-notes').value=it.notes||'';$('#toggle-fav-btn').textContent=it.fav?'즐겨찾기 해제':'즐겨찾기';const loras=(m.loras||[]).map(l=>`${l.name}${l.strength_model!=null?' @'+l.strength_model:''}`).join(', ');$('#d-kv').innerHTML=[['출처',m.source||'확인 불가'],['모델',m.model||'확인 불가'],['LoRA',loras||'확인 불가'],['Seed',m.seed??'확인 불가'],['Steps',m.steps??'확인 불가'],['CFG',m.cfg??'확인 불가'],['Sampler',m.sampler||'확인 불가'],['Scheduler',m.scheduler||'확인 불가'],['Denoise',m.denoise??'확인 불가'],['크기',(m.width&&m.height)?`${m.width}×${m.height}`:'확인 불가'],['파일',bytes(it.size)]].map(([k,v])=>`<b>${esc(k)}</b><span>${esc(v)}</span>`).join('');$('#d-positive').textContent=m.positive||'확인 불가';$('#d-negative').textContent=m.negative||'확인 불가'}
-function renderStats(){let store=0;try{store=JSON.stringify(state).length*2}catch(e){}$('#stat-items').textContent=state.items.length;$('#stat-meta').textContent=state.items.filter(i=>i.meta&&i.meta.metaFound).length;$('#stat-fav').textContent=state.items.filter(i=>i.fav).length;$('#stat-store').textContent=bytes(store)}
+function renderStats(){let store=0;try{store=JSON.stringify(state).length*2}catch(e){}$('#stat-items').textContent=state.items.length;$('#stat-meta').textContent=state.items.filter(i=>i.meta&&i.meta.metaFound).length;$('#stat-fav').textContent=state.items.filter(i=>i.fav).length;$('#stat-store').textContent=bytes(store);const ge=$('#stat-gist');if(ge)ge.textContent=bytes(estimateGistPayloadBytes())}
 
 function cardExpandedHTML(it){
   const m=it.meta||{};

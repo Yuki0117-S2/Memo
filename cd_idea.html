@@ -562,7 +562,8 @@
   .sync-indicator.synced { background: #6AC8B0; }
   .sync-indicator.error { background: var(--accent2); }
 
-  #gist-overlay {
+  .gist-size-badge{display:inline-flex;align-items:center;gap:4px;background:var(--bg2);border:0.5px solid var(--border2);border-radius:var(--radius-md);color:var(--text2);font-size:11px;padding:5px 9px;white-space:nowrap}
+#gist-overlay {
     position: fixed; inset: 0; z-index: 10001;
     background: rgba(0,0,0,0.55);
     display: none; align-items: center; justify-content: center;
@@ -666,7 +667,7 @@
     <a id="back-to-hub" href="index.html" title="작업실로"><i class="ti ti-arrow-left"></i></a>
     <span class="logo" id="toolbar-logo">✦ 아이디어 캐디</span>
     <button id="add-card-btn" class="tb-btn"><i class="ti ti-plus"></i> 새 카드</button>
-    <button id="sync-btn" class="tb-btn outline" title="Gist 동기화"><i class="ti ti-cloud"></i> 동기화 <span class="sync-indicator" id="sync-indicator"></span></button>
+    <button id="sync-btn" class="tb-btn outline" title="Gist 동기화"><i class="ti ti-cloud"></i> 동기화 <span class="sync-indicator" id="sync-indicator"></span></button><span class="gist-size-badge" id="gist-size-badge">Gist 예상 0KB</span>
     <div id="undo-redo">
       <button class="ur-btn" id="undo-btn" title="되돌리기 (Ctrl+Z)"><i class="ti ti-arrow-back-up"></i></button>
       <button class="ur-btn" id="redo-btn" title="다시 실행 (Ctrl+Y)"><i class="ti ti-arrow-forward-up"></i></button>
@@ -776,6 +777,7 @@ let saveErrorShown=false;
 function save(){
   try{
     localStorage.setItem(STORE_KEY,JSON.stringify(state));
+    if(typeof updateGistEstimateBadge==='function')updateGistEstimateBadge();
     saveErrorShown=false;
   }catch(e){
     if(!saveErrorShown){
@@ -793,6 +795,10 @@ let histDebounceTimer=null;
 let suppressHistory=false;
 
 function snapshot(){ return JSON.stringify(state); }
+function bytes(n){if(!n)return '0KB';if(n<1024)return n+'B';if(n<1024*1024)return (n/1024).toFixed(n<10240?1:0)+'KB';return (n/1024/1024).toFixed(2)+'MB'}
+function utf8Bytes(s){try{return new Blob([s]).size}catch(e){return new TextEncoder().encode(s).length}}
+function estimateGistPayloadBytes(){try{return utf8Bytes(JSON.stringify({version:1,slots:[{savedAt:new Date().toISOString(),device:'예상',state:JSON.parse(JSON.stringify(state))}]},null,2))}catch(e){return 0}}
+function updateGistEstimateBadge(){const el=document.getElementById('gist-size-badge');if(el)el.textContent='Gist 예상 '+bytes(estimateGistPayloadBytes())}
 
 function pushHistoryNow(){
   if(suppressHistory)return;
@@ -908,6 +914,7 @@ function load(){
 function activeTab(){return state.tabs.find(t=>t.id===state.activeTabId)||state.tabs[0];}
 
 function renderAll(){
+  if(typeof updateGistEstimateBadge==='function')updateGistEstimateBadge();
   renderTabs();
   renderBoardWrap();
   updateViewToggle();
