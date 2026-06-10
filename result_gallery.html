@@ -93,6 +93,57 @@ header{display:flex;align-items:center;gap:10px;border-bottom:.5px solid var(--b
 #ctx-menu{position:fixed;z-index:9999;background:var(--bg);border:.5px solid var(--border2);border-radius:var(--radius-sm);padding:4px;box-shadow:0 6px 24px rgba(0,0,0,.18);min-width:180px;display:none;font-family:inherit}
 #ctx-menu.open{display:block}.ctx-item{display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:13px;color:var(--text);border-radius:4px;cursor:pointer;user-select:none}.ctx-item:hover{background:var(--bg2)}.ctx-item.danger{color:var(--danger)}.ctx-icon{font-size:14px;width:18px;text-align:center;display:inline-block;flex-shrink:0}.ctx-sep{height:.5px;background:var(--border);margin:4px 0}.ctx-submenu-trigger{position:relative}.ctx-submenu-trigger::after{content:'›';margin-left:auto;color:var(--text3);font-size:14px}.ctx-submenu{display:none;position:absolute;left:100%;top:0;background:var(--bg);border:.5px solid var(--border2);border-radius:var(--radius-sm);padding:4px;box-shadow:0 6px 24px rgba(0,0,0,.18);min-width:160px;max-height:300px;overflow-y:auto}.ctx-submenu-trigger:hover>.ctx-submenu{display:block}#ctx-menu.flip-submenu .ctx-submenu{left:auto;right:100%}
 
+/* Gist 동기화 */
+.sync-indicator{width:7px;height:7px;border-radius:50%;background:var(--text3);display:inline-block;margin-left:4px;vertical-align:middle;transition:background 0.3s}
+.sync-indicator.synced{background:#6AC8B0}
+.sync-indicator.error{background:var(--danger)}
+#gist-overlay{position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,0.55);display:none;align-items:center;justify-content:center;padding:20px}
+#gist-overlay.open{display:flex}
+.gist-modal{background:var(--bg);border:.5px solid var(--border2);border-radius:var(--radius);padding:22px;width:400px;max-width:100%;display:flex;flex-direction:column;gap:14px;box-shadow:0 12px 40px rgba(0,0,0,0.3)}
+.gist-modal-title{font-size:16px;font-weight:600;color:var(--accent);display:flex;align-items:center;gap:6px}
+.gist-section{display:flex;flex-direction:column;gap:5px}
+.gist-label{font-size:11px;color:var(--text3);letter-spacing:0.5px}
+.gist-input{width:100%;background:var(--bg2);border:.5px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-family:'Consolas','Menlo',monospace;font-size:12px;padding:7px 10px;outline:none;transition:border-color 0.15s}
+.gist-input:focus{border-color:var(--accent)}
+.gist-input::placeholder{color:var(--text3);opacity:0.7}
+.gist-hint{font-size:11px;color:var(--text3);line-height:1.5}
+.gist-hint a{color:var(--accent);text-decoration:none}
+.gist-hint a:hover{text-decoration:underline}
+.gist-id-row{display:flex;gap:5px;align-items:center}
+.gist-id-row .gist-input{flex:1}
+.gist-copy-btn{padding:6px 9px;background:var(--bg2);border:.5px solid var(--border2);border-radius:var(--radius-sm);color:var(--text2);cursor:pointer;font-size:12px;white-space:nowrap;font-family:inherit}
+.gist-copy-btn:hover{border-color:var(--accent);color:var(--accent)}
+.gist-status{font-size:11px;padding:7px 10px;border-radius:var(--radius-sm);font-family:'Consolas','Menlo',monospace;display:none}
+.gist-status.ok{background:rgba(106,200,176,0.1);color:#6AC8B0;display:block}
+.gist-status.err{background:rgba(187,102,136,0.1);color:var(--danger);display:block}
+.gist-status.loading{background:rgba(136,136,204,0.1);color:var(--accent);display:block}
+.gist-btn-row{display:flex;gap:6px}
+.gist-btn{flex:1;padding:8px 10px;border-radius:var(--radius-sm);border:none;cursor:pointer;font-size:12px;font-weight:500;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:4px}
+.gist-btn-upload{background:var(--accent);color:#fff}
+.gist-btn-upload:hover{opacity:0.88}
+.gist-btn-download{background:var(--bg2);border:.5px solid var(--accent);color:var(--accent)}
+.gist-btn-download:hover{background:var(--accent);color:#fff}
+.gist-btn-cancel{background:transparent;border:.5px solid var(--border2);color:var(--text2)}
+.gist-btn-cancel:hover{border-color:var(--danger);color:var(--danger)}
+
+/* 슬롯 피커 */
+#slot-picker-overlay{position:fixed;inset:0;z-index:10002;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;padding:20px}
+.slot-picker-box{background:var(--bg);border:.5px solid var(--border2);border-radius:var(--radius);padding:20px;width:380px;max-width:100%;max-height:calc(100vh - 60px);overflow-y:auto;display:flex;flex-direction:column;gap:10px}
+.slot-picker-title{font-size:14px;color:var(--accent);font-weight:600}
+.slot-picker-sub{font-size:11px;color:var(--text3)}
+.slot-btn{padding:10px 12px;background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);cursor:pointer;text-align:left;font-family:inherit;font-size:12px;display:flex;justify-content:space-between;align-items:center;transition:border-color 0.15s}
+.slot-btn:hover{border-color:var(--accent)}
+.slot-btn .slot-title{font-weight:600;color:var(--accent);margin-bottom:2px}
+.slot-btn .slot-meta{color:var(--text3);font-size:10px}
+.slot-btn .slot-arrow{color:var(--text3);font-size:16px}
+.slot-cancel-btn{padding:7px;background:none;border:.5px solid var(--border2);border-radius:var(--radius-sm);color:var(--text3);cursor:pointer;font-family:inherit;font-size:12px}
+
+/* 동기화 후 썸네일 없는 상태 */
+.thumb.stripped{background:linear-gradient(135deg,rgba(136,136,204,0.07),rgba(204,170,136,0.07))}
+.sync-noimg{font-size:11px;text-align:center;color:var(--text3);line-height:1.5;padding:10px;display:flex;flex-direction:column;align-items:center;gap:3px}
+.sync-noimg .sn-icon{font-size:20px;opacity:0.6}
+.sync-noimg .sn-sub{font-size:9px;opacity:0.75}
+
 #lightbox{position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.86);display:none;align-items:center;justify-content:center;padding:20px}#lightbox.open{display:flex}#lightbox img{max-width:96vw;max-height:94vh;object-fit:contain}.lb-close{position:absolute;top:14px;right:18px;background:none;border:0;color:#fff;font-size:30px;cursor:pointer}
 @media(max-width:1120px){.split{grid-template-columns:220px 1fr}.detail-panel{grid-column:1/-1}}
 @media(max-width:720px){#app{padding:.75rem .8rem 2rem}.split{grid-template-columns:1fr}.toolbar{width:100%}.btn{padding:7px 10px}.panel-body{padding:10px}.logo{width:100%;margin-bottom:2px}#list{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.card-info{padding:8px}.row{flex-direction:column;align-items:stretch}.kv{grid-template-columns:78px 1fr}.preview-img{max-height:70vh;overflow:auto}}
@@ -106,6 +157,7 @@ header{display:flex;align-items:center;gap:10px;border-bottom:.5px solid var(--b
   <div class="logo">✦ Result Gallery</div>
   <div class="toolbar">
     <button class="btn" id="pick-btn">이미지 추가</button>
+    <button class="btn outline" id="sync-btn" title="Gist 동기화"><span style="display:inline-flex;align-items:center;gap:4px">☁ 동기화 <span class="sync-indicator" id="sync-indicator"></span></span></button>
     <button class="btn outline" id="export-btn">내보내기</button>
     <button class="btn outline" id="import-btn">불러오기</button>
     <button class="btn ghost" id="select-mode-btn">선택</button>
@@ -199,6 +251,35 @@ header{display:flex;align-items:center;gap:10px;border-bottom:.5px solid var(--b
 <input type="file" id="file-input" accept="image/png,image/webp,image/jpeg" multiple>
 <input type="file" id="import-input" accept="application/json,.json">
 <div id="lightbox"><button class="lb-close" id="lb-close">×</button><img id="lb-img" alt=""></div>
+
+<!-- Gist 동기화 모달 -->
+<div id="gist-overlay">
+  <div class="gist-modal">
+    <div class="gist-modal-title">☁ Gist 동기화</div>
+    <div class="gist-section">
+      <div class="gist-label">GitHub Personal Access Token</div>
+      <input class="gist-input" type="password" id="gist-token-input" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+      <div class="gist-hint">⚠️ 토큰은 이 기기 localStorage에만 저장돼. 절대 공유 X. <a href="https://github.com/settings/tokens/new?scopes=gist&description=Result%20Gallery" target="_blank">토큰 만들기 →</a> (scope: gist만)</div>
+    </div>
+    <div class="gist-section">
+      <div class="gist-label">Gist ID <span style="color:var(--text3);font-size:10px;">(처음엔 비워둬 — 업로드하면 자동 생성)</span></div>
+      <div class="gist-id-row">
+        <input class="gist-input" type="text" id="gist-id-input" placeholder="처음엔 비워두기">
+        <button class="gist-copy-btn" id="gist-copy-btn" title="Gist ID 복사">📋</button>
+      </div>
+      <div class="gist-hint">💡 작업실의 다른 도구(CD Idea 등)랑 같은 Gist를 공유해. 썸네일은 동기화 안 되고 메타데이터/평가만 올라가. 다른 기기에서 받은 후 원본 PNG를 다시 드롭하면 같은 파일명으로 자동 매칭돼서 썸네일이 채워져.</div>
+    </div>
+    <div class="gist-status" id="gist-status"></div>
+    <div class="gist-btn-row">
+      <button class="gist-btn gist-btn-upload" id="gist-upload-btn">⬆ 업로드</button>
+      <button class="gist-btn gist-btn-download" id="gist-download-btn">⬇ 불러오기</button>
+    </div>
+    <div class="gist-hint" id="gist-autosave-hint" style="text-align:center;"></div>
+    <div class="gist-btn-row">
+      <button class="gist-btn gist-btn-cancel" id="gist-close-btn">닫기</button>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 <div id="ctx-menu" role="menu"></div>
 <script>
@@ -298,8 +379,32 @@ async function processFile(file){
 async function addFiles(files){
   const arr=[...files].filter(f=>f && (f.type.startsWith('image/') || /\.(png|jpe?g|webp)$/i.test(f.name)));
   if(!arr.length){toast('이미지 파일이 없어');return}
-  let ok=0; for(const f of arr){try{state.items.unshift(await processFile(f));ok++}catch(e){console.error(e);toast(f.name+' 읽기 실패')}}
-  state.selectedId=state.items[0]?.id||null; save(); render(); toast(ok+'개 추가했어');
+  let ok=0, filled=0;
+  for(const f of arr){
+    try{
+      // 동기화로 받은 thumbStripped 아이템에 매칭 (파일명 + 크기)
+      const existing=state.items.find(it=>it.thumbStripped && it.fileName===f.name && it.size===f.size);
+      if(existing){
+        const img=await makeThumb(f);
+        existing.thumb=img.thumb;
+        existing.thumbStripped=false;
+        existing.updatedAt=Date.now();
+        if(existing.meta){
+          if(!existing.meta.width) existing.meta.width=img.width;
+          if(!existing.meta.height) existing.meta.height=img.height;
+        }
+        filled++;
+      } else {
+        state.items.unshift(await processFile(f));
+        ok++;
+      }
+    }catch(e){console.error(e);toast(f.name+' 읽기 실패')}
+  }
+  state.selectedId=state.items[0]?.id||null;
+  save();render();
+  if(filled>0 && ok>0) toast(ok+'개 추가 · '+filled+'개 썸네일 채움');
+  else if(filled>0) toast(filled+'개 썸네일 채움 ✓');
+  else toast(ok+'개 추가했어');
 }
 function filtered(){
   let q=state.query.trim().toLowerCase();
@@ -328,7 +433,7 @@ function renderList(){
     const expanded=state.expandedIds.includes(it.id);
     const tagsArr=it.tags||[];
     const tagsMini=tagsArr.slice(0,5).map(t=>`<span class="tag-mini">#${esc(t)}</span>`).join('')+(tagsArr.length>5?`<span class="tag-mini">+${tagsArr.length-5}</span>`:'');
-    return `<article class="card ${it.id===state.selectedId?'active':''}${selectMode&&selectedIds.has(it.id)?' selected':''}" data-id="${it.id}"><div class="fav ${it.fav?'on':''}">${it.fav?'★':'☆'}</div><div class="thumb">${it.thumb?`<img src="${it.thumb}" alt="">`:'<span class="noimg">이미지 없음</span>'}</div><div class="card-info"><div class="card-title">${esc(it.title)}</div><div class="card-meta"><span class="pill ${statusClass(it.status)}">${esc(it.status)}</span><span class="pill">${stars(it.score)}</span>${it.meta&&it.meta.metaFound?'<span class="pill meta">meta</span>':''}</div><div class="card-tags-mini">${tagsMini}</div><div class="card-note">${esc(it.notes||it.meta?.model||it.meta?.source||'메모 없음')}</div><button class="card-expand-btn" data-expand="${it.id}"><span class="ce-arrow">${expanded?'▴':'▾'}</span><span class="ce-label">${expanded?'정보 접기':'정보 보기'}</span></button><div class="card-expanded ${expanded?'open':''}" data-eid="${it.id}">${cardExpandedHTML(it)}</div></div></article>`;
+    return `<article class="card ${it.id===state.selectedId?'active':''}${selectMode&&selectedIds.has(it.id)?' selected':''}" data-id="${it.id}"><div class="fav ${it.fav?'on':''}">${it.fav?'★':'☆'}</div><div class="thumb${it.thumbStripped?' stripped':''}">${it.thumb?`<img src="${it.thumb}" alt="">`:it.thumbStripped?'<span class="sync-noimg" title="원본 PNG를 다시 드롭하면 자동으로 채워져"><span class="sn-icon">☁</span>다른 기기에서<br>동기화됨<span class="sn-sub">원본 PNG 드롭 시 자동 매칭</span></span>':'<span class="noimg">이미지 없음</span>'}</div><div class="card-info"><div class="card-title">${esc(it.title)}</div><div class="card-meta"><span class="pill ${statusClass(it.status)}">${esc(it.status)}</span><span class="pill">${stars(it.score)}</span>${it.meta&&it.meta.metaFound?'<span class="pill meta">meta</span>':''}</div><div class="card-tags-mini">${tagsMini}</div><div class="card-note">${esc(it.notes||it.meta?.model||it.meta?.source||'메모 없음')}</div><button class="card-expand-btn" data-expand="${it.id}"><span class="ce-arrow">${expanded?'▴':'▾'}</span><span class="ce-label">${expanded?'정보 접기':'정보 보기'}</span></button><div class="card-expanded ${expanded?'open':''}" data-eid="${it.id}">${cardExpandedHTML(it)}</div></div></article>`;
   }).join('');
   box.classList.toggle('select-mode',selectMode);
   box.querySelectorAll('.card').forEach(c=>c.onclick=()=>{if(selectMode){toggleCardSelect(c.dataset.id,c);return;}state.selectedId=c.dataset.id;save();render()});
@@ -462,8 +567,218 @@ $('#save-detail-btn').onclick=saveDetail;['#d-title','#d-status','#d-score','#d-
 const dz=$('#drop-zone');['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('dragover')}));['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('dragover')}));dz.addEventListener('drop',e=>addFiles(e.dataTransfer.files));dz.addEventListener('click',()=>$('#file-input').click());
 document.addEventListener('paste',e=>{const files=[];[...(e.clipboardData?.items||[])].forEach(it=>{if(it.type.startsWith('image/')){const f=it.getAsFile();if(f)files.push(f)}});if(files.length){e.preventDefault();addFiles(files)}});
 window.addEventListener('keydown',e=>{const mod=e.ctrlKey||e.metaKey;if(e.key==='Escape'){if(selectMode)exitSelectMode();closeCtxMenu()}if(mod&&e.key.toLowerCase()==='f'){e.preventDefault();$('#search').focus()}if(mod&&e.key.toLowerCase()==='s'){e.preventDefault();saveDetail()}});
+// === Gist 동기화 ===
+const GIST_TOKEN_KEY='workshop_gist_token';
+const GIST_ID_KEY='workshop_gist_id';
+const GIST_FILE_NAME='result_gallery_data.json';
+const GIST_AUTO_INTERVAL=10*60*1000;
+let gistAutoSaveTimer=null;
+
+function stripThumbsForSync(s){
+  const cloned=JSON.parse(JSON.stringify(s));
+  if(Array.isArray(cloned.items)){
+    cloned.items.forEach(it=>{ delete it.thumb; it.thumbStripped=true; });
+  }
+  return cloned;
+}
+function openGistModal(){
+  const token=localStorage.getItem(GIST_TOKEN_KEY)||'';
+  const gistId=localStorage.getItem(GIST_ID_KEY)||'';
+  $('#gist-token-input').value=token;
+  $('#gist-id-input').value=gistId;
+  setGistStatus('','');
+  const hint=$('#gist-autosave-hint');
+  if(hint){
+    if(token&&gistId){ hint.textContent='⏱ 10분마다 자동저장 중'; hint.style.color='#6AC8B0'; }
+    else { hint.textContent='💡 토큰+ID 설정 후 자동저장이 활성화돼'; hint.style.color='var(--text3)'; }
+  }
+  $('#gist-overlay').classList.add('open');
+}
+function closeGistModal(){ $('#gist-overlay').classList.remove('open'); }
+function setGistStatus(msg,type){ const el=$('#gist-status'); el.textContent=msg||''; el.className='gist-status'+(type?' '+type:''); }
+function setSyncIndicator(s){ const el=$('#sync-indicator'); if(!el)return; el.className='sync-indicator'+(s==='ok'?' synced':s==='err'?' error':''); }
+function copyGistId(){
+  const id=$('#gist-id-input').value.trim();
+  if(!id){setGistStatus('Gist ID가 없어. 먼저 업로드해봐!','err');return;}
+  navigator.clipboard.writeText(id).then(
+    ()=>setGistStatus('Gist ID 복사됨! 다른 기기에서 붙여넣어봐.','ok'),
+    ()=>setGistStatus('복사 실패. 직접 선택해서 복사해줘.','err')
+  );
+}
+async function gistUpload(){
+  const token=$('#gist-token-input').value.trim();
+  const gistId=$('#gist-id-input').value.trim();
+  if(!token){setGistStatus('토큰을 입력해줘!','err');return;}
+  setGistStatus('업로드 중...','loading');
+  save();
+  await pushSlot(token, gistId, '수동');
+}
+async function pushSlot(token, gistId, deviceLabel){
+  let slots=[];
+  if(gistId){
+    try{
+      const r=await fetch('https://api.github.com/gists/'+gistId,{headers:{'Authorization':'token '+token,'Accept':'application/vnd.github.v3+json'}});
+      if(r.ok){
+        const d=await r.json();
+        const fc=d.files&&d.files[GIST_FILE_NAME]&&d.files[GIST_FILE_NAME].content;
+        if(fc){ try{ const p=JSON.parse(fc); slots=p.slots||[]; }catch(e){} }
+      }
+    }catch(e){}
+  }
+  slots.unshift({
+    savedAt:new Date().toISOString(),
+    device:deviceLabel,
+    state:stripThumbsForSync(state)
+  });
+  if(slots.length>5) slots=slots.slice(0,5);
+  const body={
+    description:'Result Gallery — 생성 이미지 결과 메타데이터 (썸네일 제외)',
+    public:false,
+    files:{[GIST_FILE_NAME]:{content:JSON.stringify({version:1,slots},null,2)}}
+  };
+  try{
+    let url='https://api.github.com/gists', method='POST';
+    if(gistId){ url='https://api.github.com/gists/'+gistId; method='PATCH'; }
+    const res=await fetch(url,{method,headers:{'Authorization':'token '+token,'Content-Type':'application/json','Accept':'application/vnd.github.v3+json'},body:JSON.stringify(body)});
+    if(!res.ok){
+      const err=await res.json().catch(()=>({}));
+      setGistStatus('오류: '+(err.message||res.status),'err');
+      setSyncIndicator('err'); return;
+    }
+    const data=await res.json();
+    localStorage.setItem(GIST_TOKEN_KEY,token);
+    localStorage.setItem(GIST_ID_KEY,data.id);
+    $('#gist-id-input').value=data.id;
+    setGistStatus('업로드 완료! Gist ID를 복사해서 다른 기기에서 써봐.','ok');
+    setSyncIndicator('ok');
+    toast('☁ Gist 업로드 완료');
+    startAutoSave();
+  }catch(e){
+    setGistStatus('네트워크 오류: '+e.message,'err');
+    setSyncIndicator('err');
+  }
+}
+async function gistDownload(){
+  const token=$('#gist-token-input').value.trim();
+  const gistId=$('#gist-id-input').value.trim();
+  if(!token){setGistStatus('토큰을 입력해줘!','err');return;}
+  if(!gistId){setGistStatus('Gist ID를 입력해줘!','err');return;}
+  setGistStatus('슬롯 목록 가져오는 중...','loading');
+  try{
+    const res=await fetch('https://api.github.com/gists/'+gistId,{headers:{'Authorization':'token '+token,'Accept':'application/vnd.github.v3+json'}});
+    if(!res.ok){
+      const err=await res.json().catch(()=>({}));
+      setGistStatus('오류: '+(err.message||res.status),'err');
+      setSyncIndicator('err'); return;
+    }
+    const data=await res.json();
+    const fc=data.files&&data.files[GIST_FILE_NAME]&&data.files[GIST_FILE_NAME].content;
+    if(!fc){setGistStatus(GIST_FILE_NAME+' 파일을 못 찾았어. CD Idea만 있는 Gist인지 확인해봐.','err');setSyncIndicator('err');return;}
+    const parsed=JSON.parse(fc);
+    const slots=parsed.slots||[];
+    if(!slots.length){setGistStatus('불러올 데이터가 없어.','err');return;}
+    setGistStatus('','');
+    showSlotPicker(slots, token, gistId);
+  }catch(e){
+    setGistStatus('오류: '+e.message,'err');
+    setSyncIndicator('err');
+  }
+}
+function showSlotPicker(slots, token, gistId){
+  const existing=document.getElementById('slot-picker-overlay');
+  if(existing) existing.remove();
+  const overlay=document.createElement('div');
+  overlay.id='slot-picker-overlay';
+  const box=document.createElement('div');
+  box.className='slot-picker-box';
+  box.innerHTML='<div class="slot-picker-title">버전 선택</div><div class="slot-picker-sub">불러올 버전을 선택해봐. 현재 데이터는 덮어씌워져!<br>(로컬에 있던 같은 파일명+크기 썸네일은 자동 보존돼)</div>';
+  slots.forEach((slot,i)=>{
+    const t=slot.savedAt?new Date(slot.savedAt).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'알 수 없음';
+    const itemCount=slot.state?.items?.length||0;
+    const favCount=(slot.state?.items||[]).filter(x=>x.fav).length;
+    const btn=document.createElement('button');
+    btn.className='slot-btn';
+    btn.innerHTML=`<div><div class="slot-title">${i===0?'🟢 최신':'📁 슬롯 '+(i+1)}</div><div class="slot-meta">${t} · ${slot.device||'알 수 없음'} · 이미지 ${itemCount}개 (★${favCount})</div></div><span class="slot-arrow">›</span>`;
+    btn.onclick=()=>{
+      overlay.remove();
+      // 로컬 썸네일 백업 (파일명+크기 기준)
+      const localThumbs=new Map();
+      (state.items||[]).forEach(it=>{ if(it.thumb && it.fileName){ localThumbs.set(it.fileName+'|'+it.size, it.thumb); } });
+      // 새 state 적용
+      state=slot.state;
+      // 마이그레이션 (download된 state에 새 필드 없을 수 있음)
+      if(!state.view) state.view='default';
+      if(!Array.isArray(state.tagFilter)) state.tagFilter=[];
+      if(!Array.isArray(state.loraFilter)) state.loraFilter=[];
+      if(!Array.isArray(state.expandedIds)) state.expandedIds=[];
+      // 매칭되는 로컬 썸네일 복구
+      let restored=0;
+      (state.items||[]).forEach(it=>{
+        if(it.thumbStripped){
+          const k=it.fileName+'|'+it.size;
+          const t=localThumbs.get(k);
+          if(t){ it.thumb=t; it.thumbStripped=false; restored++; }
+        }
+      });
+      state.selectedId=state.items?.[0]?.id||null;
+      save();
+      applyView();
+      render();
+      localStorage.setItem(GIST_TOKEN_KEY,token);
+      localStorage.setItem(GIST_ID_KEY,gistId);
+      setGistStatus(restored>0?`불러오기 완료! ${restored}개 썸네일 자동 복구.`:'불러오기 완료!','ok');
+      setSyncIndicator('ok');
+      toast('☁ Gist 불러오기 완료'+(restored>0?` (썸네일 ${restored}개 복구)`:''));
+      startAutoSave();
+    };
+    box.appendChild(btn);
+  });
+  const cancelBtn=document.createElement('button');
+  cancelBtn.className='slot-cancel-btn';
+  cancelBtn.textContent='취소';
+  cancelBtn.onclick=()=>overlay.remove();
+  box.appendChild(cancelBtn);
+  overlay.appendChild(box);
+  overlay.onclick=e=>{ if(e.target===overlay) overlay.remove(); };
+  document.body.appendChild(overlay);
+}
+async function gistAutoSave(){
+  const token=localStorage.getItem(GIST_TOKEN_KEY);
+  const gistId=localStorage.getItem(GIST_ID_KEY);
+  if(!token||!gistId)return;
+  save();
+  await pushSlot(token, gistId, '자동');
+  const now=new Date();
+  const time=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
+  toast('☁ 자동저장 완료 '+time);
+}
+function startAutoSave(){
+  if(gistAutoSaveTimer) clearInterval(gistAutoSaveTimer);
+  const token=localStorage.getItem(GIST_TOKEN_KEY);
+  const gistId=localStorage.getItem(GIST_ID_KEY);
+  if(token&&gistId){
+    gistAutoSaveTimer=setInterval(gistAutoSave, GIST_AUTO_INTERVAL);
+    setSyncIndicator('ok');
+  }
+}
+
 document.querySelectorAll('.vt-btn').forEach(b=>b.onclick=()=>setView(b.dataset.view));
 load();applyView();render();
+
+// Gist 핸들러 바인딩
+(function(){
+  const syncBtn=document.getElementById('sync-btn');
+  if(syncBtn) syncBtn.addEventListener('click',openGistModal);
+  document.getElementById('gist-upload-btn').addEventListener('click',gistUpload);
+  document.getElementById('gist-download-btn').addEventListener('click',gistDownload);
+  document.getElementById('gist-copy-btn').addEventListener('click',copyGistId);
+  document.getElementById('gist-close-btn').addEventListener('click',closeGistModal);
+  document.getElementById('gist-overlay').addEventListener('click',e=>{
+    if(e.target.id==='gist-overlay') closeGistModal();
+  });
+  // 시작 시 토큰/ID 있으면 자동저장 + 인디케이터 점등
+  startAutoSave();
+})();
 </script>
 </body>
 </html>
