@@ -353,6 +353,25 @@ function copyGistId(){
   );
 }
 
+
+async function readGistFileContent(file){
+  if(!file) return '';
+  if(file.raw_url && (!file.content || file.truncated)){
+    const res=await fetch(file.raw_url,{cache:'no-store'});
+    if(!res.ok) throw new Error('Gist raw 파일 읽기 실패: '+res.status);
+    return await res.text();
+  }
+  return file.content||'';
+}
+async function readGistSlotsFromData(data){
+  const file=data.files&&data.files[GIST_FILE_NAME];
+  if(!file) return null;
+  const fc=await readGistFileContent(file);
+  if(!fc) return null;
+  const parsed=JSON.parse(fc);
+  return parsed.slots||[];
+}
+
 async function gistUpload(){
   const token=$('gist-token-input').value.trim();
   const gistId=$('gist-id-input').value.trim();
@@ -371,11 +390,8 @@ async function pushSlot(token, gistId, deviceLabel){
       });
       if(r.ok){
         const d=await r.json();
-        const fc=d.files&&d.files[GIST_FILE_NAME]&&d.files[GIST_FILE_NAME].content;
-        if(fc){
-          const p=JSON.parse(fc);
-          slots=p.slots||[];
-        }
+        const remoteSlots=await readGistSlotsFromData(d);
+        if(remoteSlots) slots=remoteSlots;
       }
     }catch(e){}
   }
@@ -435,10 +451,8 @@ async function gistDownload(){
       return;
     }
     const data=await res.json();
-    const fc=data.files&&data.files[GIST_FILE_NAME]&&data.files[GIST_FILE_NAME].content;
-    if(!fc){setGistStatus(GIST_FILE_NAME+' 파일을 못 찾았어. (이 Gist에 LoRA Lab 업로드를 먼저 해봐)','err');setSyncIndicator('err');return;}
-    const parsed=JSON.parse(fc);
-    const slots=parsed.slots||[];
+    const slots=await readGistSlotsFromData(data);
+    if(!slots){setGistStatus(GIST_FILE_NAME+' 파일을 못 찾았어. (이 Gist에 LoRA Lab 업로드를 먼저 해봐)','err');setSyncIndicator('err');return;}
     if(!slots.length){setGistStatus('불러올 데이터가 없어.','err');return;}
     setGistStatus('','');
     showSlotPicker(slots, token, gistId);
@@ -526,5 +540,6 @@ $('gist-overlay').addEventListener('click',e=>{
 // 시작 시 토큰/ID 있으면 자동저장 시작 + 인디케이터 점등
 startAutoSave();
 </script>
+<script src="drive_sync.js"></script>
 </body>
 </html>

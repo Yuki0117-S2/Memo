@@ -1,12 +1,35 @@
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
+const express = require('express');
 
-// Windows 작업표시줄 아이콘 정확히 박히게 (이거 없으면 가끔 Electron 기본 아이콘 뜸)
+const PORT = 37642;
+let server = null;
+
+// Windows 작업표시줄 아이콘 고정
 if (process.platform === 'win32') {
   app.setAppUserModelId('com.kyeoul.memohub');
 }
 
-function createWindow() {
+function startLocalServer() {
+  return new Promise((resolve, reject) => {
+    const web = express();
+
+    // 현재 폴더의 html/js/css/png 등을 정적 파일로 제공
+    web.use(express.static(__dirname));
+
+    server = web.listen(PORT, '127.0.0.1', () => {
+      resolve(`http://127.0.0.1:${PORT}`);
+    });
+
+    server.on('error', (err) => {
+      reject(err);
+    });
+  });
+}
+
+async function createWindow() {
+  const baseUrl = await startLocalServer();
+
   const win = new BrowserWindow({
     width: 1280,
     height: 860,
@@ -15,25 +38,42 @@ function createWindow() {
     backgroundColor: '#ffffff',
     icon: path.join(__dirname, 'icon.png'),
     title: 'Memo Hub',
-    autoHideMenuBar: true, // 메뉴바 자동 숨김 (Alt 누르면 보임)
+    autoHideMenuBar: true,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
 
-  win.loadFile('index.html');
+  win.loadURL(`${baseUrl}/index.html`);
 
-  // 개발용: F12 누르면 DevTools 열림 (필요 없으면 주석 처리)
+  // 필요하면 개발 중에만 켜기
   // win.webContents.openDevTools();
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  createWindow().catch((err) => {
+    console.error(err);
+    app.quit();
+  });
+});
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+  if (server) server.close();
+
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});
+
+app.on('before-quit', () => {
+  if (server) server.close();
 });
 
 app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  if (BrowserWindow.getAllWindows().length === 0) {
+    createWindow().catch((err) => {
+      console.error(err);
+    });
+  }
 });
