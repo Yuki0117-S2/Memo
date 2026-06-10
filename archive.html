@@ -45,6 +45,32 @@
   .detail-toggle:hover{color:var(--accent);background:var(--bg)}
   .detail-panel.collapsed .panel-body{display:none}
   .detail-panel.collapsed .panel-head{border-bottom:0}
+
+  /* 컨텍스트 메뉴 */
+  #ctx-menu{position:fixed;z-index:9999;background:var(--bg);border:0.5px solid var(--border2);border-radius:var(--radius-sm);padding:4px;box-shadow:0 6px 24px rgba(0,0,0,0.18);min-width:180px;display:none;font-family:inherit}
+  #ctx-menu.open{display:block}
+  .ctx-item{display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:13px;color:var(--text);border-radius:4px;cursor:pointer;user-select:none}
+  .ctx-item:hover{background:var(--bg2)}
+  .ctx-item.danger{color:var(--danger)}
+  .ctx-icon{font-size:14px;width:18px;text-align:center;display:inline-block;flex-shrink:0;line-height:1}
+  .ctx-sep{height:0.5px;background:var(--border);margin:4px 0}
+  .ctx-submenu-trigger{position:relative}
+  .ctx-submenu-trigger::after{content:'›';margin-left:auto;color:var(--text3);font-size:14px}
+  .ctx-submenu{display:none;position:absolute;left:100%;top:0;background:var(--bg);border:0.5px solid var(--border2);border-radius:var(--radius-sm);padding:4px;box-shadow:0 6px 24px rgba(0,0,0,0.18);min-width:160px;max-height:300px;overflow-y:auto}
+  .ctx-submenu-trigger:hover>.ctx-submenu{display:block}
+
+  /* 일괄 선택 모드 */
+  #list.select-mode .card{cursor:pointer;user-select:none}
+  #list.select-mode .card.selected{outline:2px solid var(--danger);outline-offset:-2px}
+  #list.select-mode .card input,#list.select-mode .card textarea,#list.select-mode .card select,#list.select-mode .card button{pointer-events:none}
+  #select-bar{display:none;align-items:center;gap:8px;padding:8px 12px;margin-bottom:10px;background:var(--danger);color:#fff;border-radius:var(--radius-sm);font-size:13px;flex-wrap:wrap}
+  #select-bar.visible{display:flex}
+  #select-bar button{background:rgba(255,255,255,0.18);color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap}
+  #select-bar button:hover{background:rgba(255,255,255,0.28)}
+  #select-bar select{background:rgba(255,255,255,0.18);color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:12px;cursor:pointer;font-family:inherit;outline:none}
+  #select-bar select option{color:var(--text);background:var(--bg)}
+  #select-bar .grow{flex:1;min-width:0}
+  #select-bar .count{font-weight:600}
   .form-grid{display:grid;gap:9px}.field{display:grid;gap:4px}.field label{font-size:10px;color:var(--text3);letter-spacing:.6px;text-transform:uppercase;font-weight:700}.field input,.field textarea,.field select{width:100%;background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:12px;padding:8px 9px;outline:0}.field textarea{resize:vertical;min-height:70px;line-height:1.55}.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--accent)}.row{display:flex;gap:7px;align-items:center}.row>*{flex:1}.small{font-size:11px;color:var(--text3);line-height:1.45}.actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.actions .btn{font-size:12px;padding:7px 10px}
   .preview{background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:10px;font-family:Consolas,Menlo,monospace;font-size:11px;color:var(--text2);line-height:1.55;white-space:pre-wrap;word-break:break-word;max-height:290px;overflow:auto}.preview.empty-preview{font-family:inherit;color:var(--text3)}
   .tagline{display:flex;gap:4px;flex-wrap:wrap}.tag{font-size:11px;padding:2px 7px;background:var(--bg2);border:.5px solid var(--border);border-radius:999px;color:var(--text2);cursor:pointer}.tag:hover{border-color:var(--accent);color:var(--accent)}
@@ -112,6 +138,17 @@
       <button class="btn ghost" id="clear-filter-btn">필터 초기화</button>
     </div>
   </header>
+
+  <div id="select-bar">
+    <span class="count" id="select-count">0개 선택됨</span>
+    <span class="grow"></span>
+    <button id="select-all-btn">전체 선택</button>
+    <select id="select-cat-select" title="일괄 카테고리 변경"><option value="">분류 변경...</option></select>
+    <button id="select-fav-btn">★ 즐겨찾기</button>
+    <button id="select-unfav-btn">☆ 해제</button>
+    <button id="select-delete-btn">삭제</button>
+    <button id="select-cancel-btn">취소</button>
+  </div>
 
   <div class="split">
     <aside class="panel">
@@ -218,6 +255,7 @@
     </div>
   </div>
 </div>
+<div id="ctx-menu" role="menu"></div>
 <script>
 const STORE_KEY='archive_v1';
 const PREVIEW_LIMIT=3000;
@@ -316,15 +354,25 @@ function renderList(){
   const list=filtered(); const box=$('#list');
   $('#view-info').textContent=list.length+'개 표시'; $('#total-count').textContent=state.items.length+'개';
   if(!list.length){box.innerHTML='<div class="empty">자료가 없어. 파일을 드롭하거나 수동 추가해봐.</div>';return}
-  box.innerHTML=list.map(it=>`<article class="card ${it.id===state.selectedId?'active':''}" data-id="${it.id}">
+  box.innerHTML=list.map(it=>`<article class="card ${it.id===state.selectedId?'active':''}${selectMode&&selectedIds.has(it.id)?' selected':''}" data-id="${it.id}">
     <div class="fav ${it.fav?'on':''}">${it.fav?'★':'☆'}</div>
     <div class="card-title">${esc(it.title)}</div>
     <div class="card-meta"><span class="pill catpill">${esc(it.category)}</span><span class="pill">.${esc(it.ext)}</span><span class="pill">${bytes(it.size)}</span>${it.hasRaw?'<span class="pill raw">원문</span>':''}</div>
     <div class="card-summary">${esc(it.summary||it.preview||'요약 없음')}</div>
     <div class="tagline" style="margin-top:8px">${(it.tags||[]).slice(0,5).map(t=>`<span class="tag">#${esc(t)}</span>`).join('')}</div>
   </article>`).join('');
-  box.querySelectorAll('.card').forEach(c=>c.onclick=()=>{state.selectedId=c.dataset.id;save();render()});
-  box.querySelectorAll('.card .fav').forEach(f=>f.onclick=e=>{e.stopPropagation();const it=state.items.find(x=>x.id===f.closest('.card').dataset.id);if(!it)return;it.fav=!it.fav;save();render()});
+  box.querySelectorAll('.card').forEach(c=>c.onclick=()=>{
+    if(selectMode){toggleCardSelect(c.dataset.id,c);return;}
+    state.selectedId=c.dataset.id;save();render();
+  });
+  box.querySelectorAll('.card .fav').forEach(f=>f.onclick=e=>{
+    e.stopPropagation();
+    const cardEl=f.closest('.card');
+    if(selectMode){toggleCardSelect(cardEl.dataset.id,cardEl);return;}
+    const it=state.items.find(x=>x.id===cardEl.dataset.id);
+    if(!it)return;
+    it.fav=!it.fav;save();render();
+  });
 }
 function renderDetail(){
   const it=state.items.find(i=>i.id===state.selectedId);
@@ -378,6 +426,235 @@ $('#detail-toggle').onclick=()=>{
 };
 // 시작 시 마지막 상태 복원 (기본은 열림)
 setDetailOpen(localStorage.getItem('archive_detail_open')!=='0');
+
+// === 컨텍스트 메뉴 + 일괄 선택 모드 ===
+let ctxMenu=document.getElementById('ctx-menu');
+let selectMode=false;
+let selectedIds=new Set();
+
+function getCtxMenu(){
+  if(!ctxMenu) ctxMenu=document.getElementById('ctx-menu');
+  return ctxMenu;
+}
+function closeCtxMenu(){
+  const menu=getCtxMenu();
+  if(!menu)return;
+  menu.classList.remove('open');
+  menu.innerHTML='';
+}
+document.addEventListener('click',e=>{
+  const menu=getCtxMenu();
+  if(menu&&!menu.contains(e.target))closeCtxMenu();
+});
+document.addEventListener('scroll',closeCtxMenu,true);
+
+function openCtxMenu(x,y,items){
+  const ctxMenu=getCtxMenu();
+  if(!ctxMenu)return;
+  ctxMenu.innerHTML='';
+  items.forEach(it=>{
+    if(it.sep){const s=document.createElement('div');s.className='ctx-sep';ctxMenu.appendChild(s);return;}
+    const el=document.createElement('div');
+    el.className='ctx-item'+(it.danger?' danger':'')+(it.submenu?' ctx-submenu-trigger':'');
+    el.innerHTML='<span class="ctx-icon">'+(it.icon||'•')+'</span><span>'+esc(it.label)+'</span>';
+    if(it.submenu){
+      const sm=document.createElement('div');
+      sm.className='ctx-submenu';
+      it.submenu.forEach(sit=>{
+        const sel=document.createElement('div');
+        sel.className='ctx-item'+(sit.danger?' danger':'');
+        sel.innerHTML='<span class="ctx-icon">'+(sit.icon||'•')+'</span><span>'+esc(sit.label)+'</span>';
+        sel.addEventListener('click',ev=>{ev.stopPropagation();sit.action();closeCtxMenu();});
+        sm.appendChild(sel);
+      });
+      el.appendChild(sm);
+    }else if(it.action){
+      el.addEventListener('click',()=>{it.action();closeCtxMenu();});
+    }
+    ctxMenu.appendChild(el);
+  });
+  ctxMenu.classList.add('open');
+  const rect=ctxMenu.getBoundingClientRect();
+  const ww=window.innerWidth,wh=window.innerHeight;
+  if(x+rect.width>ww-8)x=ww-rect.width-8;
+  if(y+rect.height>wh-8)y=wh-rect.height-8;
+  ctxMenu.style.left=Math.max(8,x)+'px';
+  ctxMenu.style.top=Math.max(8,y)+'px';
+}
+
+// === 카드 액션 ===
+function duplicateItem(it){
+  const copy=JSON.parse(JSON.stringify(it));
+  copy.id=uid(); copy.title=(it.title||'')+' (복제)'; copy.createdAt=Date.now(); copy.updatedAt=Date.now(); copy.fav=false;
+  const idx=state.items.findIndex(x=>x.id===it.id);
+  state.items.splice(idx+1,0,copy);
+  state.selectedId=copy.id;
+  save(); render(); toast('복제했어');
+}
+function copyItemText(it){
+  const lines=[];
+  if(it.title) lines.push('# '+it.title);
+  if(it.category) lines.push('분류: '+it.category);
+  if(it.tags&&it.tags.length) lines.push('태그: '+it.tags.join(', '));
+  if(it.summary) lines.push('\n'+it.summary);
+  if(it.location) lines.push('\n위치: '+it.location);
+  if(it.preview) lines.push('\n[미리보기]\n'+it.preview);
+  navigator.clipboard.writeText(lines.join('\n')).then(()=>toast('전체 텍스트 복사됨'),()=>toast('복사 실패'));
+}
+function copyItemPreview(it){
+  if(!it.preview){toast('미리보기 없음');return;}
+  navigator.clipboard.writeText(it.preview).then(()=>toast('미리보기 복사됨'),()=>toast('복사 실패'));
+}
+function copyItemRaw(it){
+  if(!it.hasRaw){toast('원문 저장 안 된 항목');return;}
+  navigator.clipboard.writeText(it.raw||'').then(()=>toast('원문 복사됨'),()=>toast('복사 실패'));
+}
+function toggleItemFav(it){it.fav=!it.fav;save();render();}
+function setItemCategory(it,cat){if(it.category===cat)return;it.category=cat;it.updatedAt=Date.now();save();render();toast('분류 → '+cat);}
+function deleteItem(it){
+  if(!confirm('이 자료를 삭제할까? 원본 파일은 삭제되지 않아.'))return;
+  state.items=state.items.filter(x=>x.id!==it.id);
+  if(state.selectedId===it.id) state.selectedId=state.items[0]?.id||null;
+  save(); render(); toast('삭제했어');
+}
+
+// === 카드 컨텍스트 메뉴 ===
+function cardMenuItems(it){
+  const items=[
+    {icon:it.fav?'★':'☆', label:it.fav?'즐겨찾기 해제':'즐겨찾기', action:()=>toggleItemFav(it)},
+    {sep:true},
+    {icon:'📋', label:'카드 복제', action:()=>duplicateItem(it)},
+    {sep:true},
+    {icon:'📄', label:'미리보기 복사', action:()=>copyItemPreview(it)}
+  ];
+  if(it.hasRaw) items.push({icon:'📄', label:'원문 복사', action:()=>copyItemRaw(it)});
+  items.push(
+    {icon:'📋', label:'전체 텍스트 복사', action:()=>copyItemText(it)},
+    {sep:true},
+    {icon:'🗂', label:'분류 변경', submenu:CATEGORIES.map(c=>({icon:it.category===c?'●':' ',label:c,action:()=>setItemCategory(it,c)}))},
+    {sep:true},
+    {icon:'🗑', label:'삭제', danger:true, action:()=>deleteItem(it)}
+  );
+  return items;
+}
+
+// === 보드(자료 목록) 컨텍스트 메뉴 ===
+function boardMenuItems(){
+  return [
+    {icon:'＋', label:'파일 추가', action:()=>$('#file-input').click()},
+    {icon:'＋', label:'수동 추가', action:()=>manualAdd()},
+    {sep:true},
+    {icon:'☐', label:'일괄 선택 모드', action:()=>enterSelectMode()},
+    {icon:'⤺', label:'필터 초기화', action:()=>{state.activeCategory='전체';state.query='';state.rawFilter='all';state.favOnly=false;save();render();}},
+    {sep:true},
+    {icon:'⬆', label:'JSON 내보내기', action:()=>exportData()},
+    {icon:'⬇', label:'JSON 불러오기', action:()=>$('#import-input').click()},
+    {sep:true},
+    {icon:'☁', label:'Gist 동기화', action:()=>openGistModal()}
+  ];
+}
+
+// === 일괄 선택 모드 ===
+function enterSelectMode(){
+  selectMode=true; selectedIds.clear();
+  $('#list').classList.add('select-mode');
+  $('#select-bar').classList.add('visible');
+  const sel=$('#select-cat-select');
+  sel.innerHTML='<option value="">분류 변경...</option>'+CATEGORIES.map(c=>'<option value="'+esc(c)+'">'+esc(c)+'</option>').join('');
+  sel.value='';
+  updateSelectCount();
+}
+function exitSelectMode(){
+  selectMode=false; selectedIds.clear();
+  $('#list').classList.remove('select-mode');
+  document.querySelectorAll('.card.selected').forEach(c=>c.classList.remove('selected'));
+  $('#select-bar').classList.remove('visible');
+}
+function updateSelectCount(){$('#select-count').textContent=selectedIds.size+'개 선택됨';}
+function toggleCardSelect(id,cardEl){
+  if(selectedIds.has(id)){selectedIds.delete(id);cardEl.classList.remove('selected');}
+  else{selectedIds.add(id);cardEl.classList.add('selected');}
+  updateSelectCount();
+}
+
+$('#select-all-btn').addEventListener('click',()=>{
+  selectedIds.clear();
+  document.querySelectorAll('#list .card').forEach(c=>{selectedIds.add(c.dataset.id);c.classList.add('selected');});
+  updateSelectCount();
+});
+$('#select-delete-btn').addEventListener('click',()=>{
+  const n=selectedIds.size;
+  if(n===0){toast('선택된 게 없어');return;}
+  if(!confirm('선택한 '+n+'개 자료를 삭제할까?'))return;
+  state.items=state.items.filter(x=>!selectedIds.has(x.id));
+  if(state.selectedId&&selectedIds.has(state.selectedId)) state.selectedId=state.items[0]?.id||null;
+  save(); exitSelectMode(); render(); toast(n+'개 삭제됨');
+});
+$('#select-fav-btn').addEventListener('click',()=>{
+  const n=selectedIds.size;
+  if(n===0){toast('선택된 게 없어');return;}
+  state.items.forEach(it=>{if(selectedIds.has(it.id))it.fav=true;});
+  save(); render(); toast(n+'개 즐겨찾기 추가');
+});
+$('#select-unfav-btn').addEventListener('click',()=>{
+  const n=selectedIds.size;
+  if(n===0){toast('선택된 게 없어');return;}
+  state.items.forEach(it=>{if(selectedIds.has(it.id))it.fav=false;});
+  save(); render(); toast(n+'개 즐겨찾기 해제');
+});
+$('#select-cat-select').addEventListener('change',e=>{
+  const cat=e.target.value;
+  if(!cat)return;
+  const n=selectedIds.size;
+  if(n===0){toast('선택된 게 없어');e.target.value='';return;}
+  state.items.forEach(it=>{if(selectedIds.has(it.id)){it.category=cat;it.updatedAt=Date.now();}});
+  save(); render(); toast(n+'개 → '+cat);
+  e.target.value='';
+});
+$('#select-cancel-btn').addEventListener('click',exitSelectMode);
+
+// === 우클릭 + 더블탭 트리거 ===
+document.addEventListener('contextmenu',e=>{
+  if(selectMode)return;
+  if(e.target.closest('input,textarea,select'))return;
+  const cardEl=e.target.closest('#list .card');
+  const listArea=e.target.closest('main.panel');
+  if(cardEl){
+    e.preventDefault();
+    const it=state.items.find(x=>x.id===cardEl.dataset.id);
+    if(it) openCtxMenu(e.clientX,e.clientY,cardMenuItems(it));
+  }else if(listArea){
+    e.preventDefault();
+    openCtxMenu(e.clientX,e.clientY,boardMenuItems());
+  }
+});
+
+let lastTap={t:0,x:0,y:0};
+document.addEventListener('touchend',e=>{
+  if(selectMode)return;
+  if(!e.changedTouches||!e.changedTouches[0])return;
+  const t=e.changedTouches[0];
+  const now=Date.now();
+  const dt=now-lastTap.t;
+  const dx=Math.abs(t.clientX-lastTap.x);
+  const dy=Math.abs(t.clientY-lastTap.y);
+  if(dt<350&&dx<25&&dy<25){
+    if(t.target.closest&&t.target.closest('input,textarea,select,button,a'))return;
+    const cardEl=t.target.closest&&t.target.closest('#list .card');
+    const listArea=t.target.closest&&t.target.closest('main.panel');
+    if(cardEl){
+      const it=state.items.find(x=>x.id===cardEl.dataset.id);
+      if(it){e.preventDefault();openCtxMenu(t.clientX,t.clientY,cardMenuItems(it));}
+    }else if(listArea){
+      e.preventDefault();
+      openCtxMenu(t.clientX,t.clientY,boardMenuItems());
+    }
+    lastTap.t=0;
+  }else{
+    lastTap={t:now,x:t.clientX,y:t.clientY};
+  }
+},{passive:false});
+
 // === Gist 동기화 (workshop 공용 키) ===
 const GIST_TOKEN_KEY='workshop_gist_token';
 const GIST_ID_KEY='workshop_gist_id';
@@ -575,5 +852,6 @@ startAutoSave();
 
 load(); render();
 </script>
+
 </body>
 </html>
