@@ -296,7 +296,7 @@ async function processFile(file){
   return {id:uid(),title:file.name,fileName:file.name,size:file.size,type:file.type||'',thumb:img.thumb,createdAt:Date.now(),updatedAt:Date.now(),status:'보류',score:0,fav:false,tags:uniq(tags),notes:'',meta};
 }
 async function addFiles(files){
-  const arr=[...files].filter(f=>f&&f.type.startsWith('image/')||/\.(png|jpe?g|webp)$/i.test(f.name));
+  const arr=[...files].filter(f=>f && (f.type.startsWith('image/') || /\.(png|jpe?g|webp)$/i.test(f.name)));
   if(!arr.length){toast('이미지 파일이 없어');return}
   let ok=0; for(const f of arr){try{state.items.unshift(await processFile(f));ok++}catch(e){console.error(e);toast(f.name+' 읽기 실패')}}
   state.selectedId=state.items[0]?.id||null; save(); render(); toast(ok+'개 추가했어');
@@ -344,14 +344,17 @@ function renderList(){
       if(selectMode)return;
       e.stopPropagation();
       const id=b.dataset.expand;
+      state.selectedId=id;
       const idx=state.expandedIds.indexOf(id);
       if(idx>=0)state.expandedIds.splice(idx,1); else state.expandedIds.push(id);
       save();
       const open=idx<0;
+      document.querySelectorAll('#list .card').forEach(card=>card.classList.toggle('active', card.dataset.id===id));
       const exp=b.parentElement.querySelector(`.card-expanded[data-eid="${id}"]`);
       if(exp)exp.classList.toggle('open',open);
       const arrow=b.querySelector('.ce-arrow'); if(arrow)arrow.textContent=open?'▴':'▾';
       const label=b.querySelector('.ce-label'); if(label)label.textContent=open?'정보 접기':'정보 보기';
+      if(state.view!=='gallery') renderDetail();
     });
     box.querySelectorAll('.ce-prompt-copy').forEach(b=>b.onclick=e=>{
       e.stopPropagation();
