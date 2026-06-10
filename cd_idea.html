@@ -447,14 +447,17 @@
   .tag:hover .tag-del { display: inline-flex; }
   .tag .tag-del:hover { color: var(--accent2); }
 
-  /* 즐겨찾기 별표 */
+  /* 즐겨찾기 별표 - Archive/Result Gallery 쪽 조작감에 맞춰 클릭 영역 확대 */
   .card-fav-btn {
-    background: none; border: none; cursor: pointer;
-    color: var(--text3); font-size: 14px; padding: 0 1px;
-    display: flex; align-items: center; opacity: 0.5;
+    background: var(--bg); border: 0.5px solid transparent; cursor: pointer;
+    color: var(--text3); font-size: 16px; padding: 4px 6px;
+    width: 28px; height: 28px; border-radius: var(--radius-md);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0.78; flex-shrink: 0; touch-action: manipulation;
+    transition: color 0.12s, background 0.12s, border-color 0.12s, opacity 0.12s;
   }
-  .card-fav-btn:hover { opacity: 1; color: var(--accent4); }
-  .card-fav-btn.active { opacity: 1; color: var(--accent4); }
+  .card-fav-btn:hover { opacity: 1; color: var(--accent4); background: var(--bg); border-color: var(--border); }
+  .card-fav-btn.active { opacity: 1; color: var(--accent4); background: var(--bg); border-color: rgba(204,170,136,.35); }
 
   /* 검색 매칭 강조 */
   .idea-card.search-match { box-shadow: 0 0 0 2px var(--accent3) !important; }
@@ -1179,11 +1182,13 @@ function makeCard(data,tab){
     favbtn.addEventListener('mousedown',e=>e.stopPropagation());
     favbtn.addEventListener('touchstart',e=>e.stopPropagation(),{passive:true});
     favbtn.addEventListener('click',e=>{
+      e.preventDefault();
       e.stopPropagation();
       pushHistory();
       data.fav=!data.fav;
-      favbtn.classList.toggle('active',data.fav);
-      save(); applyFilter();
+      save();
+      // Archive / Result Gallery처럼 저장 후 재렌더해서 별 색상 반영이 늦게 보이는 문제를 줄임
+      renderAll();
     });
   }
 
