@@ -8,6 +8,7 @@
 
   const DRIVE_CLIENT_KEY='workshop_drive_client_id';
   const DRIVE_DEVICE_KEY='workshop_drive_device_name';
+  const DEFAULT_DRIVE_CLIENT_ID='543112547778-f5mul1dqjc7gkcp9vb6ecspl1qme6b4e.apps.googleusercontent.com';
   const DRIVE_SCOPE='https://www.googleapis.com/auth/drive.appdata';
   const DRIVE_API='https://www.googleapis.com/drive/v3/files';
   const DRIVE_UPLOAD='https://www.googleapis.com/upload/drive/v3/files';
@@ -168,14 +169,14 @@
     q('#drive-upload-btn').onclick=uploadDriveSlot;
     q('#drive-load-btn').onclick=listDriveSlots;
     q('#drive-forget-btn').onclick=()=>{
-      localStorage.removeItem(DRIVE_CLIENT_KEY); accessToken=''; tokenClient=null; setStatus('Drive 설정을 지웠어. Client ID를 다시 넣으면 돼.','ok');
-      q('#drive-client-id').value='';
+      localStorage.removeItem(DRIVE_CLIENT_KEY); accessToken=''; tokenClient=null; setStatus('Drive 설정을 지웠어. 기본 Client ID로 되돌렸어.','ok');
+      q('#drive-client-id').value=DEFAULT_DRIVE_CLIENT_ID||'';
     };
   }
 
   function openModal(){
     ensureStyles(); ensureModal();
-    q('#drive-client-id').value=localStorage.getItem(DRIVE_CLIENT_KEY)||'';
+    q('#drive-client-id').value=localStorage.getItem(DRIVE_CLIENT_KEY)||DEFAULT_DRIVE_CLIENT_ID||'';
     q('#drive-device-name').value=deviceName();
     q('#drive-slot-list').innerHTML='';
     setStatus((accessToken?'Drive 연결됨. ':'')+'현재 Drive 파일: '+appFileName(), accessToken?'ok':'');
@@ -253,7 +254,7 @@
   }
 
   async function ensureToken(options={}){
-    const clientId=(q('#drive-client-id')?.value||localStorage.getItem(DRIVE_CLIENT_KEY)||'').trim();
+    const clientId=(q('#drive-client-id')?.value||localStorage.getItem(DRIVE_CLIENT_KEY)||DEFAULT_DRIVE_CLIENT_ID||'').trim();
     const dev=(q('#drive-device-name')?.value||deviceName()).trim()||'device';
     if(!clientId) throw new Error('Google OAuth Client ID를 먼저 넣어줘.');
     localStorage.setItem(DRIVE_CLIENT_KEY,clientId);
@@ -265,7 +266,7 @@
   }
 
   async function trySilentReconnect(){
-    const clientId=(localStorage.getItem(DRIVE_CLIENT_KEY)||'').trim();
+    const clientId=(localStorage.getItem(DRIVE_CLIENT_KEY)||DEFAULT_DRIVE_CLIENT_ID||'').trim();
     if(!clientId || accessToken) return;
     try{
       await loadGis();
