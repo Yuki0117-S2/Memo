@@ -335,21 +335,66 @@ function findTextFrom(prompt,v,seen=new Set()){
   for(const val of Object.values(n.inputs||{})){const t=findTextFrom(prompt,val,seen); if(t)return t;}
   return '';
 }
+// 위젯 값이 외부 노드 링크([id,slot])로 연결돼 있으면 1칸 따라가 실제 값을 회수한다.
+// (PrimitiveFloat/INTConstant/JPS Settings 등으로 cfg·steps·sampler 를 분리 운용하는 워크플로 대응)
+function resolveWidget(prompt,val,depth){
+  depth=depth||0;
+  if(!Array.isArray(val)) return (val===undefined||val===null)?null:val;
+  if(depth>4) return null;
+  const src=prompt[val[0]]; if(!src||!src.inputs) return null;
+  const slot=val[1];
+  const widgets=Object.values(src.inputs).filter(v=>typeof v==='number'||typeof v==='string'||typeof v==='boolean');
+  let picked = widgets.length<=1 ? widgets[0] : ((slot!=null&&widgets[slot]!==undefined)?widgets[slot]:widgets[0]);
+  return picked!==undefined?picked:null;
+}
+function isEmptyLatentNode(n){return !!(n && /Empty.*Latent/i.test(cls(n)))}
+
 function pickPromptGraph(prompt){
-  const entries=nodeEntries(prompt); const samplers=entries.filter(([id,n])=>/KSampler/i.test(cls(n))||('seed' in (n.inputs||{})&&'steps' in (n.inputs||{}))).sort((a,b)=>Number(b[0])-Number(a[0]));
-  const sampler=samplers[0]?.[1]||{}; const sin=sampler.inputs||{};
+  const entries=nodeEntries(prompt);
+
+  // ── 샘플러 선택: base latent 에 연결된 KSampler 우선(디테일러 오선택 방지), 없으면 ID 내림차순 폴백 ──
+  const samplerCands=entries.filter(([id,n])=>/KSampler/i.test(cls(n))||('seed' in (n.inputs||{})&&'steps' in (n.inputs||{})));
+  let samplerEntry=samplerCands.find(([id,n])=>{
+    const li=input(n,'latent_image'); return Array.isArray(li)&&isEmptyLatentNode(prompt[li[0]]);
+  });
+  if(!samplerEntry) samplerEntry=[...samplerCands].sort((a,b)=>Number(b[0])-Number(a[0]))[0];
+  const sampler=samplerEntry?.[1]||{}; const sin=sampler.inputs||{};
+
+  // ── 모델: CheckpointLoader 우선, 없으면 Anima UNETLoader ──
+  let model='';
   const ckpts=entries.filter(([id,n])=>/CheckpointLoader/i.test(cls(n))).map(([id,n])=>input(n,'ckpt_name')).filter(Boolean);
-  const loras=entries.filter(([id,n])=>/LoraLoader/i.test(cls(n))).map(([id,n])=>({name:input(n,'lora_name')||'',strength_model:input(n,'strength_model'),strength_clip:input(n,'strength_clip')})).filter(x=>x.name);
-  const latents=entries.filter(([id,n])=>/EmptyLatentImage/i.test(cls(n))).map(([id,n])=>n.inputs||{});
+  if(ckpts[0]) model=ckpts[0];
+  else { const unet=entries.find(([id,n])=>/UNETLoader/i.test(cls(n))); if(unet) model=input(unet[1],'unet_name')||''; }
+
+  // ── 로라: 표준 LoraLoader + Power Lora Loader (rgthree) ──
+  const loras=[];
+  entries.filter(([id,n])=>/^LoraLoader/i.test(cls(n))).forEach(([id,n])=>{
+    const name=input(n,'lora_name'); if(name) loras.push({name,strength_model:input(n,'strength_model'),strength_clip:input(n,'strength_clip')});
+  });
+  const rg=entries.find(([id,n])=>/Power Lora Loader/i.test(cls(n)));
+  if(rg){ const ri=rg[1].inputs||{}; for(let k=1;k<=20;k++){ const lo=ri['lora_'+k]; if(lo&&lo.on&&lo.lora&&lo.lora!=='None'){ loras.push({name:lo.lora,strength_model:lo.strength,strength_clip:(lo.strengthTwo!=null?lo.strengthTwo:lo.strength)}); } } }
+
+  // ── 해상도: base latent 노드 우선 ──
+  const latentEntry=entries.find(([id,n])=>isEmptyLatentNode(n));
+  let width, height;
+  if(latentEntry){ const li=latentEntry[1].inputs||{}; width=resolveWidget(prompt,li.width); height=resolveWidget(prompt,li.height); }
+
+  // ── 프롬프트 ──
   let positive=findTextFrom(prompt,sin.positive); let negative=findTextFrom(prompt,sin.negative);
   if(!positive||!negative){
     const texts=entries.filter(([id,n])=>/CLIPTextEncode/i.test(cls(n))).map(([id,n])=>input(n,'text')).filter(Boolean);
     if(!positive)positive=texts[0]||''; if(!negative)negative=texts[1]||'';
   }
+
   return {
-    model: ckpts[0]||'', loras, seed:sin.seed, steps:sin.steps, cfg:sin.cfg,
-    sampler:sin.sampler_name||'', scheduler:sin.scheduler||'', denoise:sin.denoise,
-    width:latents[0]?.width, height:latents[0]?.height,
+    model, loras,
+    seed: resolveWidget(prompt,sin.seed) ?? resolveWidget(prompt,sin.noise_seed),
+    steps: resolveWidget(prompt,sin.steps),
+    cfg: resolveWidget(prompt,sin.cfg),
+    sampler: resolveWidget(prompt,sin.sampler_name) || '',
+    scheduler: resolveWidget(prompt,sin.scheduler) || '',
+    denoise: resolveWidget(prompt,sin.denoise),
+    width, height,
     positive, negative
   };
 }
