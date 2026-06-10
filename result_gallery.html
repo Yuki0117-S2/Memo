@@ -267,7 +267,7 @@ header{display:flex;align-items:center;gap:10px;border-bottom:.5px solid var(--b
         <input class="gist-input" type="text" id="gist-id-input" placeholder="처음엔 비워두기">
         <button class="gist-copy-btn" id="gist-copy-btn" title="Gist ID 복사">📋</button>
       </div>
-      <div class="gist-hint">💡 작업실의 다른 도구(CD Idea 등)랑 같은 Gist를 공유해. 썸네일은 동기화 안 되고 메타데이터/평가만 올라가. 다른 기기에서 받은 후 원본 PNG를 다시 드롭하면 같은 파일명으로 자동 매칭돼서 썸네일이 채워져.</div>
+      <div class="gist-hint">💡 작업실의 다른 도구(CD Idea / Archive)랑 같은 Gist를 공유해. 동기화엔 <b>메타데이터 + 평가</b>만 올라가 (썸네일 · rawMeta 제외). 다른 기기에서 원본 PNG를 다시 드롭하면 같은 파일명+크기로 자동 매칭돼서 썸네일이 채워져.</div>
     </div>
     <div class="gist-status" id="gist-status"></div>
     <div class="gist-btn-row">
@@ -574,10 +574,16 @@ const GIST_FILE_NAME='result_gallery_data.json';
 const GIST_AUTO_INTERVAL=10*60*1000;
 let gistAutoSaveTimer=null;
 
-function stripThumbsForSync(s){
+function stripStateForSync(s){
   const cloned=JSON.parse(JSON.stringify(s));
   if(Array.isArray(cloned.items)){
-    cloned.items.forEach(it=>{ delete it.thumb; it.thumbStripped=true; });
+    cloned.items.forEach(it=>{
+      delete it.thumb;
+      it.thumbStripped=true;
+      // rawMeta는 디버깅용(ComfyUI 워크플로우 JSON 원본). positive/negative/model/loras 등은 이미 별도 추출돼 있음.
+      // 아이템당 최대 20KB라 동기화에서 빼면 70~80% 절감.
+      if(it.meta && it.meta.rawMeta) delete it.meta.rawMeta;
+    });
   }
   return cloned;
 }
@@ -628,11 +634,11 @@ async function pushSlot(token, gistId, deviceLabel){
   slots.unshift({
     savedAt:new Date().toISOString(),
     device:deviceLabel,
-    state:stripThumbsForSync(state)
+    state:stripStateForSync(state)
   });
   if(slots.length>5) slots=slots.slice(0,5);
   const body={
-    description:'Result Gallery — 생성 이미지 결과 메타데이터 (썸네일 제외)',
+    description:'Workshop — 작업실 통합 데이터',
     public:false,
     files:{[GIST_FILE_NAME]:{content:JSON.stringify({version:1,slots},null,2)}}
   };
