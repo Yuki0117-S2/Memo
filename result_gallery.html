@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>✦ Result Gallery</title>
+<style>
+:root{
+  --bg:#ffffff;--bg2:#f7f6f3;--bg3:#eeeeee;
+  --text:#1a1a1a;--text2:#555;--text3:#999;
+  --border:rgba(0,0,0,.10);--border2:rgba(0,0,0,.20);
+  --accent:#8888CC;--accent2:#DDAACC;--accent3:#CCAA88;--danger:#BB6688;
+  --ok:#6AC8B0;--radius:12px;--radius-sm:8px;
+}
+@media(prefers-color-scheme:dark){:root{--bg:#1e1e1e;--bg2:#272727;--bg3:#313131;--text:#f0f0f0;--text2:#aaa;--text3:#666;--border:rgba(255,255,255,.10);--border2:rgba(255,255,255,.22)}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+button,input,textarea,select{font-family:inherit}
+#app{width:100%;max-width:1460px;margin:0 auto;padding:1rem 1.25rem 3rem}
+header{display:flex;align-items:center;gap:10px;border-bottom:.5px solid var(--border);padding-bottom:.75rem;margin-bottom:.75rem;flex-wrap:wrap}
+.back{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;color:var(--text3);text-decoration:none;border-radius:var(--radius-sm);font-size:18px}.back:hover{background:var(--bg2);color:var(--accent)}
+.logo{font-size:15px;font-weight:700;color:var(--accent);letter-spacing:-.2px;margin-right:8px}.toolbar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;flex:1}.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;border:0;background:var(--accent);color:white;border-radius:var(--radius-sm);padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}.btn:hover{opacity:.86}.btn.outline{background:transparent;color:var(--accent);border:.5px solid var(--accent)}.btn.outline:hover{background:var(--accent);color:white;opacity:1}.btn.danger{background:var(--danger)}.btn.ghost{background:var(--bg2);color:var(--text2);border:.5px solid var(--border)}
+.split{display:grid;grid-template-columns:240px minmax(430px,1fr) 420px;gap:12px;align-items:start}.panel{background:var(--bg);border:.5px solid var(--border);border-radius:var(--radius);overflow:hidden}.panel-head{padding:11px 13px;border-bottom:.5px solid var(--border);background:var(--bg2);font-size:12px;font-weight:700;color:var(--text2);display:flex;align-items:center;justify-content:space-between;gap:8px}.panel-body{padding:12px}
+#drop-zone{border:1px dashed var(--border2);border-radius:var(--radius);padding:22px 14px;text-align:center;background:var(--bg2);color:var(--text3);font-size:12px;line-height:1.65;margin-bottom:12px;transition:.15s;cursor:pointer}#drop-zone.dragover{border-color:var(--accent);color:var(--accent);background:rgba(136,136,204,.08)}.hint{font-size:11px;color:var(--text3);line-height:1.55}.hint strong{color:var(--text2)}
+.searchbar{display:flex;align-items:center;gap:7px;background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:7px 10px;margin-bottom:10px}.searchbar input{flex:1;min-width:0;border:0;background:transparent;outline:0;color:var(--text);font-size:13px}.searchbar button{border:0;background:transparent;color:var(--text3);cursor:pointer;display:none}.searchbar button.visible{display:block}.searchbar button:hover{color:var(--danger)}
+.cat-list{display:flex;flex-direction:column;gap:4px;margin:8px 0 12px}.cat{display:flex;align-items:center;justify-content:space-between;gap:8px;border:.5px solid transparent;background:transparent;color:var(--text2);padding:8px 10px;border-radius:var(--radius-sm);font-size:12px;cursor:pointer;text-align:left}.cat:hover{background:var(--bg2)}.cat.active{background:var(--accent);color:white}.cat .count{font-size:10px;color:inherit;opacity:.7}.stats{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px}.stat{background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:9px}.stat b{display:block;font-size:14px;color:var(--accent);margin-bottom:2px}.stat span{font-size:10px;color:var(--text3)}
+.sort-row{display:flex;gap:6px;align-items:center;margin-bottom:10px;flex-wrap:wrap}.sort-row select,.sort-row input{background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text2);font-size:12px;padding:6px 8px;outline:0}.small{font-size:11px;color:var(--text3);line-height:1.45}
+#list{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}.card{border:.5px solid var(--border);background:var(--bg);border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:.12s;position:relative}.card:hover{border-color:var(--border2);box-shadow:0 4px 16px rgba(0,0,0,.06)}.card.active{outline:2px solid var(--accent);outline-offset:-2px}.thumb{aspect-ratio:1/1;background:var(--bg2);display:flex;align-items:center;justify-content:center;overflow:hidden}.thumb img{width:100%;height:100%;object-fit:cover;display:block}.thumb .noimg{font-size:12px;color:var(--text3)}.card-info{padding:10px}.card-title{font-size:12px;font-weight:700;color:var(--text);line-height:1.35;word-break:break-all;padding-right:22px}.fav{position:absolute;right:5px;top:5px;color:#fff;background:rgba(0,0,0,.35);font-size:16px;cursor:pointer;padding:3px 6px;border-radius:999px;line-height:1;z-index:2;user-select:none}.fav.on{color:var(--accent3)}.card-meta{display:flex;gap:4px;flex-wrap:wrap;margin:7px 0}.pill{font-size:10px;padding:2px 7px;border-radius:999px;background:var(--bg2);border:.5px solid var(--border);color:var(--text2)}.pill.status-ok{background:rgba(106,200,176,.12);color:var(--ok);border-color:rgba(106,200,176,.32)}.pill.status-bad{background:rgba(187,102,136,.12);color:var(--danger);border-color:rgba(187,102,136,.28)}.pill.meta{color:white;background:var(--accent);border-color:var(--accent)}.card-note{font-size:11px;color:var(--text3);line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap}.empty{grid-column:1/-1;text-align:center;color:var(--text3);font-size:13px;padding:4rem 1rem;border:.5px dashed var(--border);border-radius:var(--radius);background:var(--bg2)}
+.form-grid{display:grid;gap:9px}.field{display:grid;gap:4px}.field label{font-size:10px;color:var(--text3);letter-spacing:.6px;text-transform:uppercase;font-weight:700}.field input,.field textarea,.field select{width:100%;background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:12px;padding:8px 9px;outline:0}.field textarea{resize:vertical;min-height:70px;line-height:1.55}.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--accent)}.row{display:flex;gap:7px;align-items:center}.row>*{flex:1}.actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.actions .btn{font-size:12px;padding:7px 10px}.preview-img{width:100%;border-radius:var(--radius-sm);border:.5px solid var(--border);background:var(--bg2);overflow:hidden}.preview-img img{width:100%;display:block}.kv{display:grid;grid-template-columns:90px 1fr;gap:5px 8px;background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:10px;font-size:11px}.kv b{color:var(--text3);font-weight:700}.kv span{color:var(--text2);word-break:break-all}.codebox{background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:10px;font-family:Consolas,Menlo,monospace;font-size:11px;color:var(--text2);line-height:1.55;white-space:pre-wrap;word-break:break-word;max-height:220px;overflow:auto}.tagline{display:flex;gap:4px;flex-wrap:wrap}.tag{font-size:11px;padding:2px 7px;background:var(--bg2);border:.5px solid var(--border);border-radius:999px;color:var(--text2)}
+#file-input,#import-input{position:absolute;width:1px;height:1px;padding:0;border:0;clip:rect(0 0 0 0);overflow:hidden;opacity:0;pointer-events:none}.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:9px 13px;border-radius:999px;font-size:12px;z-index:9999;box-shadow:0 8px 28px rgba(0,0,0,.18);opacity:0;pointer-events:none;transition:.18s}.toast.show{opacity:1}
+#lightbox{position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.86);display:none;align-items:center;justify-content:center;padding:20px}#lightbox.open{display:flex}#lightbox img{max-width:96vw;max-height:94vh;object-fit:contain}.lb-close{position:absolute;top:14px;right:18px;background:none;border:0;color:#fff;font-size:30px;cursor:pointer}
+@media(max-width:1120px){.split{grid-template-columns:220px 1fr}.detail-panel{grid-column:1/-1}}
+@media(max-width:720px){#app{padding:.75rem .8rem 2rem}.split{grid-template-columns:1fr}.toolbar{width:100%}.btn{padding:7px 10px}.panel-body{padding:10px}.logo{width:100%;margin-bottom:2px}#list{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.card-info{padding:8px}.row{flex-direction:column;align-items:stretch}.kv{grid-template-columns:78px 1fr}.preview-img{max-height:70vh;overflow:auto}}
+@media(max-width:380px){#list{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="app">
+<header>
+  <a class="back" href="index.html" title="작업실로">‹</a>
+  <div class="logo">✦ Result Gallery</div>
+  <div class="toolbar">
+    <button class="btn" id="pick-btn">이미지 추가</button>
+    <button class="btn outline" id="export-btn">내보내기</button>
+    <button class="btn outline" id="import-btn">불러오기</button>
+    <button class="btn ghost" id="clear-filter-btn">필터 초기화</button>
+  </div>
+</header>
+<div class="split">
+  <aside class="panel">
+    <div class="panel-head">필터 <span id="total-count">0</span></div>
+    <div class="panel-body">
+      <div id="drop-zone">ComfyUI 원본 PNG를 드롭하거나 탭<br><span class="hint">PNG 메타데이터에서 seed · steps · CFG · sampler · prompt를 자동 추출</span></div>
+      <div class="cat-list" id="status-list"></div>
+      <div class="hint"><strong>주의</strong><br>메신저/웹 업로드를 거친 이미지는 메타데이터가 제거될 수 있어. 이 경우 값은 확인 불가로 남겨둬.</div>
+      <div class="stats">
+        <div class="stat"><b id="stat-items">0</b><span>이미지</span></div>
+        <div class="stat"><b id="stat-meta">0</b><span>메타 감지</span></div>
+        <div class="stat"><b id="stat-fav">0</b><span>즐겨찾기</span></div>
+        <div class="stat"><b id="stat-store">0KB</b><span>저장량 추정</span></div>
+      </div>
+    </div>
+  </aside>
+  <main class="panel">
+    <div class="panel-head">결과 목록 <span id="view-info"></span></div>
+    <div class="panel-body">
+      <div class="searchbar"><span>⌕</span><input id="search" placeholder="파일명 / 모델 / LoRA / 프롬프트 / 메모 검색..."><button id="search-clear">×</button></div>
+      <div class="sort-row">
+        <select id="sort-select"><option value="new">최신순</option><option value="old">오래된순</option><option value="score">점수순</option><option value="name">이름순</option></select>
+        <select id="score-filter"><option value="all">전체 점수</option><option value="5">★★★★★</option><option value="4">★★★★ 이상</option><option value="3">★★★ 이상</option><option value="0">미평가</option></select>
+        <label class="small"><input type="checkbox" id="fav-only"> 즐겨찾기만</label>
+      </div>
+      <div id="list"></div>
+    </div>
+  </main>
+  <section class="panel detail-panel">
+    <div class="panel-head">상세 / 평가 <span id="selected-state">선택 없음</span></div>
+    <div class="panel-body">
+      <div id="detail-empty" class="hint">이미지를 선택해봐. 원본 ComfyUI PNG면 메타데이터를 자동으로 읽어서 채워둘게.</div>
+      <div id="detail" style="display:none">
+        <div class="form-grid">
+          <div class="preview-img"><img id="d-img" alt=""></div>
+          <div class="field"><label>제목</label><input id="d-title"></div>
+          <div class="row">
+            <div class="field"><label>상태</label><select id="d-status"><option>보류</option><option>성공</option><option>재작업</option><option>폐기</option></select></div>
+            <div class="field"><label>점수</label><select id="d-score"><option value="0">미평가</option><option value="5">★★★★★</option><option value="4">★★★★</option><option value="3">★★★</option><option value="2">★★</option><option value="1">★</option></select></div>
+          </div>
+          <div class="field"><label>태그 ,로 구분</label><input id="d-tags" placeholder="watercolor, good-hands, retry"></div>
+          <div class="field"><label>메모 / 실패 이유</label><textarea id="d-notes" placeholder="좋았던 점, 실패 원인, 재시도 방향"></textarea></div>
+          <div class="field"><label>자동 추출값</label><div class="kv" id="d-kv"></div></div>
+          <div class="field"><label>Positive</label><div class="codebox" id="d-positive"></div></div>
+          <div class="field"><label>Negative</label><div class="codebox" id="d-negative"></div></div>
+          <div class="actions">
+            <button class="btn" id="save-detail-btn">저장</button>
+            <button class="btn outline" id="copy-positive-btn">Positive 복사</button>
+            <button class="btn outline" id="copy-negative-btn">Negative 복사</button>
+            <button class="btn outline" id="toggle-fav-btn">즐겨찾기</button>
+            <button class="btn outline" id="open-lightbox-btn">크게 보기</button>
+            <button class="btn danger" id="delete-btn">삭제</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+</div>
+<input type="file" id="file-input" accept="image/png,image/webp,image/jpeg" multiple>
+<input type="file" id="import-input" accept="application/json,.json">
+<div id="lightbox"><button class="lb-close" id="lb-close">×</button><img id="lb-img" alt=""></div>
+<div class="toast" id="toast"></div>
+<script>
+const STORE_KEY='result_gallery_v1';
+const THUMB_MAX=760;
+const META_RAW_LIMIT=20000;
+const STATUSES=['전체','보류','성공','재작업','폐기'];
+let state={items:[],selectedId:null,status:'전체',query:'',sort:'new',scoreFilter:'all',favOnly:false};
+const $=s=>document.querySelector(s);
+function uid(){return 'r'+Date.now()+Math.random().toString(36).slice(2,7)}
+function esc(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function bytes(n){if(!n)return '0KB'; if(n<1024)return n+'B'; if(n<1024*1024)return (n/1024).toFixed(n<10240?1:0)+'KB'; return (n/1024/1024).toFixed(2)+'MB'}
+function uniq(a){return [...new Set((a||[]).map(x=>String(x).trim()).filter(Boolean))]}
+function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),1700)}
+function save(){try{localStorage.setItem(STORE_KEY,JSON.stringify(state))}catch(e){toast('저장 실패: 이미지가 너무 많거나 클 수 있어')}}
+function load(){try{const s=localStorage.getItem(STORE_KEY);if(s)state=JSON.parse(s)}catch(e){}}
+function readAsArrayBuffer(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsArrayBuffer(file)})}
+function readAsDataURL(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file)})}
+function textDecoder(bytes){try{return new TextDecoder('utf-8').decode(bytes)}catch(e){return ''}}
+function parsePngText(buffer){
+  const dv=new DataView(buffer); const u8=new Uint8Array(buffer); const sig=[137,80,78,71,13,10,26,10];
+  for(let i=0;i<8;i++){if(u8[i]!==sig[i])return {}};
+  let off=8, out={};
+  while(off+8<=u8.length){
+    const len=dv.getUint32(off); off+=4; const type=textDecoder(u8.slice(off,off+4)); off+=4;
+    if(off+len>u8.length)break; const data=u8.slice(off,off+len); off+=len+4;
+    if(type==='tEXt'){
+      const zero=data.indexOf(0); if(zero>0){const key=textDecoder(data.slice(0,zero)); const val=textDecoder(data.slice(zero+1)); out[key]=val;}
+    }else if(type==='iTXt'){
+      let p=0; while(p<data.length&&data[p]!==0)p++; const key=textDecoder(data.slice(0,p)); p++;
+      const compFlag=data[p++]; p++; while(p<data.length&&data[p]!==0)p++; p++; while(p<data.length&&data[p]!==0)p++; p++;
+      if(compFlag===0){out[key]=textDecoder(data.slice(p));}
+    }
+    if(type==='IEND')break;
+  }
+  return out;
+}
+function safeJson(s){if(!s)return null; try{return JSON.parse(s)}catch(e){return null}}
+function nodeEntries(prompt){return Object.entries(prompt||{}).filter(([id,n])=>n&&typeof n==='object')}
+function cls(n){return n.class_type||n.type||''}
+function input(n,k){return n&&n.inputs?n.inputs[k]:undefined}
+function linkId(v){return Array.isArray(v)?String(v[0]):null}
+function linkedNode(prompt,v){const id=linkId(v);return id?prompt[id]:null}
+function findTextFrom(prompt,v,seen=new Set()){
+  const id=linkId(v); if(!id||seen.has(id))return ''; seen.add(id); const n=prompt[id]; if(!n)return '';
+  if(typeof input(n,'text')==='string')return input(n,'text');
+  for(const val of Object.values(n.inputs||{})){const t=findTextFrom(prompt,val,seen); if(t)return t;}
+  return '';
+}
+function pickPromptGraph(prompt){
+  const entries=nodeEntries(prompt); const samplers=entries.filter(([id,n])=>/KSampler/i.test(cls(n))||('seed' in (n.inputs||{})&&'steps' in (n.inputs||{}))).sort((a,b)=>Number(b[0])-Number(a[0]));
+  const sampler=samplers[0]?.[1]||{}; const sin=sampler.inputs||{};
+  const ckpts=entries.filter(([id,n])=>/CheckpointLoader/i.test(cls(n))).map(([id,n])=>input(n,'ckpt_name')).filter(Boolean);
+  const loras=entries.filter(([id,n])=>/LoraLoader/i.test(cls(n))).map(([id,n])=>({name:input(n,'lora_name')||'',strength_model:input(n,'strength_model'),strength_clip:input(n,'strength_clip')})).filter(x=>x.name);
+  const latents=entries.filter(([id,n])=>/EmptyLatentImage/i.test(cls(n))).map(([id,n])=>n.inputs||{});
+  let positive=findTextFrom(prompt,sin.positive); let negative=findTextFrom(prompt,sin.negative);
+  if(!positive||!negative){
+    const texts=entries.filter(([id,n])=>/CLIPTextEncode/i.test(cls(n))).map(([id,n])=>input(n,'text')).filter(Boolean);
+    if(!positive)positive=texts[0]||''; if(!negative)negative=texts[1]||'';
+  }
+  return {
+    model: ckpts[0]||'', loras, seed:sin.seed, steps:sin.steps, cfg:sin.cfg,
+    sampler:sin.sampler_name||'', scheduler:sin.scheduler||'', denoise:sin.denoise,
+    width:latents[0]?.width, height:latents[0]?.height,
+    positive, negative
+  };
+}
+function parseComfyMetadata(file,buffer){
+  const meta=file.type==='image/png'||file.name.toLowerCase().endsWith('.png')?parsePngText(buffer):{};
+  const promptRaw=meta.prompt||meta.Prompt||''; const workflowRaw=meta.workflow||meta.Workflow||'';
+  const prompt=safeJson(promptRaw); let extracted={source:'확인 불가',metaFound:false,positive:'',negative:'',loras:[]};
+  if(prompt){extracted={...pickPromptGraph(prompt),source:'ComfyUI prompt',metaFound:true};}
+  else if(workflowRaw){extracted.source='workflow 감지 · prompt API 없음'; extracted.metaFound=true;}
+  extracted.rawMeta=(promptRaw||workflowRaw||'').slice(0,META_RAW_LIMIT);
+  return extracted;
+}
+async function makeThumb(file){
+  const url=await readAsDataURL(file);
+  return new Promise(resolve=>{
+    const img=new Image(); img.onload=()=>{
+      const scale=Math.min(1,THUMB_MAX/Math.max(img.width,img.height));
+      const w=Math.max(1,Math.round(img.width*scale)), h=Math.max(1,Math.round(img.height*scale));
+      const c=document.createElement('canvas'); c.width=w; c.height=h; const ctx=c.getContext('2d'); ctx.drawImage(img,0,0,w,h);
+      let out; try{out=c.toDataURL('image/webp',.82)}catch(e){out=c.toDataURL('image/jpeg',.82)}
+      resolve({thumb:out,width:img.width,height:img.height});
+    }; img.onerror=()=>resolve({thumb:url,width:'',height:''}); img.src=url;
+  })
+}
+async function processFile(file){
+  const buffer=await readAsArrayBuffer(file); const meta=parseComfyMetadata(file,buffer); const img=await makeThumb(file);
+  if(!meta.width)meta.width=img.width; if(!meta.height)meta.height=img.height;
+  const tags=[]; if(meta.model)tags.push(meta.model.replace(/\.(safetensors|ckpt)$/i,'')); (meta.loras||[]).slice(0,4).forEach(l=>tags.push(l.name.replace(/\.(safetensors|ckpt)$/i,'')));
+  return {id:uid(),title:file.name,fileName:file.name,size:file.size,type:file.type||'',thumb:img.thumb,createdAt:Date.now(),updatedAt:Date.now(),status:'보류',score:0,fav:false,tags:uniq(tags),notes:'',meta};
+}
+async function addFiles(files){
+  const arr=[...files].filter(f=>f&&f.type.startsWith('image/')||/\.(png|jpe?g|webp)$/i.test(f.name));
+  if(!arr.length){toast('이미지 파일이 없어');return}
+  let ok=0; for(const f of arr){try{state.items.unshift(await processFile(f));ok++}catch(e){console.error(e);toast(f.name+' 읽기 실패')}}
+  state.selectedId=state.items[0]?.id||null; save(); render(); toast(ok+'개 추가했어');
+}
+function filtered(){
+  let q=state.query.trim().toLowerCase();
+  let list=state.items.filter(it=>{
+    if(state.status!=='전체'&&it.status!==state.status)return false;
+    if(state.favOnly&&!it.fav)return false;
+    const sf=state.scoreFilter; if(sf==='0'&&Number(it.score)!==0)return false; if(['3','4','5'].includes(sf)&&Number(it.score)<Number(sf))return false;
+    if(q){const m=it.meta||{}; const hay=[it.title,it.fileName,it.status,(it.tags||[]).join(' '),it.notes,m.model,(m.loras||[]).map(l=>l.name).join(' '),m.positive,m.negative].join(' ').toLowerCase(); if(!hay.includes(q))return false;}
+    return true;
+  });
+  list.sort((a,b)=>state.sort==='old'?a.createdAt-b.createdAt:state.sort==='name'?a.title.localeCompare(b.title,'ko'):state.sort==='score'?Number(b.score)-Number(a.score):(b.createdAt||0)-(a.createdAt||0));
+  return list;
+}
+function statusClass(s){return s==='성공'?'status-ok':(s==='폐기'||s==='재작업')?'status-bad':''}
+function stars(n){n=Number(n)||0;return n?'★'.repeat(n):'미평가'}
+function renderStatuses(){const box=$('#status-list');box.innerHTML=STATUSES.map(s=>`<button class="cat ${state.status===s?'active':''}" data-status="${esc(s)}"><span>${esc(s)}</span><span class="count">${s==='전체'?state.items.length:state.items.filter(i=>i.status===s).length}</span></button>`).join('');box.querySelectorAll('.cat').forEach(b=>b.onclick=()=>{state.status=b.dataset.status;save();render()})}
+function renderList(){const list=filtered(), box=$('#list');$('#view-info').textContent=list.length+'개 표시';$('#total-count').textContent=state.items.length+'개';if(!list.length){box.innerHTML='<div class="empty">이미지가 없어. ComfyUI 원본 PNG를 추가해봐.</div>';return}box.innerHTML=list.map(it=>`<article class="card ${it.id===state.selectedId?'active':''}" data-id="${it.id}"><div class="fav ${it.fav?'on':''}">${it.fav?'★':'☆'}</div><div class="thumb">${it.thumb?`<img src="${it.thumb}" alt="">`:'<span class="noimg">이미지 없음</span>'}</div><div class="card-info"><div class="card-title">${esc(it.title)}</div><div class="card-meta"><span class="pill ${statusClass(it.status)}">${esc(it.status)}</span><span class="pill">${stars(it.score)}</span>${it.meta&&it.meta.metaFound?'<span class="pill meta">meta</span>':''}</div><div class="card-note">${esc(it.notes||it.meta?.model||it.meta?.source||'메모 없음')}</div></div></article>`).join('');box.querySelectorAll('.card').forEach(c=>c.onclick=()=>{state.selectedId=c.dataset.id;save();render()});box.querySelectorAll('.fav').forEach(f=>f.onclick=e=>{e.stopPropagation();const it=state.items.find(x=>x.id===f.closest('.card').dataset.id);if(it){it.fav=!it.fav;save();render()}})}
+function current(){return state.items.find(i=>i.id===state.selectedId)}
+function renderDetail(){const it=current();$('#detail-empty').style.display=it?'none':'block';$('#detail').style.display=it?'block':'none';$('#selected-state').textContent=it?'편집 중':'선택 없음';if(!it)return;const m=it.meta||{};$('#d-img').src=it.thumb||'';$('#d-title').value=it.title||'';$('#d-status').value=it.status||'보류';$('#d-score').value=String(it.score||0);$('#d-tags').value=(it.tags||[]).join(', ');$('#d-notes').value=it.notes||'';$('#toggle-fav-btn').textContent=it.fav?'즐겨찾기 해제':'즐겨찾기';const loras=(m.loras||[]).map(l=>`${l.name}${l.strength_model!=null?' @'+l.strength_model:''}`).join(', ');$('#d-kv').innerHTML=[['출처',m.source||'확인 불가'],['모델',m.model||'확인 불가'],['LoRA',loras||'확인 불가'],['Seed',m.seed??'확인 불가'],['Steps',m.steps??'확인 불가'],['CFG',m.cfg??'확인 불가'],['Sampler',m.sampler||'확인 불가'],['Scheduler',m.scheduler||'확인 불가'],['Denoise',m.denoise??'확인 불가'],['크기',(m.width&&m.height)?`${m.width}×${m.height}`:'확인 불가'],['파일',bytes(it.size)]].map(([k,v])=>`<b>${esc(k)}</b><span>${esc(v)}</span>`).join('');$('#d-positive').textContent=m.positive||'확인 불가';$('#d-negative').textContent=m.negative||'확인 불가'}
+function renderStats(){let store=0;try{store=JSON.stringify(state).length*2}catch(e){}$('#stat-items').textContent=state.items.length;$('#stat-meta').textContent=state.items.filter(i=>i.meta&&i.meta.metaFound).length;$('#stat-fav').textContent=state.items.filter(i=>i.fav).length;$('#stat-store').textContent=bytes(store)}
+function render(){ $('#search').value=state.query;$('#search-clear').classList.toggle('visible',!!state.query);$('#sort-select').value=state.sort;$('#score-filter').value=state.scoreFilter;$('#fav-only').checked=state.favOnly;renderStatuses();renderList();renderDetail();renderStats()}
+function saveDetail(){const it=current();if(!it)return;it.title=$('#d-title').value.trim()||'제목 없음';it.status=$('#d-status').value;it.score=Number($('#d-score').value)||0;it.tags=uniq($('#d-tags').value.split(','));it.notes=$('#d-notes').value.trim();it.updatedAt=Date.now();save();render();toast('저장했어')}
+function exportData(){const blob=new Blob([JSON.stringify({version:1,exportedAt:new Date().toISOString(),items:state.items},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='result_gallery_export_'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(a.href)}
+function importData(file){const r=new FileReader();r.onload=()=>{try{const data=JSON.parse(r.result);const items=Array.isArray(data)?data:data.items;if(!Array.isArray(items))throw Error('bad');state.items=[...items,...state.items];state.selectedId=state.items[0]?.id||null;save();render();toast(items.length+'개 불러왔어')}catch(e){toast('불러오기 실패')}};r.readAsText(file)}
+function openLightbox(){const it=current();if(!it||!it.thumb)return;$('#lb-img').src=it.thumb;$('#lightbox').classList.add('open')}
+$('#pick-btn').onclick=()=>$('#file-input').click();$('#file-input').onchange=e=>addFiles(e.target.files);$('#export-btn').onclick=exportData;$('#import-btn').onclick=()=>$('#import-input').click();$('#import-input').onchange=e=>{if(e.target.files[0])importData(e.target.files[0])};$('#clear-filter-btn').onclick=()=>{state.status='전체';state.query='';state.scoreFilter='all';state.favOnly=false;save();render()};
+$('#search').oninput=e=>{state.query=e.target.value;save();render()};$('#search-clear').onclick=()=>{state.query='';save();render()};$('#sort-select').onchange=e=>{state.sort=e.target.value;save();render()};$('#score-filter').onchange=e=>{state.scoreFilter=e.target.value;save();render()};$('#fav-only').onchange=e=>{state.favOnly=e.target.checked;save();render()};
+$('#save-detail-btn').onclick=saveDetail;['#d-title','#d-status','#d-score','#d-tags','#d-notes'].forEach(s=>$(s).addEventListener('change',saveDetail));$('#copy-positive-btn').onclick=()=>{navigator.clipboard.writeText(current()?.meta?.positive||'');toast('Positive 복사했어')};$('#copy-negative-btn').onclick=()=>{navigator.clipboard.writeText(current()?.meta?.negative||'');toast('Negative 복사했어')};$('#toggle-fav-btn').onclick=()=>{const it=current();if(!it)return;it.fav=!it.fav;save();render()};$('#delete-btn').onclick=()=>{const it=current();if(!it)return;if(!confirm('이 결과를 삭제할까? 원본 파일은 삭제되지 않아.'))return;state.items=state.items.filter(x=>x.id!==it.id);state.selectedId=state.items[0]?.id||null;save();render();toast('삭제했어')};$('#open-lightbox-btn').onclick=openLightbox;$('#lb-close').onclick=()=>$('#lightbox').classList.remove('open');$('#lightbox').onclick=e=>{if(e.target.id==='lightbox')$('#lightbox').classList.remove('open')};
+const dz=$('#drop-zone');['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('dragover')}));['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('dragover')}));dz.addEventListener('drop',e=>addFiles(e.dataTransfer.files));dz.addEventListener('click',()=>$('#file-input').click());
+document.addEventListener('paste',e=>{const files=[];[...(e.clipboardData?.items||[])].forEach(it=>{if(it.type.startsWith('image/')){const f=it.getAsFile();if(f)files.push(f)}});if(files.length){e.preventDefault();addFiles(files)}});
+window.addEventListener('keydown',e=>{const mod=e.ctrlKey||e.metaKey;if(mod&&e.key.toLowerCase()==='f'){e.preventDefault();$('#search').focus()}if(mod&&e.key.toLowerCase()==='s'){e.preventDefault();saveDetail()}});
+load();render();
+</script>
+</body>
+</html>
