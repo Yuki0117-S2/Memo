@@ -203,7 +203,12 @@ header{display:flex;align-items:center;gap:10px;border-bottom:.5px solid var(--b
 </div>
 
 <script>
-const STORAGE_KEY='loraLab.v1';
+const STORAGE_KEY='loraLab.v1'; // 기존 localStorage 카드 저장 키: 최초 1회 IndexedDB로 마이그레이션 후 비움
+const UI_STORAGE_KEY='loraLab.ui.v1';
+const MIGRATED_KEY='loraLab.v1.migratedAt';
+const IDB_NAME='loraLab.db';
+const IDB_VERSION=1;
+const IDB_CARD_STORE='cards';
 const STATUSES=['계획','학습중','테스트중','성공','실패','보류'];
 const PURPOSES=['캐릭터','스타일','의상','그림체','포즈','기타'];
 let state={cards:[],selectedId:null,statusFilter:'전체',purposeFilter:'전체',baseFilter:'전체',query:'',selectMode:false,selected:new Set(),sort:'updatedDesc',metaFilter:'all',favOnly:false};
@@ -211,12 +216,111 @@ const $=id=>document.getElementById(id);
 const now=()=>new Date().toISOString();
 const fmtBytes=n=>{if(!n)return'0KB';const u=['B','KB','MB','GB'];let i=0,x=n;while(x>=1024&&i<u.length-1){x/=1024;i++}return `${x.toFixed(i?1:0)} ${u[i]}`};
 function utf8Bytes(s){try{return new Blob([s]).size}catch(e){return new TextEncoder().encode(s).length}}
-function estimateGistPayloadBytes(){try{return utf8Bytes(JSON.stringify({version:1,slots:[{savedAt:new Date().toISOString(),device:'예상',cards:JSON.parse(JSON.stringify(state.cards))}]},null,2))}catch(e){return 0}}
+function estimateGistPayloadBytes(){try{return utf8Bytes(JSON.stringify({version:1,slots:[{savedAt:new Date().toISOString(),device:'예상',cards:getCardsForGist()}]},null,2))}catch(e){return 0}}
 function uid(){return 'lora_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8)}
 function blankCard(extra={}){const t=now();return {id:uid(),title:'새 LoRA 실험',status:'계획',purpose:'기타',fav:false,fileName:'',fileSize:0,uploadedAt:'',metaRead:false,metaError:'',baseModel:'',datasetCount:'',resolution:'',captionMethod:'',triggerWord:'',repeat:'',epoch:'',totalSteps:'',batchSize:'',learningRate:'',textEncoderLR:'',unetLR:'',optimizer:'',scheduler:'',networkType:'',rankDim:'',alpha:'',weightDecay:'',testPrompt:'',resultReview:'',recommendedWeight:'',nextExperiment:'',notes:'',rawMetadata:{},collapsed:false,createdAt:t,updatedAt:t,...extra}}
-function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify({version:1,cards:state.cards}))}
-function load(){try{const raw=localStorage.getItem(STORAGE_KEY);if(raw){const data=JSON.parse(raw);state.cards=(data.cards||[]).map(normalizeCard)}}catch(e){console.warn(e)}}
-function normalizeCard(c){return {...blankCard(),...c,selected:false,rawMetadata:c.rawMetadata||{}}}
+function saveUiState(){
+  try{
+    localStorage.setItem(UI_STORAGE_KEY,JSON.stringify({
+      version:1,
+      selectedId:state.selectedId||null,
+      statusFilter:state.statusFilter,
+      purposeFilter:state.purposeFilter,
+      baseFilter:state.baseFilter,
+      query:state.query,
+      sort:state.sort,
+      metaFilter:state.metaFilter,
+      favOnly:!!state.favOnly,
+      selectMode:false,
+      updatedAt:now()
+    }));
+  }catch(e){console.warn('UI 상태 저장 실패:',e)}
+}
+function loadUiState(){
+  try{
+    const raw=localStorage.getItem(UI_STORAGE_KEY);
+    if(!raw)return;
+    const ui=JSON.parse(raw);
+    state.selectedId=ui.selectedId||null;
+    state.statusFilter=ui.statusFilter||'전체';
+    state.purposeFilter=ui.purposeFilter||'전체';
+    state.baseFilter=ui.baseFilter||'전체';
+    state.query=ui.query||'';
+    state.sort=ui.sort||'updatedDesc';
+    state.metaFilter=ui.metaFilter||'all';
+    state.favOnly=!!ui.favOnly;
+  }catch(e){console.warn('UI 상태 로드 실패:',e)}
+}
+function openLoraDb(){
+  return new Promise((resolve,reject)=>{
+    if(!('indexedDB' in window)){reject(new Error('IndexedDB를 사용할 수 없어.'));return;}
+    const req=indexedDB.open(IDB_NAME,IDB_VERSION);
+    req.onupgradeneeded=()=>{
+      const db=req.result;
+      if(!db.objectStoreNames.contains(IDB_CARD_STORE)) db.createObjectStore(IDB_CARD_STORE,{keyPath:'id'});
+    };
+    req.onsuccess=()=>resolve(req.result);
+    req.onerror=()=>reject(req.error||new Error('IndexedDB 열기 실패'));
+  });
+}
+async function idbGetAllCards(){
+  const db=await openLoraDb();
+  return await new Promise((resolve,reject)=>{
+    const tx=db.transaction(IDB_CARD_STORE,'readonly');
+    const req=tx.objectStore(IDB_CARD_STORE).getAll();
+    req.onsuccess=()=>resolve(req.result||[]);
+    req.onerror=()=>reject(req.error||new Error('IndexedDB 카드 읽기 실패'));
+    tx.oncomplete=()=>db.close();
+    tx.onerror=()=>{db.close();reject(tx.error||new Error('IndexedDB 트랜잭션 실패'))};
+  });
+}
+async function idbPutAllCards(cards){
+  const db=await openLoraDb();
+  return await new Promise((resolve,reject)=>{
+    const tx=db.transaction(IDB_CARD_STORE,'readwrite');
+    const st=tx.objectStore(IDB_CARD_STORE);
+    st.clear();
+    cards.forEach(c=>st.put(JSON.parse(JSON.stringify(c))));
+    tx.oncomplete=()=>{db.close();resolve();};
+    tx.onerror=()=>{db.close();reject(tx.error||new Error('IndexedDB 카드 저장 실패'))};
+  });
+}
+let saveTimer=null;
+function save(){saveUiState();queueCardsSave();}
+function queueCardsSave(delay=250){
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>saveCardsToIndexedDBNow().catch(e=>{console.error(e);toast('저장 실패: '+(e.message||e));}),delay);
+}
+async function saveCardsToIndexedDBNow(){
+  clearTimeout(saveTimer);
+  saveUiState();
+  await idbPutAllCards(state.cards||[]);
+  return true;
+}
+async function load(){
+  loadUiState();
+  try{
+    const idbCards=(await idbGetAllCards()).map(normalizeCard);
+    if(idbCards.length){
+      state.cards=idbCards;
+      if(state.selectedId&&!state.cards.some(c=>c.id===state.selectedId)) state.selectedId=state.cards[0]?.id||null;
+      return;
+    }
+  }catch(e){console.warn('IndexedDB 로드 실패:',e)}
+  try{
+    const raw=localStorage.getItem(STORAGE_KEY);
+    if(raw){
+      const data=JSON.parse(raw);
+      state.cards=(data.cards||[]).map(normalizeCard);
+      if(state.selectedId&&!state.cards.some(c=>c.id===state.selectedId)) state.selectedId=state.cards[0]?.id||null;
+      await saveCardsToIndexedDBNow();
+      localStorage.setItem(MIGRATED_KEY,now());
+      localStorage.removeItem(STORAGE_KEY);
+      toast('기존 저장 데이터를 IndexedDB로 옮겼어');
+    }
+  }catch(e){console.warn('기존 localStorage 마이그레이션 실패:',e)}
+}
+function normalizeCard(c){const merged={...blankCard(),...(c||{}),selected:false,rawMetadata:(c&&c.rawMetadata)||{}};if(!merged.id)merged.id=uid();return merged}
 function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._timer);t._timer=setTimeout(()=>t.classList.remove('show'),1600)}
 function escapeHtml(s){return String(s??'').replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]))}
 function compact(v){return String(v??'').trim()}
@@ -275,7 +379,7 @@ function renderDetail(){const c=selectedCard();const body=$('detail-body');if(!c
 body.querySelectorAll('[data-key]').forEach(el=>{el.oninput=()=>updateCard(c.id,{[el.dataset.key]:el.value})});$('fav-current').onclick=()=>{c.fav=!c.fav;c.updatedAt=now();save();render();toast(c.fav?'즐겨찾기 추가':'즐겨찾기 해제')};$('dup-current').onclick=()=>duplicateCard(c.id);$('del-current').onclick=()=>deleteCard(c.id);$('copy-meta').onclick=()=>navigator.clipboard?.writeText(JSON.stringify(c.rawMetadata||{},null,2)).then(()=>toast('메타 복사 완료'))}
 function renderStats(){const total=state.cards.length;$('stat-total').textContent=total;$('stat-meta').textContent=state.cards.filter(c=>c.metaRead).length;$('stat-success').textContent=state.cards.filter(c=>c.status==='성공').length;$('stat-fav').textContent=state.cards.filter(c=>c.fav).length;$('stat-selected').textContent=state.selected.size;const ge=$('stat-gist');if(ge)ge.textContent=fmtBytes(estimateGistPayloadBytes());$('selected-count').textContent=state.selected.size;$('select-bar').classList.toggle('visible',state.selectMode);$('clear-search').classList.toggle('visible',!!state.query);}
 function renderBulkSelects(){const bs=$('bulk-status'),bp=$('bulk-purpose');if(bs.options.length===1){STATUSES.forEach(v=>bs.add(new Option(v,v)));PURPOSES.forEach(v=>bp.add(new Option(v,v)))}}
-function render(){renderFilters();renderBaseFilter();renderBulkSelects();renderList();renderDetail();renderStats();$('search').value=state.query;$('sort').value=state.sort;$('meta-filter').value=state.metaFilter;$('base-filter').value=state.baseFilter;$('fav-only').checked=state.favOnly;$('select-mode-btn').textContent=state.selectMode?'선택 종료':'일괄 선택'}
+function render(){renderFilters();renderBaseFilter();renderBulkSelects();renderList();renderDetail();renderStats();$('search').value=state.query;$('sort').value=state.sort;$('meta-filter').value=state.metaFilter;$('base-filter').value=state.baseFilter;$('fav-only').checked=state.favOnly;$('select-mode-btn').textContent=state.selectMode?'선택 종료':'일괄 선택';saveUiState()}
 function addManual(){const c=blankCard();state.cards.unshift(c);state.selectedId=c.id;save();render();toast('실험 카드 추가')}
 function duplicateCard(id){const c=state.cards.find(x=>x.id===id);if(!c)return;const n=normalizeCard({...c,id:uid(),title:(c.title||'LoRA')+' 복제',fav:false,createdAt:now(),updatedAt:now()});state.cards.unshift(n);state.selectedId=n.id;save();render();toast('복제 완료')}
 function deleteCard(id){if(!confirm('이 카드를 삭제할까?'))return;state.cards=state.cards.filter(c=>c.id!==id);state.selected.delete(id);if(state.selectedId===id)state.selectedId=state.cards[0]?.id||null;save();render();toast('삭제 완료')}
@@ -306,7 +410,8 @@ document.addEventListener('touchend',e=>{
   }
   lastTap={t:now,x:t.clientX,y:t.clientY,target:t.target};
 },{passive:false});
-load();bind();render();
+async function boot(){await load();bind();render();}
+boot().catch(e=>{console.error(e);bind();render();toast('초기 로드 실패: '+(e.message||e));});
 
 // === Gist 동기화 ===
 const GIST_TOKEN_KEY='workshop_gist_token';
@@ -354,6 +459,14 @@ function copyGistId(){
 }
 
 
+function stripCardForGist(card){
+  const c=JSON.parse(JSON.stringify(card||{}));
+  delete c.rawMetadata;
+  c.rawMetadataStripped=true;
+  return c;
+}
+function getCardsForGist(){return (state.cards||[]).map(stripCardForGist)}
+
 async function readGistFileContent(file){
   if(!file) return '';
   if(file.raw_url && (!file.content || file.truncated)){
@@ -398,7 +511,7 @@ async function pushSlot(token, gistId, deviceLabel){
   slots.unshift({
     savedAt:new Date().toISOString(),
     device:deviceLabel,
-    cards:JSON.parse(JSON.stringify(state.cards))
+    cards:getCardsForGist()
   });
   if(slots.length>5) slots=slots.slice(0,5);
   const body={

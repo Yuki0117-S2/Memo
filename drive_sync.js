@@ -68,7 +68,7 @@
     try{return jsonClone(state)}catch(e){throw new Error('현재 앱 상태를 읽을 수 없어: '+e.message)}
   }
 
-  function applyDriveState(slot){
+  async function applyDriveState(slot){
     const incoming=slot.state || slot;
     try{
       if(typeof GIST_FILE_NAME!=='undefined' && GIST_FILE_NAME==='lora_lab_data.json'){
@@ -77,11 +77,12 @@
         if(state.selected && typeof state.selected.clear==='function') state.selected.clear();
         state.selectedId=state.cards[0]?.id||null;
         if('selectMode' in state) state.selectMode=false;
-        if(typeof save==='function') save();
+        if(typeof saveCardsToIndexedDBNow==='function') await saveCardsToIndexedDBNow();
+        else if(typeof save==='function') save();
         if(typeof render==='function') render();
         return;
       }
-    }catch(e){}
+    }catch(e){throw new Error('Drive 데이터를 적용하지 못했어: '+(e.message||e));}
 
     try{
       state=incoming;
@@ -99,7 +100,8 @@
       if(typeof GIST_FILE_NAME!=='undefined' && GIST_FILE_NAME==='archive_data.json'){
         state.selectedId=state.items?.[0]?.id||null;
       }
-      if(typeof save==='function') save();
+      if(typeof saveCardsToIndexedDBNow==='function') await saveCardsToIndexedDBNow();
+      else if(typeof save==='function') save();
       if(typeof renderAll==='function') renderAll();
       else {
         if(typeof applyView==='function') applyView();
@@ -341,7 +343,8 @@
   async function uploadDriveSlot(){
     try{
       setStatus('Drive 저장 중...','loading');
-      if(typeof save==='function') save();
+      if(typeof saveCardsToIndexedDBNow==='function') await saveCardsToIndexedDBNow();
+      else if(typeof save==='function') save();
       const file=await findDriveFile();
       let slots=[];
       if(file){
@@ -371,9 +374,9 @@
         const b=document.createElement('button');
         b.type='button'; b.className='drive-slot';
         b.innerHTML=`<div><b>${i===0?'🟢 최신':'📁 슬롯 '+(i+1)}</b><span>${slotMeta(slot,i)}</span></div><i>›</i>`;
-        b.onclick=()=>{
+        b.onclick=async()=>{
           if(!confirm('현재 로컬 데이터를 이 Drive 슬롯으로 덮어쓸까?'))return;
-          try{applyDriveState(slot); setStatus('Drive 불러오기 완료.', 'ok'); safeToast('☁️ Drive 불러오기 완료'); closeModal();}
+          try{await applyDriveState(slot); setStatus('Drive 불러오기 완료.', 'ok'); safeToast('☁️ Drive 불러오기 완료'); closeModal();}
           catch(e){setStatus(e.message,'err')}
         };
         list.appendChild(b);
