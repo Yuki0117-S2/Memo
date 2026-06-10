@@ -366,6 +366,8 @@
     box-shadow: 0 6px 24px rgba(0,0,0,0.18); min-width: 140px;
   }
   .ctx-submenu-trigger:hover > .ctx-submenu { display: block; }
+  /* 서브메뉴가 화면 오른쪽 밖으로 새지 않게 — 부모 메뉴가 오른쪽에 있으면 왼쪽으로 펼침 */
+  #ctx-menu.flip-submenu .ctx-submenu { left: auto; right: 100%; }
 
   /* 일괄 선택 모드 */
   .board.select-mode .idea-card { cursor: pointer; }
@@ -1800,6 +1802,10 @@ function openCtxMenu(x,y,items){
   if(y+rect.height>wh-8) y=wh-rect.height-8;
   ctxMenu.style.left=Math.max(8,x)+'px';
   ctxMenu.style.top=Math.max(8,y)+'px';
+  // 서브메뉴가 화면 오른쪽 밖으로 새는지 체크 → 그러면 왼쪽으로 펼침
+  const finalLeft=Math.max(8,x), subMenuW=180;
+  if(finalLeft+rect.width+subMenuW>ww-8) ctxMenu.classList.add('flip-submenu');
+  else ctxMenu.classList.remove('flip-submenu');
 }
 
 // 카드 메뉴
