@@ -237,7 +237,7 @@ header{display:flex;align-items:center;gap:10px;border-bottom:.5px solid var(--b
     <aside class="panel">
       <div class="panel-head">파일 / 필터</div>
       <div class="panel-body">
-        <div id="drop-zone">LoRA 파일 / 대표 이미지를 여기에 드롭<br><strong>.safetensors</strong>는 메타를 읽고, 이미지는 LoRA 이름으로 자동 매칭<br>이미지 원본은 저장하지 않고 축소본만 저장</div>
+        <div id="drop-zone">LoRA 파일 / 대표 이미지를 여기에 드롭<br><strong>.safetensors</strong>는 메타를 읽고, 이미지는 LoRA 이름으로 자동 매칭<br>이미지 원본은 저장하지 않고 1024px WebP 압축본만 저장</div>
         <div class="searchbar searchbar-large"><input id="search" placeholder="파일명 / LoRA 이름 / base / trigger / optimizer 검색"><button id="clear-search">×</button></div>
         <div class="small">상태</div><div class="cat-list" id="status-list"></div>
         
@@ -471,7 +471,7 @@ function cleanNameForMatch(v){return String(v||'').toLowerCase().replace(/\.(saf
 function cardMatchKeys(c){return [c.title,c.fileName,c.triggerWord].map(cleanNameForMatch).filter(Boolean).sort((a,b)=>b.length-a.length)}
 function extractLoraCandidatesFromText(text){const out=[];const src=String(text||'');const patterns=[/<lora:([^:>]+)(?::[^>]*)?>/gi,/lora_name["']?\s*[:=]\s*["']([^"']+)/gi,/lora["']?\s*[:=]\s*["']([^"']+\.(?:safetensors|ckpt|pt|bin)|[^"',}]+)/gi];patterns.forEach(re=>{let m;while((m=re.exec(src))){if(m[1])out.push(m[1])}});return out.map(cleanNameForMatch).filter(Boolean)}
 async function readPngTextLoose(file){try{const buf=await file.slice(0,1024*1024).arrayBuffer();return new TextDecoder('latin1').decode(buf).replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]+/g,' ')}catch(e){return ''}}
-async function imageToThumb(file,max=1024,quality=.86){
+async function imageToThumb(file,max=1024,quality=.82){
   return await new Promise(resolve=>{
     const url=URL.createObjectURL(file);
     const img=new Image();
@@ -483,7 +483,7 @@ async function imageToThumb(file,max=1024,quality=.86){
       // 비율 유지 리사이즈만 한다. 여백/패딩은 저장하지 않고, 화면에서 contain으로 보여준다.
       ctx.drawImage(img,0,0,w,h);
       URL.revokeObjectURL(url);
-      resolve(c.toDataURL('image/jpeg',quality));
+      resolve(c.toDataURL('image/webp',quality));
     };
     img.onerror=()=>{URL.revokeObjectURL(url);const fr=new FileReader();fr.onload=()=>resolve(fr.result);fr.onerror=()=>resolve('');fr.readAsDataURL(file)};
     img.src=url;
@@ -556,7 +556,7 @@ async function matchImageToCard(file){const fileKey=cleanNameForMatch(file.name)
 async function handleImageFiles(files){
   let matched=0,created=0,added=0;
   for(const file of files){
-    const thumb=await imageToThumb(file,1024,.86);
+    const thumb=await imageToThumb(file,1024,.82);
     if(!thumb)continue;
     let c=await matchImageToCard(file);
     if(c){
@@ -649,7 +649,7 @@ function renderDetail(){
   body.querySelectorAll('[data-key]').forEach(el=>{el.oninput=()=>updateCard(c.id,{[el.dataset.key]:el.value})});
   body.querySelectorAll('[data-img-act]').forEach(btn=>{btn.onclick=e=>{e.stopPropagation();const imgId=btn.dataset.imgId;if(btn.dataset.imgAct==='cover')setCoverImage(c,imgId);if(btn.dataset.imgAct==='remove')removeCardImage(c,imgId)}});
   body.querySelectorAll('.rep-tile').forEach(tile=>{tile.onclick=e=>{if(e.target.dataset.imgAct)return;setCoverImage(c,tile.dataset.imgId)}});
-  const pickRep=$('pick-rep-current');if(pickRep)pickRep.onclick=()=>{const input=document.createElement('input');input.type='file';input.accept='image/*';input.multiple=true;input.onchange=async e=>{const files=[...(e.target.files||[])];for(const f of files){const thumb=await imageToThumb(f,1024,.86);if(thumb)addImageToCard(c,f.name,thumb)}save();render();toast(`이미지 ${files.length}장 추가 완료`)};input.click()};
+  const pickRep=$('pick-rep-current');if(pickRep)pickRep.onclick=()=>{const input=document.createElement('input');input.type='file';input.accept='image/*';input.multiple=true;input.onchange=async e=>{const files=[...(e.target.files||[])];for(const f of files){const thumb=await imageToThumb(f,1024,.82);if(thumb)addImageToCard(c,f.name,thumb)}save();render();toast(`이미지 ${files.length}장 추가 완료`)};input.click()};
   const clearRep=$('clear-rep-current');if(clearRep)clearRep.onclick=()=>{if(!confirm('이 카드의 샘플 이미지를 전부 제거할까?'))return;Object.assign(c,{images:[],coverImageId:'',imageIndex:0,representativeImage:'',representativeImageName:'',imageMatchedAt:'',updatedAt:now()});save();render();toast('이미지 전체 제거')};
   $('fav-current').onclick=()=>{c.fav=!c.fav;c.updatedAt=now();save();render();toast(c.fav?'즐겨찾기 추가':'즐겨찾기 해제')};
   $('dup-current').onclick=()=>duplicateCard(c.id);$('del-current').onclick=()=>deleteCard(c.id);$('copy-meta').onclick=()=>navigator.clipboard?.writeText(JSON.stringify(c.rawMetadata||{},null,2)).then(()=>toast('메타 복사 완료'));
