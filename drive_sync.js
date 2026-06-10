@@ -78,7 +78,8 @@
         if(state.selected && typeof state.selected.clear==='function') state.selected.clear();
         state.selectedId=state.cards[0]?.id||null;
         if('selectMode' in state) state.selectMode=false;
-        if(typeof saveCardsToIndexedDBNow==='function') await saveCardsToIndexedDBNow();
+        if(typeof saveResultGalleryToIndexedDBNow==='function') await saveResultGalleryToIndexedDBNow();
+        else if(typeof saveCardsToIndexedDBNow==='function') await saveCardsToIndexedDBNow();
         else if(typeof save==='function') save();
         if(typeof render==='function') render();
         return;
@@ -101,7 +102,8 @@
       if(typeof GIST_FILE_NAME!=='undefined' && GIST_FILE_NAME==='archive_data.json'){
         state.selectedId=state.items?.[0]?.id||null;
       }
-      if(typeof saveCardsToIndexedDBNow==='function') await saveCardsToIndexedDBNow();
+      if(typeof saveResultGalleryToIndexedDBNow==='function') await saveResultGalleryToIndexedDBNow();
+      else if(typeof saveCardsToIndexedDBNow==='function') await saveCardsToIndexedDBNow();
       else if(typeof save==='function') save();
       if(typeof renderAll==='function') renderAll();
       else {
@@ -344,7 +346,8 @@
   async function uploadDriveSlot(){
     try{
       setStatus('Drive 저장 중...','loading');
-      if(typeof saveCardsToIndexedDBNow==='function') await saveCardsToIndexedDBNow();
+      if(typeof saveResultGalleryToIndexedDBNow==='function') await saveResultGalleryToIndexedDBNow();
+      else if(typeof saveCardsToIndexedDBNow==='function') await saveCardsToIndexedDBNow();
       else if(typeof save==='function') save();
       const file=await findDriveFile();
       let slots=[];

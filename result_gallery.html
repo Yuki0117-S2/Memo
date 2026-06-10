@@ -287,7 +287,11 @@ header{display:flex;align-items:center;gap:10px;border-bottom:.5px solid var(--b
 <div class="toast" id="toast"></div>
 <div id="ctx-menu" role="menu"></div>
 <script>
-const STORE_KEY='result_gallery_v1';
+const STORE_KEY='result_gallery_v1'; // 구버전 localStorage 전체 저장 키(마이그레이션 전용)
+const UI_STORE_KEY='result_gallery.ui.v1';
+const IDB_DB_NAME='resultGallery.db';
+const IDB_DB_VERSION=1;
+const IDB_ITEM_STORE='items';
 const THUMB_MAX=760;
 const META_RAW_LIMIT=20000;
 const STATUSES=['전체','보류','성공','재작업','폐기'];
@@ -302,8 +306,114 @@ function utf8Bytes(s){try{return new Blob([s]).size}catch(e){return new TextEnco
 function estimateGistPayloadBytes(){try{return utf8Bytes(JSON.stringify({version:1,slots:[{savedAt:new Date().toISOString(),device:'예상',state:stripStateForSync(state)}]},null,2))}catch(e){return 0}}
 function uniq(a){return [...new Set((a||[]).map(x=>String(x).trim()).filter(Boolean))]}
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),1700)}
-function save(){try{localStorage.setItem(STORE_KEY,JSON.stringify(state))}catch(e){toast('저장 실패: 이미지가 너무 많거나 클 수 있어')}}
-function load(){try{const s=localStorage.getItem(STORE_KEY);if(s)state=JSON.parse(s)}catch(e){} if(!state.view)state.view='default'; if(!Array.isArray(state.tagFilter))state.tagFilter=[]; if(!Array.isArray(state.loraFilter))state.loraFilter=[]; if(!Array.isArray(state.expandedIds))state.expandedIds=[]}
+
+function normalizeStateShape(s){
+  s=s&&typeof s==='object'?s:{};
+  if(!Array.isArray(s.items))s.items=[];
+  if(!s.selectedId&&s.items[0])s.selectedId=s.items[0].id;
+  if(!s.status)s.status='전체';
+  if(typeof s.query!=='string')s.query='';
+  if(!s.sort)s.sort='new';
+  if(!s.scoreFilter)s.scoreFilter='all';
+  s.favOnly=!!s.favOnly;
+  if(!s.view)s.view='default';
+  if(!Array.isArray(s.tagFilter))s.tagFilter=[];
+  if(!Array.isArray(s.loraFilter))s.loraFilter=[];
+  if(!Array.isArray(s.expandedIds))s.expandedIds=[];
+  return s;
+}
+function stripUiState(s){
+  return {
+    version:1,
+    selectedId:s.selectedId||null,
+    status:s.status||'전체',
+    query:s.query||'',
+    sort:s.sort||'new',
+    scoreFilter:s.scoreFilter||'all',
+    favOnly:!!s.favOnly,
+    view:s.view||'default',
+    tagFilter:Array.isArray(s.tagFilter)?s.tagFilter:[],
+    loraFilter:Array.isArray(s.loraFilter)?s.loraFilter:[],
+    expandedIds:Array.isArray(s.expandedIds)?s.expandedIds:[],
+    savedAt:new Date().toISOString()
+  };
+}
+function applyUiState(ui){
+  if(!ui||typeof ui!=='object')return;
+  ['selectedId','status','query','sort','scoreFilter','view'].forEach(k=>{if(ui[k]!=null)state[k]=ui[k]});
+  if('favOnly' in ui)state.favOnly=!!ui.favOnly;
+  if(Array.isArray(ui.tagFilter))state.tagFilter=ui.tagFilter;
+  if(Array.isArray(ui.loraFilter))state.loraFilter=ui.loraFilter;
+  if(Array.isArray(ui.expandedIds))state.expandedIds=ui.expandedIds;
+}
+function saveUiState(){try{localStorage.setItem(UI_STORE_KEY,JSON.stringify(stripUiState(state)))}catch(e){console.warn('UI 상태 저장 실패',e)}}
+function loadUiState(){try{const raw=localStorage.getItem(UI_STORE_KEY);if(raw)applyUiState(JSON.parse(raw))}catch(e){console.warn('UI 상태 로드 실패',e)}}
+function idbRequest(req){return new Promise((resolve,reject)=>{req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error||new Error('IndexedDB 요청 실패'))})}
+function openResultGalleryDB(){
+  return new Promise((resolve,reject)=>{
+    if(!window.indexedDB){reject(new Error('IndexedDB를 사용할 수 없어'));return;}
+    const req=indexedDB.open(IDB_DB_NAME,IDB_DB_VERSION);
+    req.onupgradeneeded=()=>{const db=req.result;if(!db.objectStoreNames.contains(IDB_ITEM_STORE))db.createObjectStore(IDB_ITEM_STORE,{keyPath:'id'});};
+    req.onsuccess=()=>resolve(req.result);
+    req.onerror=()=>reject(req.error||new Error('IndexedDB 열기 실패'));
+  });
+}
+function txDone(tx){return new Promise((resolve,reject)=>{tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error||new Error('IndexedDB 트랜잭션 실패'));tx.onabort=()=>reject(tx.error||new Error('IndexedDB 트랜잭션 중단'))})}
+async function idbGetAllItems(){const db=await openResultGalleryDB();try{const tx=db.transaction(IDB_ITEM_STORE,'readonly');const items=await idbRequest(tx.objectStore(IDB_ITEM_STORE).getAll());await txDone(tx);return Array.isArray(items)?items:[]}finally{db.close()}}
+async function idbReplaceItems(items){
+  const db=await openResultGalleryDB();
+  try{
+    const tx=db.transaction(IDB_ITEM_STORE,'readwrite');
+    const store=tx.objectStore(IDB_ITEM_STORE);
+    store.clear();
+    (items||[]).forEach(it=>store.put(it));
+    await txDone(tx);
+  }finally{db.close()}
+}
+let saveTimer=null;
+let savePromise=Promise.resolve();
+function queueItemsSave(){
+  if(saveTimer)clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>{
+    saveTimer=null;
+    savePromise=saveItemsToIndexedDBNow().catch(e=>{console.warn('IndexedDB 저장 실패',e);toast('저장 실패: IndexedDB에 저장하지 못했어')});
+  },160);
+}
+function save(){saveUiState();queueItemsSave()}
+async function saveItemsToIndexedDBNow(){
+  if(saveTimer){clearTimeout(saveTimer);saveTimer=null;}
+  saveUiState();
+  await idbReplaceItems(state.items||[]);
+}
+window.saveResultGalleryToIndexedDBNow=saveItemsToIndexedDBNow;
+async function load(){
+  state=normalizeStateShape(state);
+  loadUiState();
+  let oldState=null;
+  const oldRaw=localStorage.getItem(STORE_KEY);
+  if(oldRaw){try{oldState=normalizeStateShape(JSON.parse(oldRaw));}catch(e){console.warn('구버전 localStorage 파싱 실패',e)}}
+  try{
+    const items=await idbGetAllItems();
+    if(items.length){
+      state.items=items;
+      if(oldState&&!localStorage.getItem(UI_STORE_KEY))applyUiState(oldState);
+      if(oldRaw){localStorage.setItem(STORE_KEY+'.migratedAt',new Date().toISOString());localStorage.removeItem(STORE_KEY);}
+    }else if(oldState&&oldState.items.length){
+      state=oldState;
+      normalizeStateShape(state);
+      await idbReplaceItems(state.items);
+      saveUiState();
+      localStorage.setItem(STORE_KEY+'.migratedAt',new Date().toISOString());
+      localStorage.removeItem(STORE_KEY);
+      toast('기존 저장 데이터를 IndexedDB로 옮겼어');
+    }
+  }catch(e){
+    console.warn('IndexedDB 로드 실패',e);
+    if(oldState)state=oldState;
+  }
+  normalizeStateShape(state);
+  if(state.selectedId&&!state.items.some(it=>it.id===state.selectedId))state.selectedId=state.items[0]?.id||null;
+}
 function readAsArrayBuffer(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsArrayBuffer(file)})}
 function readAsDataURL(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file)})}
 function textDecoder(bytes){try{return new TextDecoder('utf-8').decode(bytes)}catch(e){return ''}}
@@ -526,6 +636,7 @@ function renderList(){
 function current(){return state.items.find(i=>i.id===state.selectedId)}
 function renderDetail(){const it=current();$('#detail-empty').style.display=it?'none':'block';$('#detail').style.display=it?'block':'none';$('#selected-state').textContent=it?'편집 중':'선택 없음';if(!it)return;const m=it.meta||{};$('#d-img').src=it.thumb||'';$('#d-title').value=it.title||'';$('#d-status').value=it.status||'보류';$('#d-score').value=String(it.score||0);$('#d-tags').value=(it.tags||[]).join(', ');$('#d-notes').value=it.notes||'';$('#toggle-fav-btn').textContent=it.fav?'즐겨찾기 해제':'즐겨찾기';const loras=(m.loras||[]).map(l=>`${l.name}${l.strength_model!=null?' @'+l.strength_model:''}`).join(', ');$('#d-kv').innerHTML=[['출처',m.source||'확인 불가'],['모델',m.model||'확인 불가'],['LoRA',loras||'확인 불가'],['Seed',m.seed??'확인 불가'],['Steps',m.steps??'확인 불가'],['CFG',m.cfg??'확인 불가'],['Sampler',m.sampler||'확인 불가'],['Scheduler',m.scheduler||'확인 불가'],['Denoise',m.denoise??'확인 불가'],['크기',(m.width&&m.height)?`${m.width}×${m.height}`:'확인 불가'],['파일',bytes(it.size)]].map(([k,v])=>`<b>${esc(k)}</b><span>${esc(v)}</span>`).join('');$('#d-positive').textContent=m.positive||'확인 불가';$('#d-negative').textContent=m.negative||'확인 불가'}
 function renderStats(){let store=0;try{store=JSON.stringify(state).length*2}catch(e){}$('#stat-items').textContent=state.items.length;$('#stat-meta').textContent=state.items.filter(i=>i.meta&&i.meta.metaFound).length;$('#stat-fav').textContent=state.items.filter(i=>i.fav).length;$('#stat-store').textContent=bytes(store);const ge=$('#stat-gist');if(ge)ge.textContent=bytes(estimateGistPayloadBytes())}
+function renderAll(){applyView();render()}
 
 function cardExpandedHTML(it){
   const m=it.meta||{};
@@ -916,7 +1027,12 @@ function startAutoSave(){
 }
 
 document.querySelectorAll('.vt-btn').forEach(b=>b.onclick=()=>setView(b.dataset.view));
-load();applyView();render();
+async function bootResultGallery(){
+  await load();
+  applyView();
+  render();
+}
+bootResultGallery();
 
 // Gist 핸들러 바인딩
 (function(){
