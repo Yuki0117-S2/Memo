@@ -179,6 +179,7 @@ header{display:flex;align-items:center;gap:10px;border-bottom:.5px solid var(--b
 /* === mobile gallery fit patch === */
 @media(max-width:760px){
   html,body{width:100%;max-width:100%;overflow-x:hidden}
+  #app,.split,.panel,.panel-body,main,aside{max-width:100%;min-width:0;overflow-x:hidden}
   #app{width:100%;max-width:100%;overflow-x:hidden;padding:.75rem .8rem 2rem}
   header{justify-content:center}
   header .back{position:absolute;left:.8rem}
@@ -189,7 +190,9 @@ header{display:flex;align-items:center;gap:10px;border-bottom:.5px solid var(--b
   .split.gallery-mode aside.panel,.split.gallery-mode .detail-panel{display:none!important}
   .split.gallery-mode .sort-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-items:center}
   .split.gallery-mode .sort-row select{width:100%;min-width:0!important;font-size:12px;padding:9px 10px}
-  .split.gallery-mode .sort-row label.small{grid-column:1 / 2;display:flex;align-items:center;justify-content:center;gap:6px;min-width:0;margin:0}
+  .split.gallery-mode .sort-row label.small{grid-column:1 / 2;display:flex;align-items:center;justify-content:flex-start;gap:6px;min-width:0;width:100%;margin:0;white-space:nowrap;overflow:visible;font-size:11px;line-height:1.2}
+  .split.gallery-mode .sort-row label.small input[type=checkbox],
+  .split.gallery-mode .sort-row #fav-only{width:16px!important;height:16px!important;min-width:16px!important;max-width:16px!important;flex:0 0 16px!important;margin:0}
   .split.gallery-mode .sort-row #quick-note{grid-column:2 / 4;width:100%;min-width:0!important;padding:9px 10px}
   .split.gallery-mode #list{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:14px}
   .split.gallery-mode .card{width:100%;min-width:0;border-radius:14px}
