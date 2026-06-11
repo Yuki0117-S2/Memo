@@ -228,6 +228,15 @@ body.lb-open{overflow:hidden}
   .split.gallery-mode .card-quick,.split.gallery-mode .card-summary{display:none}
 }
 
+
+/* === mobile header back/logo overlap fix === */
+@media(max-width:760px){
+  header{position:relative;justify-content:flex-start;align-items:center;gap:8px}
+  header .back{position:static!important;left:auto!important;flex:0 0 30px;margin-right:2px}
+  header .logo{width:auto!important;flex:0 0 auto;margin-right:8px;white-space:nowrap}
+  header .toolbar{width:100%;justify-content:center}
+}
+
 </style>
 </head>
 <body>
