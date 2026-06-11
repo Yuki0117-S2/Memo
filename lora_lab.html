@@ -174,6 +174,23 @@ header{display:flex;align-items:center;gap:10px;border-bottom:.5px solid var(--b
 .rep-hint{font-size:11px;color:var(--text3);line-height:1.5;margin-top:6px}
 @media(hover:none){.img-nav{display:none}.img-count{bottom:8px}}
 
+/* === LoRA image lightbox === */
+body.lb-open{overflow:hidden}
+#image-lightbox{position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,.88);display:none;align-items:center;justify-content:center;padding:18px;touch-action:none}
+#image-lightbox.open{display:flex}
+.lb-shell{position:relative;width:min(1100px,100%);height:min(92vh,900px);display:flex;flex-direction:column;gap:10px;align-items:center;justify-content:center}
+.lb-stage{position:relative;flex:1;width:100%;min-height:0;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.04);border:.5px solid rgba(255,255,255,.14);border-radius:14px;overflow:hidden}
+.lb-stage img{max-width:100%;max-height:100%;object-fit:contain;display:block;user-select:none;-webkit-user-drag:none}
+.lb-close{position:absolute;right:4px;top:4px;z-index:3;width:38px;height:38px;border:0;border-radius:999px;background:rgba(0,0,0,.42);color:#fff;font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.lb-close:hover{background:rgba(0,0,0,.62)}
+.lb-nav{position:absolute;top:50%;transform:translateY(-50%);z-index:3;width:42px;height:54px;border:0;border-radius:999px;background:rgba(0,0,0,.34);color:#fff;font-size:30px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.lb-nav:hover{background:rgba(0,0,0,.54)}
+.lb-nav.prev{left:10px}.lb-nav.next{right:10px}
+.lb-info{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;color:#fff;font-size:12px;line-height:1.45;text-align:center;min-height:22px}
+.lb-title{max-width:70%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.92}.lb-count{font-weight:800;background:rgba(255,255,255,.16);border-radius:999px;padding:2px 8px}
+@media(max-width:760px){#image-lightbox{padding:10px}.lb-shell{height:94vh}.lb-stage{border-radius:12px}.lb-nav{display:none}.lb-title{max-width:62%;font-size:11px}.lb-count{font-size:11px}.lb-close{right:6px;top:6px}}
+
+
 
 
 /* === mobile gallery fit patch === */
@@ -259,6 +276,17 @@ header{display:flex;align-items:center;gap:10px;border-bottom:.5px solid var(--b
   </div>
 </div>
 <div id="ctx-menu"></div><div class="toast" id="toast"></div>
+<div id="image-lightbox" aria-hidden="true">
+  <div class="lb-shell">
+    <button class="lb-close" type="button" id="lb-close" title="닫기">×</button>
+    <div class="lb-stage" id="lb-stage">
+      <button class="lb-nav prev" type="button" id="lb-prev" title="이전 이미지">‹</button>
+      <img id="lb-img" alt="">
+      <button class="lb-nav next" type="button" id="lb-next" title="다음 이미지">›</button>
+    </div>
+    <div class="lb-info"><span class="lb-title" id="lb-title"></span><span class="lb-count" id="lb-count"></span></div>
+  </div>
+</div>
 
 <!-- Gist 동기화 모달 -->
 <div id="gist-overlay">
@@ -608,6 +636,70 @@ function cardHtml(c){
   const idx=imgs.length?((Number(c.imageIndex)||0)%imgs.length+imgs.length)%imgs.length:0;
   const thumb=gallery?`<div class="card-thumb" data-act="thumb">${img?`<img src="${img.dataUrl}" alt="">${imgs.length>1?`<button class="img-nav prev" data-act="img-prev" title="이전 이미지">‹</button><button class="img-nav next" data-act="img-next" title="다음 이미지">›</button><span class="img-count">${idx+1} / ${imgs.length}</span>`:''}`:'<span class="noimg">대표이미지 없음<br>LoRA 이름 들어간 이미지를 드롭해봐</span>'}</div>`:'';
   return `<article class="card ${imgs.length>1?'has-multi':''} ${state.selectedId===c.id?'active':''} ${state.selected.has(c.id)?'selected':''}" data-id="${c.id}">${thumb}<div class="fav ${c.fav?'on':''}" data-act="fav">${c.fav?'★':'☆'}</div><div class="card-actions"><button class="mini-btn" data-act="fold">${collapsed?'＋':'－'}</button></div><div class="card-title">${escapeHtml(c.title||c.fileName||'이름 없음')}</div><div class="card-file">${escapeHtml(c.fileName||'수동 기록')} ${c.fileSize?`· ${fmtBytes(c.fileSize)}`:''}</div><div class="card-meta"><span class="pill ${statusClass(c)}">${escapeHtml(c.status)}</span><span class="pill purpose">${escapeHtml(c.purpose)}</span><span class="pill meta">${escapeHtml(meta)}</span>${c.recommendedWeight?`<span class="pill">weight ${escapeHtml(c.recommendedWeight)}</span>`:''}${imgs.length?`<span class="pill ok">image ${imgs.length}</span>`:''}</div>${collapsed?'':`<div class="card-quick"><b>base</b><span>${escapeHtml(c.baseModel||'-')}</span><b>trigger</b><span>${escapeHtml(c.triggerWord||'-')}</span><b>steps</b><span>${escapeHtml(c.totalSteps||'-')}</span><b>rank</b><span>${escapeHtml(c.rankDim||'-')}</span><b>alpha</b><span>${escapeHtml(c.alpha||'-')}</span><b>LR</b><span>${escapeHtml(c.learningRate||c.unetLR||'-')}</span></div><div class="card-summary">${escapeHtml(c.resultReview||c.nextExperiment||c.notes||c.testPrompt||'아직 평가 메모 없음')}</div>`}</article>`}
+
+let lightboxCardId=null;
+let lightboxTouchX=0, lightboxTouchY=0;
+function renderImageLightbox(){
+  const box=$('image-lightbox');
+  if(!box||!lightboxCardId)return;
+  const c=state.cards.find(x=>x.id===lightboxCardId);
+  const imgs=getCardImages(c);
+  if(!c||!imgs.length){closeImageLightbox(false);return;}
+  const idx=((Number(c.imageIndex)||0)%imgs.length+imgs.length)%imgs.length;
+  c.imageIndex=idx;
+  const img=imgs[idx];
+  $('lb-img').src=img.dataUrl;
+  $('lb-title').textContent=(c.title||c.fileName||'LoRA')+(img.name?' · '+img.name:'');
+  $('lb-count').textContent=imgs.length>1?`${idx+1} / ${imgs.length}`:'1 / 1';
+  const showNav=imgs.length>1;
+  $('lb-prev').style.display=showNav?'flex':'none';
+  $('lb-next').style.display=showNav?'flex':'none';
+}
+function openImageLightbox(id){
+  const c=state.cards.find(x=>x.id===id);
+  if(!c||!getCardImages(c).length)return;
+  lightboxCardId=id;
+  state.selectedId=id;
+  const box=$('image-lightbox');
+  box.classList.add('open');
+  box.setAttribute('aria-hidden','false');
+  document.body.classList.add('lb-open');
+  renderImageLightbox();
+}
+function closeImageLightbox(doRender=true){
+  const box=$('image-lightbox');
+  if(box){box.classList.remove('open');box.setAttribute('aria-hidden','true');}
+  document.body.classList.remove('lb-open');
+  lightboxCardId=null;
+  if(doRender)render();
+}
+function stepLightboxImage(delta){
+  if(!lightboxCardId)return;
+  const c=state.cards.find(x=>x.id===lightboxCardId);
+  const imgs=getCardImages(c);
+  if(!c||imgs.length<2)return;
+  c.imageIndex=((Number(c.imageIndex)||0)+delta+imgs.length)%imgs.length;
+  c.updatedAt=now();
+  save();
+  renderImageLightbox();
+}
+function bindImageLightbox(){
+  const box=$('image-lightbox');
+  if(!box)return;
+  $('lb-close').onclick=e=>{e.preventDefault();e.stopPropagation();closeImageLightbox();};
+  $('lb-prev').onclick=e=>{e.preventDefault();e.stopPropagation();stepLightboxImage(-1);};
+  $('lb-next').onclick=e=>{e.preventDefault();e.stopPropagation();stepLightboxImage(1);};
+  box.onclick=e=>{if(e.target===box)closeImageLightbox();};
+  $('lb-stage').addEventListener('touchstart',e=>{const t=e.changedTouches&&e.changedTouches[0];if(!t)return;lightboxTouchX=t.clientX;lightboxTouchY=t.clientY;},{passive:true});
+  $('lb-stage').addEventListener('touchend',e=>{const t=e.changedTouches&&e.changedTouches[0];if(!t)return;const dx=t.clientX-lightboxTouchX,dy=t.clientY-lightboxTouchY;if(Math.abs(dx)>42&&Math.abs(dx)>Math.abs(dy)*1.2){e.preventDefault();e.stopPropagation();stepLightboxImage(dx<0?1:-1)}},{passive:false});
+  document.addEventListener('keydown',e=>{
+    if(!lightboxCardId)return;
+    if(e.key==='Escape'){e.preventDefault();closeImageLightbox();}
+    else if(e.key==='ArrowLeft'){e.preventDefault();stepLightboxImage(-1);}
+    else if(e.key==='ArrowRight'){e.preventDefault();stepLightboxImage(1);}
+  });
+}
+
 function renderList(){
   const arr=filtered();
   $('list').classList.toggle('select-mode',state.selectMode);
@@ -617,15 +709,21 @@ function renderList(){
     let touchStartX=0,touchStartY=0;
     const thumb=el.querySelector('.card-thumb');
     if(thumb){
-      thumb.addEventListener('touchstart',e=>{const t=e.changedTouches&&e.changedTouches[0];if(!t)return;touchStartX=t.clientX;touchStartY=t.clientY;},{passive:true});
-      thumb.addEventListener('touchend',e=>{const t=e.changedTouches&&e.changedTouches[0];if(!t)return;const dx=t.clientX-touchStartX,dy=t.clientY-touchStartY;if(Math.abs(dx)>38&&Math.abs(dx)>Math.abs(dy)*1.2){e.preventDefault();e.stopPropagation();stepCardImage(id,dx<0?1:-1)}},{passive:false});
+      thumb.addEventListener('touchstart',e=>{const t=e.changedTouches&&e.changedTouches[0];if(!t)return;touchStartX=t.clientX;touchStartY=t.clientY;thumb.dataset.swiped='';},{passive:true});
+      thumb.addEventListener('touchend',e=>{const t=e.changedTouches&&e.changedTouches[0];if(!t)return;const dx=t.clientX-touchStartX,dy=t.clientY-touchStartY;if(Math.abs(dx)>38&&Math.abs(dx)>Math.abs(dy)*1.2){e.preventDefault();e.stopPropagation();thumb.dataset.swiped='1';stepCardImage(id,dx<0?1:-1);setTimeout(()=>{thumb.dataset.swiped=''},260)}} ,{passive:false});
     }
     el.onclick=e=>{
       const act=e.target.dataset.act;
       if(act==='fav'){e.stopPropagation();const c=state.cards.find(x=>x.id===id);if(c){c.fav=!c.fav;c.updatedAt=now();save();render();toast(c.fav?'즐겨찾기 추가':'즐겨찾기 해제')}return}
-      if(act==='fold'){const c=state.cards.find(x=>x.id===id);c.collapsed=!c.collapsed;save();render();return}
+      if(act==='fold'){e.stopPropagation();const c=state.cards.find(x=>x.id===id);c.collapsed=!c.collapsed;save();render();return}
       if(act==='img-prev'||act==='img-next'){e.preventDefault();e.stopPropagation();stepCardImage(id,act==='img-next'?1:-1);return}
       if(state.selectMode){state.selected.has(id)?state.selected.delete(id):state.selected.add(id);render();return}
+      if(e.target.closest('.card-thumb')){
+        const c=state.cards.find(x=>x.id===id);
+        if(c&&getCardImages(c).length&&!(thumb&&thumb.dataset.swiped==='1')){
+          e.preventDefault();e.stopPropagation();openImageLightbox(id);return;
+        }
+      }
       state.selectedId=id;render();
     };
     el.ondblclick=e=>{e.preventDefault();openMenu(id,e.clientX||innerWidth/2,e.clientY||innerHeight/2)};
@@ -936,6 +1034,9 @@ $('gist-close-btn').addEventListener('click',closeGistModal);
 $('gist-overlay').addEventListener('click',e=>{
   if(e.target.id==='gist-overlay') closeGistModal();
 });
+
+// 이미지 크게보기 바인딩
+bindImageLightbox();
 
 // 시작 시 토큰/ID 있으면 자동저장 시작 + 인디케이터 점등
 startAutoSave();
