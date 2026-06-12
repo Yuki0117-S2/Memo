@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>✦ LoRA Lookup</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#ffffff;--bg2:#f7f6f3;--bg3:#eeeeee;--text:#1a1a1a;--text2:#555;--text3:#999;--border:rgba(0,0,0,.10);--border2:rgba(0,0,0,.20);--accent:#8888CC;--accent2:#DDAACC;--accent3:#CCAA88;--danger:#BB6688;--purple:#884499;--ok:#6AC8B0;--radius:12px;--radius-sm:8px;--mono:'JetBrains Mono',Consolas,Menlo,monospace}
+@media(prefers-color-scheme:dark){:root{--bg:#1e1e1e;--bg2:#272727;--bg3:#313131;--text:#f0f0f0;--text2:#aaa;--text3:#666;--border:rgba(255,255,255,.10);--border2:rgba(255,255,255,.22)}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+button,input,textarea,select{font-family:inherit}
+#app{width:100%;max-width:920px;margin:0 auto;padding:1rem 1.25rem 3rem}
+header{display:flex;align-items:center;gap:10px;border-bottom:.5px solid var(--border);padding-bottom:.75rem;margin-bottom:.85rem;flex-wrap:wrap}
+.back{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;color:var(--text3);text-decoration:none;border-radius:var(--radius-sm);font-size:18px;flex:0 0 auto}.back:hover{background:var(--bg2);color:var(--accent)}
+.logo{font-size:15px;font-weight:700;color:var(--accent);letter-spacing:-.2px;margin-right:8px;display:flex;align-items:center;gap:8px}.logo-dot{width:8px;height:8px;border-radius:999px;background:var(--accent);box-shadow:0 0 10px rgba(136,136,204,.6);animation:pulse 2.4s ease-in-out infinite}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.42}}
+.toolbar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;flex:1;color:var(--text3);font-size:12px;line-height:1.55}.toolbar strong{color:var(--text2);font-weight:600}
+.hero{background:var(--bg);border:.5px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:12px}.hero-head{padding:14px 15px;border-bottom:.5px solid var(--border);background:var(--bg2)}.hero-title{font-size:13px;font-weight:800;color:var(--text);margin-bottom:3px}.hero-desc{font-size:12px;color:var(--text3);line-height:1.55}
+.drop-zone{border:1px dashed var(--border2);border-radius:var(--radius);padding:34px 18px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s,color .15s;background:var(--bg2);color:var(--text3);margin:12px}
+.drop-zone:hover,.drop-zone.over{border-color:var(--accent);color:var(--accent);background:rgba(136,136,204,.08)}
+.drop-icon{width:50px;height:50px;border-radius:14px;margin:0 auto 14px;background:var(--bg);border:.5px solid var(--border);display:flex;align-items:center;justify-content:center}.drop-icon svg{width:24px;height:24px;fill:var(--accent)}
+.drop-main{font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px}.drop-main span{color:var(--accent)}.drop-sub{font-size:12px;color:var(--text3);line-height:1.55}
+#file-input{position:absolute;width:1px;height:1px;padding:0;border:0;clip:rect(0 0 0 0);overflow:hidden;opacity:0;pointer-events:none}.queue{display:flex;flex-direction:column;gap:10px}
+.card{background:var(--bg);border:.5px solid var(--border);border-radius:var(--radius);overflow:hidden;animation:slideIn .22s ease}.card:hover{border-color:var(--border2);box-shadow:0 4px 16px rgba(0,0,0,.06)}@keyframes slideIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.card-header{display:flex;align-items:center;gap:12px;padding:12px 14px}.card-icon{width:38px;height:38px;border-radius:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff}.card-meta{flex:1;min-width:0}.card-name{font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.card-size{font-size:11px;color:var(--text3);margin-top:2px}.badge{font-size:11px;padding:3px 10px;border-radius:999px;flex-shrink:0;font-weight:700;border:.5px solid transparent}.badge.computing{background:rgba(204,170,136,.12);color:var(--accent3);border-color:rgba(204,170,136,.32)}.badge.fetching{background:rgba(136,136,204,.12);color:var(--accent);border-color:rgba(136,136,204,.32)}.badge.found{background:rgba(106,200,176,.12);color:var(--ok);border-color:rgba(106,200,176,.32)}.badge.notfound,.badge.error{background:rgba(187,102,136,.12);color:var(--danger);border-color:rgba(187,102,136,.28)}
+.progress-track{height:2px;background:var(--bg3)}.progress-fill{height:100%;width:0%;transition:width .2s ease;background:var(--accent)}.divider{height:.5px;background:var(--border);margin:0}.result-wrap{display:flex;gap:14px;padding:12px 14px 14px;align-items:flex-start}.result-thumb{width:136px;flex-shrink:0;border-radius:var(--radius-sm);overflow:hidden;background:var(--bg2);border:.5px solid var(--border);aspect-ratio:2/3;display:flex;align-items:center;justify-content:center}.result-thumb img{width:100%;height:100%;object-fit:cover;display:block}.result-thumb-empty{font-size:11px;color:var(--text3);text-align:center;padding:12px}.result-info{flex:1;min-width:0}.result-model{font-size:14px;font-weight:800;color:var(--text);margin-bottom:10px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}.result-version{font-size:12px;color:var(--text3);font-weight:500}.type-badge{font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px;letter-spacing:.3px;white-space:nowrap}.type-lora{background:rgba(136,136,204,.14);color:var(--accent);border:.5px solid rgba(136,136,204,.32)}.type-lycoris{background:rgba(136,68,153,.12);color:var(--purple);border:.5px solid rgba(136,68,153,.25)}.type-checkpoint{background:rgba(204,170,136,.14);color:var(--accent3);border:.5px solid rgba(204,170,136,.32)}.type-embedding{background:rgba(106,200,176,.12);color:var(--ok);border:.5px solid rgba(106,200,176,.32)}.type-controlnet{background:rgba(221,170,204,.14);color:var(--accent2);border:.5px solid rgba(221,170,204,.32)}.type-vae,.type-upscaler,.type-detailer,.type-hypernetwork,.type-other{background:var(--bg2);color:var(--text2);border:.5px solid var(--border)}
+.info-row{display:flex;gap:10px;margin-bottom:7px;align-items:flex-start}.info-label{font-size:11px;color:var(--text3);min-width:72px;padding-top:2px;flex-shrink:0;font-weight:700}.info-val{font-size:12px;color:var(--text);line-height:1.5;min-width:0}.pills{display:flex;flex-wrap:wrap;gap:5px}.pill,.pill-auto{font-size:11px;padding:3px 10px;border-radius:999px;font-family:var(--mono);cursor:pointer;transition:background .12s,border-color .12s;word-break:break-word}.pill{background:rgba(221,170,204,.12);border:.5px solid rgba(221,170,204,.32);color:var(--accent2)}.pill:hover{background:rgba(221,170,204,.22)}.pill-auto{background:rgba(204,170,136,.10);border:.5px dashed rgba(204,170,136,.42);color:var(--accent3)}.pill-auto:hover{background:rgba(204,170,136,.18)}.pill-none{font-size:12px;color:var(--text3)}.source-label{font-size:10px;color:var(--text3);margin-bottom:4px}.source-label.auto{color:var(--accent3)}.hash-val{font-family:var(--mono);font-size:11px;color:var(--text3);word-break:break-all}.link-btn{display:inline-flex;align-items:center;gap:6px;margin-top:10px;padding:6px 13px;border-radius:var(--radius-sm);border:.5px solid var(--accent);color:var(--accent);font-size:12px;text-decoration:none;font-weight:700;transition:background .12s}.link-btn:hover{background:var(--accent);color:#fff}.link-btn svg{width:12px;height:12px;fill:currentColor}.notfound-box{padding:12px 14px 14px}.notfound-msg{font-size:12px;color:var(--danger);margin-bottom:8px;line-height:1.55}.trigger-section{margin-bottom:2px}
+@media(max-width:720px){#app{padding:.75rem .8rem 2rem}header{display:grid;grid-template-columns:auto 1fr;grid-template-areas:"back logo" "tools tools";align-items:center;gap:8px;padding-bottom:.85rem}.back{grid-area:back}.logo{grid-area:logo;margin-right:0}.toolbar{grid-area:tools;width:100%;font-size:11px}.hero-head{padding:12px}.drop-zone{margin:10px;padding:28px 14px}.card-header{align-items:flex-start;gap:9px;padding:11px 12px}.card-icon{width:34px;height:34px;font-size:11px}.badge{margin-top:2px}.result-wrap{padding:10px 12px 12px;gap:10px}.result-thumb{width:104px}.info-row{display:grid;grid-template-columns:68px minmax(0,1fr);gap:6px}.info-label{min-width:0}.pill,.pill-auto{font-size:10px;padding:3px 8px}.result-model{font-size:13px}.link-btn{width:100%;justify-content:center}}
+@media(max-width:460px){.result-wrap{flex-direction:column}.result-thumb{width:100%;max-height:280px;aspect-ratio:16/10}.result-thumb img{object-fit:contain;background:var(--bg2)}.card-header{flex-wrap:wrap}.card-meta{min-width:calc(100% - 46px)}.badge{margin-left:46px}.info-row{grid-template-columns:1fr}.info-label{padding-top:0}.drop-icon{width:44px;height:44px}.drop-main{font-size:13px}.drop-sub{font-size:11px}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <a class="back" href="index.html" title="작업실로">‹</a>
+    <div class="logo"><span class="logo-dot"></span>✦ LoRA Lookup</div>
+    <div class="toolbar"><strong>safetensors · pt · ckpt</strong> 파일을 올리면 civitai에서 유형과 트리거 워드를 자동으로 찾아줌</div>
+  </header>
+  <section class="hero">
+    <div class="hero-head">
+      <div class="hero-title">LoRA Trigger Lookup</div>
+      <div class="hero-desc">파일 해시를 계산해서 civitai 모델 정보를 조회해. 원본 파일은 업로드하지 않고 브라우저 안에서 해시만 계산함.</div>
+    </div>
+    <div class="drop-zone" id="drop-zone">
+    <div class="drop-icon">
+      <svg viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/></svg>
+    </div>
+    <div class="drop-main"><span>파일 선택</span> 또는 여기에 끌어다 놓기</div>
+    <div class="drop-sub">.safetensors · .pt · .ckpt · .bin · 대용량도 가능</div>
+    <input type="file" id="file-input" multiple accept=".safetensors,.pt,.ckpt,.bin">
+    </div>
+  </section>
+  <div class="queue" id="queue"></div>
+</div>
+<script>
+const K=new Uint32Array([0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2]);
+function rotr(x,n){return(x>>>n)|(x<<(32-n));}
+function processBlock(H,block){
+  const W=new Uint32Array(64),v=new DataView(block.buffer,block.byteOffset,64);
+  for(let i=0;i<16;i++)W[i]=v.getUint32(i*4,false);
+  for(let i=16;i<64;i++){const s0=rotr(W[i-15],7)^rotr(W[i-15],18)^(W[i-15]>>>3);const s1=rotr(W[i-2],17)^rotr(W[i-2],19)^(W[i-2]>>>10);W[i]=(W[i-16]+s0+W[i-7]+s1)>>>0;}
+  let a=H[0],b=H[1],c=H[2],d=H[3],e=H[4],f=H[5],g=H[6],h=H[7];
+  for(let i=0;i<64;i++){const S1=rotr(e,6)^rotr(e,11)^rotr(e,25);const ch=(e&f)^(~e&g);const t1=(h+S1+ch+K[i]+W[i])>>>0;const S0=rotr(a,2)^rotr(a,13)^rotr(a,22);const maj=(a&b)^(a&c)^(b&c);const t2=(S0+maj)>>>0;h=g;g=f;f=e;e=(d+t1)>>>0;d=c;c=b;b=a;a=(t1+t2)>>>0;}
+  H[0]=(H[0]+a)>>>0;H[1]=(H[1]+b)>>>0;H[2]=(H[2]+c)>>>0;H[3]=(H[3]+d)>>>0;H[4]=(H[4]+e)>>>0;H[5]=(H[5]+f)>>>0;H[6]=(H[6]+g)>>>0;H[7]=(H[7]+h)>>>0;
+}
+async function sha256Stream(file,onProgress){
+  const H=new Uint32Array([0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19]);
+  const CHUNK=2*1024*1024;let leftover=new Uint8Array(0),totalRead=0;const total=file.size;
+  for(let offset=0;offset<total;offset+=CHUNK){
+    const inc=new Uint8Array(await file.slice(offset,offset+CHUNK).arrayBuffer());
+    const merged=new Uint8Array(leftover.length+inc.length);merged.set(leftover);merged.set(inc,leftover.length);leftover=merged;
+    totalRead+=inc.length;onProgress(Math.min(99,Math.round(totalRead/total*100)));
+    let i=0;for(;i+64<=leftover.length;i+=64)processBlock(H,leftover.subarray(i,i+64));
+    leftover=leftover.slice(i);await new Promise(r=>setTimeout(r,0));
+  }
+  const totalBits=BigInt(total)*8n;
+  const pLen=leftover.length+1+(leftover.length%64<56?55-leftover.length%64:119-leftover.length%64)+8;
+  const padded=new Uint8Array(pLen);padded.set(leftover);padded[leftover.length]=0x80;
+  new DataView(padded.buffer).setBigUint64(pLen-8,totalBits,false);
+  for(let i=0;i+64<=padded.length;i+=64)processBlock(H,padded.subarray(i,i+64));
+  onProgress(100);
+  return Array.from(H).map(n=>n.toString(16).padStart(8,'0')).join('');
+}
+
+const TYPE_MAP={
+  'LORA':{label:'LoRA',cls:'type-lora'},
+  'LoCon':{label:'LyCORIS',cls:'type-lycoris'},
+  'Checkpoint':{label:'Checkpoint',cls:'type-checkpoint'},
+  'TextualInversion':{label:'Embedding',cls:'type-embedding'},
+  'Controlnet':{label:'ControlNet',cls:'type-controlnet'},
+  'Hypernetwork':{label:'Hypernetwork',cls:'type-hypernetwork'},
+  'AestheticGradient':{label:'Aesthetic',cls:'type-other'},
+  'Poses':{label:'Poses',cls:'type-other'},
+  'Wildcards':{label:'Wildcards',cls:'type-other'},
+  'Workflows':{label:'Workflow',cls:'type-other'},
+  'Other':{label:'Other',cls:'type-other'},
+};
+function guessTypeFromFilename(name){
+  const n=name.toLowerCase();
+  if(/vae/.test(n))return{label:'VAE (추측)',cls:'type-vae',guess:true};
+  if(/upscal|esrgan|realesrgan|swinir/.test(n))return{label:'Upscaler (추측)',cls:'type-upscaler',guess:true};
+  if(/detailer|adetailer|yolo/.test(n))return{label:'Detailer (추측)',cls:'type-detailer',guess:true};
+  if(/controlnet|control_net|cnet/.test(n))return{label:'ControlNet (추측)',cls:'type-controlnet',guess:true};
+  if(/lora|lycoris|locon|loha|lokr/.test(n))return{label:'LoRA (추측)',cls:'type-lora',guess:true};
+  if(/embed|ti[-_]|textual/.test(n))return{label:'Embedding (추측)',cls:'type-embedding',guess:true};
+  if(/hypernetwork|hypernet/.test(n))return{label:'Hypernetwork (추측)',cls:'type-hypernetwork',guess:true};
+  return null;
+}
+function resolveType(civitaiType,modelName,fileName){
+  if(civitaiType){
+    const base=TYPE_MAP[civitaiType]||{label:civitaiType,cls:'type-other'};
+    const combined=(modelName+fileName).toLowerCase();
+    if(civitaiType==='Checkpoint'&&/vae/.test(combined))return{label:'VAE',cls:'type-vae',guess:false};
+    if(civitaiType==='Other'&&/upscal|esrgan/.test(combined))return{label:'Upscaler',cls:'type-upscaler',guess:false};
+    if(civitaiType==='Other'&&/detailer|yolo/.test(combined))return{label:'Detailer',cls:'type-detailer',guess:false};
+    return{...base,guess:false};
+  }
+  return null;
+}
+
+const STOPWORDS=new Set(['the','a','an','and','or','but','in','on','at','to','for','of','with','by','from','as','is','are','was','were','be','been','being','have','has','had','do','does','did','will','would','could','should','may','might','this','that','these','those','use','used','using','can','it','its','if','your','my','our','their','not','no','all','also','than','then','when','where','how','what','which','who','more','less','very','just','only','even','so','too','up','out','about','into','after','before','between','through','during','please','note','model','lora','weight','prompt','quality','high','low','style','image','version','xl','sd','base','recommended','recommend','remove','add','trigger','word','words','negative','positive','fine','good','best','here','some','both','each','other','any','way','make','made','set','need','without','include','included','since','over','under','same','different','new','old','first','last','long','small','large','big','full','single','multiple']);
+function extractFromDescription(html){
+  if(!html)return[];
+  const txt=html.replace(/<[^>]+>/g,' ').replace(/&[a-z]+;/g,' ').replace(/\s+/g,' ').trim();
+  const candidates=new Set();
+  const chunks=txt.split(/[,\n;]+/);
+  for(const chunk of chunks){
+    const w=chunk.trim();
+    if(!w||w.length>40)continue;
+    if((w.match(/ /g)||[]).length>2)continue;
+    if(/[\/\\:.?#@]/.test(w))continue;
+    if(/^\d+$/.test(w))continue;
+    const clean=w.replace(/[^a-zA-Z0-9_\- ]/g,'').trim();
+    if(!clean||clean.length<2)continue;
+    if(!clean.includes(' ')&&STOPWORDS.has(clean.toLowerCase()))continue;
+    if(clean.length<=2)continue;
+    candidates.add(clean);
+  }
+  return[...candidates].slice(0,20);
+}
+
+const drop=document.getElementById('drop-zone');
+const fileInput=document.getElementById('file-input');
+const queue=document.getElementById('queue');
+const COLORS=['#8889CD','#BB6688','#CCAA88','#7a7abf','#c47a9e'];
+let ci=0;
+
+drop.addEventListener('click',()=>fileInput.click());
+drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('over');});
+drop.addEventListener('dragleave',()=>drop.classList.remove('over'));
+drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('over');handleFiles(e.dataTransfer.files);});
+fileInput.addEventListener('change',()=>{handleFiles(fileInput.files);fileInput.value='';});
+
+function fmtSize(b){if(b>=1e9)return(b/1e9).toFixed(2)+' GB';if(b>=1e6)return(b/1e6).toFixed(1)+' MB';return(b/1e3).toFixed(0)+' KB';}
+
+function createCard(file,color){
+  const id='c'+Date.now()+Math.random().toString(36).slice(2);
+  const card=document.createElement('div');card.className='card';
+  const header=document.createElement('div');header.className='card-header';
+  const icon=document.createElement('div');icon.className='card-icon';icon.style.background=color;icon.textContent=file.name.slice(0,2).toUpperCase();
+  const meta=document.createElement('div');meta.className='card-meta';
+  const nameEl=document.createElement('div');nameEl.className='card-name';nameEl.title=file.name;nameEl.textContent=file.name;
+  const sizeEl=document.createElement('div');sizeEl.className='card-size';sizeEl.textContent=fmtSize(file.size);
+  meta.append(nameEl,sizeEl);
+  const badge=document.createElement('span');badge.className='badge computing';badge.id='badge_'+id;badge.textContent='해시 계산 중';
+  header.append(icon,meta,badge);
+  const track=document.createElement('div');track.className='progress-track';
+  const fill=document.createElement('div');fill.className='progress-fill';fill.id='pb_'+id;fill.style.background=color;
+  track.append(fill);
+  const body=document.createElement('div');body.id='body_'+id;
+  card.append(header,track,body);
+  queue.prepend(card);
+  return id;
+}
+
+function makeTypeBadge(typeInfo){
+  const span=document.createElement('span');
+  span.className='type-badge '+typeInfo.cls;
+  span.textContent=typeInfo.label;
+  if(typeInfo.guess)span.title='파일명 기반 추측 — 실제 유형과 다를 수 있음';
+  return span;
+}
+function makePill(word,isAuto){
+  const span=document.createElement('span');
+  span.className=isAuto?'pill-auto':'pill';
+  span.textContent=word;
+  if(isAuto)span.title='description 자동 추출 — 실제 트리거 워드가 아닐 수 있음';
+  span.addEventListener('click',()=>{
+    navigator.clipboard.writeText(word).then(()=>{const orig=span.textContent;span.textContent='복사됨!';setTimeout(()=>{span.textContent=orig;},800);});
+  });
+  return span;
+}
+function makePillsSection(words,isAuto){
+  const wrap=document.createElement('div');wrap.className='trigger-section';
+  if(isAuto){const lbl=document.createElement('div');lbl.className='source-label auto';lbl.textContent='description 자동 추출 (미검증) · 클릭 복사';wrap.append(lbl);}
+  const pills=document.createElement('div');pills.className='pills';
+  words.forEach(w=>pills.append(makePill(w,isAuto)));
+  wrap.append(pills);return wrap;
+}
+function makeRow(label,valEl){
+  const row=document.createElement('div');row.className='info-row';
+  const l=document.createElement('div');l.className='info-label';l.textContent=label;
+  const v=document.createElement('div');v.className='info-val';v.append(valEl);
+  row.append(l,v);return row;
+}
+
+function renderResult(bodyEl,data,hash,fileName){
+  const modelName=data.model?.name||'이름 없음';
+  const versionName=data.name||'';
+  const trainedWords=data.trainedWords||[];
+  const baseModel=data.baseModel||'확인 불가';
+  const url='https://civitai.com/models/'+data.modelId+'?modelVersionId='+data.id;
+  const typeInfo=resolveType(data.model?.type,modelName,fileName);
+
+  // 대표 이미지
+  const imageUrl=data.images&&data.images.length>0?data.images[0].url:null;
+
+  // 트리거 워드
+  let triggerEl;
+  if(trainedWords.length>0){triggerEl=makePillsSection(trainedWords,false);}
+  else{
+    const extracted=extractFromDescription(data.description||'');
+    if(extracted.length>0){triggerEl=makePillsSection(extracted,true);}
+    else{const none=document.createElement('span');none.className='pill-none';none.textContent='트리거 워드 없음';triggerEl=none;}
+  }
+
+  const divider=document.createElement('div');divider.className='divider';
+  bodyEl.append(divider);
+
+  // 이미지 + 정보 래퍼
+  const wrap=document.createElement('div');wrap.className='result-wrap';
+
+  // 썸네일
+  const thumb=document.createElement('div');thumb.className='result-thumb';
+  if(imageUrl){
+    const img=document.createElement('img');
+    img.src=imageUrl;
+    img.alt='preview';
+    img.loading='lazy';
+    img.onerror=()=>{thumb.innerHTML='<div class="result-thumb-empty">이미지 없음</div>';};
+    thumb.append(img);
+  } else {
+    const empty=document.createElement('div');empty.className='result-thumb-empty';empty.textContent='이미지 없음';
+    thumb.append(empty);
+  }
+
+  // 정보
+  const info=document.createElement('div');info.className='result-info';
+  const modelTitle=document.createElement('div');modelTitle.className='result-model';
+  const nameText=document.createElement('span');nameText.textContent=modelName;
+  modelTitle.append(nameText);
+  if(typeInfo)modelTitle.append(makeTypeBadge(typeInfo));
+  if(versionName){const v=document.createElement('span');v.className='result-version';v.textContent=versionName;modelTitle.append(v);}
+
+  const hashSpan=document.createElement('span');hashSpan.className='hash-val';hashSpan.textContent=hash.slice(0,32)+'…';
+  const link=document.createElement('a');link.className='link-btn';link.href=url;link.target='_blank';
+  link.innerHTML='<svg viewBox="0 0 24 24"><path d="M19 19H5V5h7V3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>';
+  link.append(document.createTextNode('civitai에서 보기'));
+
+  info.append(modelTitle,makeRow('베이스 모델',document.createTextNode(baseModel)),makeRow('트리거 워드',triggerEl),makeRow('SHA-256',hashSpan),link);
+  wrap.append(thumb,info);
+  bodyEl.append(wrap);
+}
+
+function renderNotFound(bodyEl,hash,fileName){
+  const divider=document.createElement('div');divider.className='divider';
+  const box=document.createElement('div');box.className='notfound-box';
+  const msg=document.createElement('div');msg.className='notfound-msg';msg.textContent='civitai에서 찾을 수 없어. 자작이거나 비공개 모델일 수 있음.';
+  const guessed=guessTypeFromFilename(fileName);
+  if(guessed){box.append(msg,makeRow('유형 (추측)',makeTypeBadge(guessed)));}
+  else{box.append(msg);}
+  const row=document.createElement('div');row.className='info-row';
+  const l=document.createElement('div');l.className='info-label';l.textContent='SHA-256';
+  const v=document.createElement('div');v.className='info-val';
+  const s=document.createElement('span');s.className='hash-val';s.textContent=hash.slice(0,48)+'…';
+  v.append(s);row.append(l,v);box.append(row);
+  bodyEl.append(divider,box);
+}
+
+async function processFile(file){
+  const color=COLORS[ci%COLORS.length];ci++;
+  const id=createCard(file,color);
+  const badge=document.getElementById('badge_'+id);
+  const pb=document.getElementById('pb_'+id);
+  const body=document.getElementById('body_'+id);
+  let hash;
+  try{hash=await sha256Stream(file,pct=>{pb.style.width=pct+'%';});}
+  catch(e){
+    badge.textContent='오류';badge.className='badge error';
+    const box=document.createElement('div');box.className='notfound-box';
+    const msg=document.createElement('div');msg.className='notfound-msg';msg.textContent='해시 계산 실패: '+e.message;
+    box.append(msg);body.append(box);return;
+  }
+  badge.textContent='조회 중';badge.className='badge fetching';
+  try{
+    const resp=await fetch('https://civitai.com/api/v1/model-versions/by-hash/'+hash);
+    if(resp.status===404){badge.textContent='못 찾음';badge.className='badge notfound';renderNotFound(body,hash,file.name);return;}
+    if(!resp.ok)throw new Error('HTTP '+resp.status);
+    const data=await resp.json();
+    badge.textContent='찾음!';badge.className='badge found';
+    renderResult(body,data,hash,file.name);
+  }catch(e){
+    badge.textContent='오류';badge.className='badge error';
+    const box=document.createElement('div');box.className='notfound-box';
+    const msg=document.createElement('div');msg.className='notfound-msg';msg.textContent='조회 실패: '+e.message;
+    box.append(msg);body.append(box);
+  }
+}
+function handleFiles(files){[...files].forEach(f=>processFile(f));}
+</script>
+</body>
+</html>
