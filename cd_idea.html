@@ -1240,7 +1240,30 @@ function makeCard(data,tab){
       : '<i class="ti ti-chevron-down"></i> 더보기';
   }
   memo.addEventListener('input',()=>{data.memo=memo.value;applyMemoHeight(true);save();scheduleMasonry();});
-  memo.addEventListener('focus',()=>applyMemoHeight(true));
+
+  // 우클릭은 편집 의도가 아니므로, textarea가 포커스를 먹어도 메모 미리보기를 펼치지 않음
+  // 모바일 터치/일반 좌클릭 편집 흐름은 기존처럼 유지
+  let memoSuppressFocusExpand=false;
+  memo.addEventListener('mousedown',e=>{
+    memoSuppressFocusExpand = e.button !== 0;
+  });
+  memo.addEventListener('contextmenu',()=>{
+    memoSuppressFocusExpand=true;
+    if(!data.memoExpanded){
+      requestAnimationFrame(()=>{
+        applyMemoHeight(false);
+        scheduleMasonry();
+      });
+    }
+    setTimeout(()=>{ memoSuppressFocusExpand=false; },250);
+  });
+  memo.addEventListener('focus',()=>{
+    if(memoSuppressFocusExpand){
+      applyMemoHeight(false);
+      return;
+    }
+    applyMemoHeight(true);
+  });
   memo.addEventListener('blur',()=>{applyMemoHeight(false);scheduleMasonry();});
   memoMore.addEventListener('mousedown',e=>e.stopPropagation());
   memoMore.addEventListener('touchstart',e=>e.stopPropagation(),{passive:true});
