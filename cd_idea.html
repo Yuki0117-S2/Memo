@@ -259,6 +259,17 @@
   }
   .memo-more.show { display: inline-flex; }
   .memo-more:hover { opacity: 0.8; }
+  .memo-actions {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    min-height: 18px;
+  }
+  .memo-view-btn {
+    display: inline-flex; align-items: center; gap: 3px;
+    font-size: 11px; color: var(--accent); cursor: pointer;
+    background: none; border: none; padding: 2px 0 1px;
+    font-family: inherit; position: relative; z-index: 1;
+  }
+  .memo-view-btn:hover { opacity: 0.8; }
   .card-title-input, .card-memo, .tag-add-input, .prompt-textarea {
     touch-action: auto;
   }
@@ -568,6 +579,83 @@
   #lightbox .lb-prev { left: 16px; }
   #lightbox .lb-next { right: 16px; }
 
+  /* 메모 크게보기 */
+  #memo-viewer {
+    position: fixed; inset: 0; z-index: 10003;
+    background: rgba(0,0,0,0.58);
+    display: none; align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  #memo-viewer.open { display: flex; }
+  .memo-viewer-modal {
+    width: min(720px, calc(100vw - 24px));
+    max-height: calc(100vh - 48px);
+    background: var(--bg); color: var(--text);
+    border: 0.5px solid var(--border2);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 14px 44px rgba(0,0,0,0.32);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .memo-viewer-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 13px 15px 10px;
+    border-bottom: 0.5px solid var(--border);
+    background: var(--bg2);
+  }
+  .memo-viewer-title {
+    flex: 1; min-width: 0;
+    font-size: 14px; font-weight: 600; color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .memo-viewer-close {
+    display: flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px;
+    background: transparent; border: none; border-radius: var(--radius-md);
+    color: var(--text3); cursor: pointer; font-size: 18px;
+  }
+  .memo-viewer-close:hover { color: var(--accent2); background: var(--bg3); }
+  .memo-viewer-body {
+    padding: 14px 16px;
+    max-height: calc(100vh - 170px);
+    overflow: auto;
+    font-size: 13px; line-height: 1.65; color: var(--text2);
+    white-space: pre-wrap; word-break: break-word;
+    user-select: text; -webkit-user-select: text;
+  }
+  .memo-viewer-empty { color: var(--text3); }
+  .memo-viewer-foot {
+    display: flex; gap: 8px; justify-content: flex-end;
+    padding: 10px 15px 13px;
+    border-top: 0.5px solid var(--border);
+    background: var(--bg2);
+  }
+  .memo-viewer-copy {
+    display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+    background: var(--accent); color: #fff;
+    border: none; border-radius: var(--radius-md);
+    padding: 7px 12px; font-size: 12px; font-weight: 500;
+    font-family: inherit; cursor: pointer;
+  }
+  .memo-viewer-copy:hover { opacity: 0.88; }
+  @media (max-width: 520px) {
+    #memo-viewer { padding: 12px; align-items: center; }
+    .memo-viewer-modal {
+      width: calc(100vw - 24px);
+      max-height: calc(100vh - 24px);
+      border-radius: var(--radius-md);
+    }
+    .memo-viewer-head { padding: 11px 12px 8px; }
+    .memo-viewer-body {
+      padding: 12px;
+      max-height: calc(100vh - 145px);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .memo-viewer-foot { padding: 9px 12px 11px; }
+    .memo-viewer-copy { width: 100%; padding: 8px 12px; }
+  }
+
   /* Gist 동기화 */
   .sync-indicator {
     width: 7px; height: 7px; border-radius: 50%;
@@ -744,6 +832,19 @@
     <div class="gist-hint" id="gist-autosave-hint" style="text-align:center;"></div>
     <div class="gist-btn-row">
       <button class="gist-btn gist-btn-cancel" id="gist-close-btn">닫기</button>
+    </div>
+  </div>
+</div>
+
+<div id="memo-viewer" aria-hidden="true">
+  <div class="memo-viewer-modal" role="dialog" aria-modal="true" aria-labelledby="memo-viewer-title">
+    <div class="memo-viewer-head">
+      <div class="memo-viewer-title" id="memo-viewer-title">메모 크게보기</div>
+      <button class="memo-viewer-close" title="닫기"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="memo-viewer-body" id="memo-viewer-body"></div>
+    <div class="memo-viewer-foot">
+      <button class="memo-viewer-copy" id="memo-viewer-copy"><i class="ti ti-copy"></i> 전체 복사</button>
     </div>
   </div>
 </div>
@@ -1155,7 +1256,10 @@ function makeCard(data,tab){
     <div class="card-body">
       <div class="memo-wrap">
         <textarea class="card-memo" placeholder="구상 메모...">${esc(data.memo)}</textarea>
-        <button class="memo-more" type="button"><i class="ti ti-chevron-down"></i> 더보기</button>
+        <div class="memo-actions">
+          <button class="memo-more" type="button"><i class="ti ti-chevron-down"></i> 더보기</button>
+          <button class="memo-view-btn" type="button"><i class="ti ti-maximize"></i> 크게보기</button>
+        </div>
       </div>
       <div class="card-tags"></div>
       <div><input class="tag-add-input" placeholder="+ 태그 입력 후 Enter"></div>
@@ -1222,6 +1326,7 @@ function makeCard(data,tab){
   ti.addEventListener('input',()=>{data.title=ti.value;save();});
   const memoWrap=el.querySelector('.memo-wrap');
   const memoMore=el.querySelector('.memo-more');
+  const memoViewBtn=el.querySelector('.memo-view-btn');
   const MEMO_CLAMP=150;
   function applyMemoHeight(focused){
     memo.style.height='auto';
@@ -1273,9 +1378,15 @@ function makeCard(data,tab){
     applyMemoHeight(false);
     save();scheduleMasonry();
   });
+  memoViewBtn.addEventListener('mousedown',e=>e.stopPropagation());
+  memoViewBtn.addEventListener('touchstart',e=>e.stopPropagation(),{passive:true});
+  memoViewBtn.addEventListener('click',e=>{
+    e.preventDefault();e.stopPropagation();
+    openMemoViewer(data.title||'제목 없음', memo.value||data.memo||'');
+  });
   if(data.memo)setTimeout(()=>applyMemoHeight(false),0);
 
-  [ti,memo,tagInp,ptoggle,pta,pcopy,sel].forEach(e2=>e2.addEventListener('mousedown',e=>e.stopPropagation()));
+  [ti,memo,tagInp,ptoggle,pta,pcopy,sel,memoViewBtn].forEach(e2=>e2.addEventListener('mousedown',e=>e.stopPropagation()));
   tagInp.addEventListener('keydown',e=>{
     if(e.key==='Enter'&&tagInp.value.trim()){
       e.preventDefault();pushHistory();data.tags.push(tagInp.value.trim());tagInp.value='';
@@ -2273,6 +2384,63 @@ function readFileAsDataURL(file){
     r.readAsDataURL(file);
   });
 }
+
+// === 메모 크게보기 ===
+let memoViewerText='';
+function openMemoViewer(title,text){
+  const viewer=document.getElementById('memo-viewer');
+  const titleEl=document.getElementById('memo-viewer-title');
+  const bodyEl=document.getElementById('memo-viewer-body');
+  if(!viewer||!titleEl||!bodyEl)return;
+  memoViewerText=text||'';
+  titleEl.textContent=title||'메모 크게보기';
+  bodyEl.textContent=memoViewerText || '메모가 비어 있어.';
+  bodyEl.classList.toggle('memo-viewer-empty', !memoViewerText);
+  bodyEl.scrollTop=0;
+  viewer.classList.add('open');
+  viewer.setAttribute('aria-hidden','false');
+}
+function closeMemoViewer(){
+  const viewer=document.getElementById('memo-viewer');
+  if(!viewer)return;
+  viewer.classList.remove('open');
+  viewer.setAttribute('aria-hidden','true');
+}
+function copyMemoViewerText(){
+  if(!memoViewerText){ toast('복사할 메모가 없어'); return; }
+  const btn=document.getElementById('memo-viewer-copy');
+  const done=()=>{
+    if(btn){
+      btn.innerHTML='<i class="ti ti-check"></i> 복사됨!';
+      setTimeout(()=>{ btn.innerHTML='<i class="ti ti-copy"></i> 전체 복사'; },1400);
+    }
+  };
+  const fallback=()=>{
+    const ta=document.createElement('textarea');
+    ta.value=memoViewerText;
+    ta.style.position='fixed';
+    ta.style.left='-9999px';
+    document.body.appendChild(ta);
+    ta.focus(); ta.select();
+    try{ document.execCommand('copy'); done(); }
+    catch(e){ toast('복사 실패'); }
+    ta.remove();
+  };
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(memoViewerText).then(done).catch(fallback);
+  }else fallback();
+}
+(function(){
+  const viewer=document.getElementById('memo-viewer');
+  if(!viewer)return;
+  viewer.querySelector('.memo-viewer-close').addEventListener('click',closeMemoViewer);
+  document.getElementById('memo-viewer-copy').addEventListener('click',e=>{e.stopPropagation();copyMemoViewerText();});
+  viewer.addEventListener('click',e=>{ if(e.target===viewer) closeMemoViewer(); });
+  window.addEventListener('keydown',e=>{
+    if(!viewer.classList.contains('open'))return;
+    if(e.key==='Escape') closeMemoViewer();
+  });
+})();
 
 // === 라이트박스 ===
 let lbImages=[], lbIdx=0;
