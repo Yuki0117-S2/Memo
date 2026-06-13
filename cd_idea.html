@@ -244,6 +244,21 @@
     color: var(--text2); background: transparent; border: none; outline: none;
     resize: none; padding: 0; font-family: inherit; min-height: 50px; cursor: text;
   }
+  .memo-wrap { position: relative; }
+  .memo-wrap.clamped .card-memo { overflow: hidden; }
+  .memo-wrap.clamped::after {
+    content: ''; position: absolute; left: 0; right: 0; bottom: 20px;
+    height: 30px; pointer-events: none;
+    background: linear-gradient(to bottom, transparent, var(--bg));
+  }
+  .memo-more {
+    display: none; align-items: center; gap: 3px;
+    font-size: 11px; color: var(--accent); cursor: pointer;
+    background: none; border: none; padding: 2px 0 1px;
+    font-family: inherit; position: relative; z-index: 1;
+  }
+  .memo-more.show { display: inline-flex; }
+  .memo-more:hover { opacity: 0.8; }
   .card-title-input, .card-memo, .tag-add-input, .prompt-textarea {
     touch-action: auto;
   }
@@ -1138,7 +1153,10 @@ function makeCard(data,tab){
       <button class="card-del-btn" title="삭제"><i class="ti ti-x"></i></button>
     </div>
     <div class="card-body">
-      <textarea class="card-memo" placeholder="구상 메모...">${esc(data.memo)}</textarea>
+      <div class="memo-wrap">
+        <textarea class="card-memo" placeholder="구상 메모...">${esc(data.memo)}</textarea>
+        <button class="memo-more" type="button"><i class="ti ti-chevron-down"></i> 더보기</button>
+      </div>
       <div class="card-tags"></div>
       <div><input class="tag-add-input" placeholder="+ 태그 입력 후 Enter"></div>
       <div class="prompt-section">
@@ -1202,8 +1220,37 @@ function makeCard(data,tab){
   bindTextEditHistory(ti);
   bindTextEditHistory(memo);
   ti.addEventListener('input',()=>{data.title=ti.value;save();});
-  memo.addEventListener('input',()=>{data.memo=memo.value;memo.style.height='auto';memo.style.height=memo.scrollHeight+'px';save();scheduleMasonry();});
-  if(data.memo)setTimeout(()=>{memo.style.height=memo.scrollHeight+'px';},0);
+  const memoWrap=el.querySelector('.memo-wrap');
+  const memoMore=el.querySelector('.memo-more');
+  const MEMO_CLAMP=150;
+  function applyMemoHeight(focused){
+    memo.style.height='auto';
+    const full=memo.scrollHeight;
+    const longEnough=full>MEMO_CLAMP+12;
+    if(longEnough && !data.memoExpanded && !focused){
+      memo.style.height=MEMO_CLAMP+'px';
+      memoWrap.classList.add('clamped');
+    }else{
+      memo.style.height=full+'px';
+      memoWrap.classList.remove('clamped');
+    }
+    memoMore.classList.toggle('show', longEnough && !focused);
+    memoMore.innerHTML=data.memoExpanded
+      ? '<i class="ti ti-chevron-up"></i> 접기'
+      : '<i class="ti ti-chevron-down"></i> 더보기';
+  }
+  memo.addEventListener('input',()=>{data.memo=memo.value;applyMemoHeight(true);save();scheduleMasonry();});
+  memo.addEventListener('focus',()=>applyMemoHeight(true));
+  memo.addEventListener('blur',()=>{applyMemoHeight(false);scheduleMasonry();});
+  memoMore.addEventListener('mousedown',e=>e.stopPropagation());
+  memoMore.addEventListener('touchstart',e=>e.stopPropagation(),{passive:true});
+  memoMore.addEventListener('click',e=>{
+    e.preventDefault();e.stopPropagation();
+    data.memoExpanded=!data.memoExpanded;
+    applyMemoHeight(false);
+    save();scheduleMasonry();
+  });
+  if(data.memo)setTimeout(()=>applyMemoHeight(false),0);
 
   [ti,memo,tagInp,ptoggle,pta,pcopy,sel].forEach(e2=>e2.addEventListener('mousedown',e=>e.stopPropagation()));
   tagInp.addEventListener('keydown',e=>{
