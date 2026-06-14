@@ -1,7 +1,8 @@
 /* Workshop Google Drive appDataFolder sync helper
    - Gist 기능은 건드리지 않음
    - 각 HTML의 GIST_FILE_NAME/state/save/render/renderAll 등을 재사용
-   - 먼저 CLIENT_ID를 입력하고, Drive에 현재 앱 데이터를 슬롯 5개로 저장/불러오기
+   - 먼저 CLIENT_ID를 입력하고, Drive에 현재 앱 데이터를 슬롯 방식으로 저장/불러오기
+   - 기본 앱은 최대 5슬롯, LoRA Lab은 이미지 용량 보호를 위해 최대 3슬롯
 */
 (function(){
   'use strict';
@@ -42,6 +43,31 @@
       localStorage.setItem(DRIVE_DEVICE_KEY,v);
     }
     return v;
+  }
+
+  function isLoRALabApp(){
+    try{return typeof GIST_FILE_NAME!=='undefined' && GIST_FILE_NAME==='lora_lab_data.json';}
+    catch(e){return false;}
+  }
+
+  function byteSizeOfJson(obj){
+    try{return new Blob([JSON.stringify(obj)]).size;}
+    catch(e){return 0;}
+  }
+
+  function formatBytes(n){
+    if(!n)return '0 KB';
+    const u=['B','KB','MB','GB'];
+    let i=0,x=n;
+    while(x>=1024&&i<u.length-1){x/=1024;i++;}
+    return `${x.toFixed(i?1:0)} ${u[i]}`;
+  }
+
+  function getDriveSlotMax(){
+    // LoRA Lab은 이미지 dataUrl이 커서 슬롯을 많이 누적하면
+    // 같은 데이터라도 재저장 때 Invalid string length가 날 수 있다.
+    // 그래서 Drive는 최신 백업 3개까지만 보존한다.
+    return isLoRALabApp()?3:SLOT_MAX;
   }
 
   function getStateForDrive(){
@@ -319,7 +345,8 @@
 
   function multipartBody(metadata, contentObj){
     const boundary='workshop_drive_'+Math.random().toString(36).slice(2);
-    const content=JSON.stringify(contentObj,null,2);
+    // 대용량 이미지가 많은 앱에서는 pretty-print 공백도 수 MB까지 불어날 수 있어서 compact JSON으로 저장한다.
+    const content=JSON.stringify(contentObj);
     const body=`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${content}\r\n--${boundary}--`;
     return {body,boundary};
   }
@@ -349,16 +376,26 @@
       if(typeof saveResultGalleryToIndexedDBNow==='function') await saveResultGalleryToIndexedDBNow();
       else if(typeof saveCardsToIndexedDBNow==='function') await saveCardsToIndexedDBNow();
       else if(typeof save==='function') save();
+
       const file=await findDriveFile();
+      const maxSlots=getDriveSlotMax();
+      const currentSlot={savedAt:nowIso(),device:deviceName(),app:appLabel(),state:getStateForDrive()};
       let slots=[];
-      if(file){
+
+      if(maxSlots>1 && file){
         try{ const old=await readDriveFile(file.id); slots=old.slots||[]; }catch(e){ slots=[]; }
       }
-      slots.unshift({savedAt:nowIso(),device:deviceName(),app:appLabel(),state:getStateForDrive()});
-      slots=slots.slice(0,SLOT_MAX);
+      // 새 슬롯을 맨 앞에 추가하고, 앱별 최대 슬롯 수만큼만 보존한다.
+      // LoRA Lab은 최대 3슬롯이라 1,2,3,4 저장 시 4,3,2만 남는다.
+      slots.unshift(currentSlot);
+      slots=slots.slice(0,maxSlots);
+
       const payload={version:1,kind:'workshop-drive-slots',appFile:GIST_FILE_NAME||appFileName(),updatedAt:nowIso(),slots};
+      const approx=byteSizeOfJson(payload);
+      setStatus(`Drive 업로드 준비 중...\n예상 저장 크기: ${formatBytes(approx)}\n슬롯: ${slots.length}개${isLoRALabApp()?' · LoRA Lab은 용량 보호를 위해 최신 3슬롯만 보존':''}`,'loading');
+
       const written=await writeDriveFile(file?.id,payload);
-      setStatus(`Drive 저장 완료!\n파일: ${written.name}\n슬롯: ${slots.length}개`, 'ok');
+      setStatus(`Drive 저장 완료!\n파일: ${written.name}\n슬롯: ${slots.length}개\n저장 크기: ${formatBytes(approx)}`, 'ok');
       safeToast('☁️ Drive 저장 완료');
     }catch(e){setStatus('Drive 저장 실패: '+e.message,'err')}
   }

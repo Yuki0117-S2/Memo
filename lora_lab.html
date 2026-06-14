@@ -778,10 +778,19 @@ function getCoverImage(c){
   if(!imgs.length)return null;
   return imgs.find(img=>img.id===c.coverImageId)||imgs[0];
 }
+function setHiddenLegacyImageField(obj,key,value){
+  try{
+    Object.defineProperty(obj,key,{value:value||'',writable:true,configurable:true,enumerable:false});
+  }catch(e){
+    obj[key]=value||'';
+  }
+}
 function syncLegacyImageFields(c){
   const cover=getCoverImage(c);
-  c.representativeImage=cover?cover.dataUrl:'';
-  c.representativeImageName=cover?cover.name:'';
+  // representativeImage / representativeImageName은 화면 호환용 레거시 필드다.
+  // 실제 이미지는 images[]와 coverImageId에 있으므로 JSON.stringify(Drive/내보내기/IDB 저장)에서는 제외해 용량을 줄인다.
+  setHiddenLegacyImageField(c,'representativeImage',cover?cover.dataUrl:'');
+  setHiddenLegacyImageField(c,'representativeImageName',cover?cover.name:'');
   if(!cover)c.coverImageId='';
   return c;
 }
@@ -1016,7 +1025,7 @@ function renderDetail(){
   body.querySelectorAll('[data-img-act]').forEach(btn=>{btn.onclick=e=>{e.stopPropagation();const imgId=btn.dataset.imgId;if(btn.dataset.imgAct==='cover')setCoverImage(c,imgId);if(btn.dataset.imgAct==='remove')removeCardImage(c,imgId)}});
   body.querySelectorAll('.rep-tile').forEach(tile=>{tile.onclick=e=>{if(e.target.dataset.imgAct)return;setCoverImage(c,tile.dataset.imgId)}});
   const pickRep=$('pick-rep-current');if(pickRep)pickRep.onclick=()=>{const input=document.createElement('input');input.type='file';input.accept='image/*';input.multiple=true;input.onchange=async e=>{const files=[...(e.target.files||[])];for(const f of files){const thumb=await imageToThumb(f,1024,.82);if(thumb)addImageToCard(c,f.name,thumb)}save();render();toast(`이미지 ${files.length}장 추가 완료`)};input.click()};
-  const clearRep=$('clear-rep-current');if(clearRep)clearRep.onclick=()=>{if(!confirm('이 카드의 샘플 이미지를 전부 제거할까?'))return;Object.assign(c,{images:[],coverImageId:'',imageIndex:0,representativeImage:'',representativeImageName:'',imageMatchedAt:'',updatedAt:now()});save();render();toast('이미지 전체 제거')};
+  const clearRep=$('clear-rep-current');if(clearRep)clearRep.onclick=()=>{if(!confirm('이 카드의 샘플 이미지를 전부 제거할까?'))return;Object.assign(c,{images:[],coverImageId:'',imageIndex:0,imageMatchedAt:'',updatedAt:now()});syncLegacyImageFields(c);save();render();toast('이미지 전체 제거')};
   $('fav-current').onclick=()=>{c.fav=!c.fav;c.updatedAt=now();save();render();toast(c.fav?'즐겨찾기 추가':'즐겨찾기 해제')};
   $('dup-current').onclick=()=>duplicateCard(c.id);$('del-current').onclick=()=>deleteCard(c.id);$('copy-meta').onclick=()=>navigator.clipboard?.writeText(JSON.stringify(c.rawMetadata||{},null,2)).then(()=>toast('메타 복사 완료'));
 }
