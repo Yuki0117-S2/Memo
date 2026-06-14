@@ -362,6 +362,43 @@ body.lb-open{overflow:hidden}
   header .toolbar .vt-btn{padding:8px 10px!important;font-size:12px!important}
 }
 
+
+/* === duplicate LoRA choice modal === */
+#duplicate-lora-overlay{
+  position:fixed;inset:0;z-index:10040;
+  background:rgba(0,0,0,.58);
+  display:none;align-items:center;justify-content:center;
+  padding:18px;
+}
+#duplicate-lora-overlay.open{display:flex}
+.dup-modal{
+  width:min(440px,100%);
+  background:var(--bg);
+  border:.5px solid var(--border2);
+  border-radius:var(--radius);
+  box-shadow:0 14px 42px rgba(0,0,0,.28);
+  padding:20px;
+  display:flex;flex-direction:column;gap:13px;
+}
+.dup-title{font-size:15px;font-weight:800;color:var(--accent);letter-spacing:-.2px}
+.dup-desc{font-size:12px;color:var(--text2);line-height:1.55}
+.dup-info{display:grid;gap:7px;background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:10px}
+.dup-row{display:grid;grid-template-columns:74px 1fr;gap:8px;font-size:11px;line-height:1.45}
+.dup-row b{color:var(--text3)}
+.dup-row span{color:var(--text2);word-break:break-all}
+.dup-actions{display:grid;grid-template-columns:1fr;gap:8px;margin-top:2px}
+.dup-action{
+  width:100%;border:0;border-radius:var(--radius-sm);
+  padding:11px 12px;cursor:pointer;font-family:inherit;
+  font-size:13px;font-weight:800;text-align:center;
+}
+.dup-action.update{background:var(--accent);color:#fff}
+.dup-action.new{background:var(--bg2);color:var(--accent);border:.5px solid var(--accent)}
+.dup-action.cancel{background:transparent;color:var(--text3);border:.5px solid var(--border2)}
+.dup-action:hover{opacity:.88}
+@media(min-width:560px){.dup-actions{grid-template-columns:1fr 1fr}.dup-action.cancel{grid-column:1/-1}}
+@media(max-width:760px){#duplicate-lora-overlay{padding:12px}.dup-modal{padding:17px;border-radius:14px}.dup-action{min-height:44px;font-size:13px}}
+
 </style>
 </head>
 <body>
@@ -419,6 +456,22 @@ body.lb-open{overflow:hidden}
       <button class="lb-nav next" type="button" id="lb-next" title="다음 이미지">›</button>
     </div>
     <div class="lb-info"><span class="lb-title" id="lb-title"></span><span class="lb-count" id="lb-count"></span></div>
+  </div>
+</div>
+
+<div id="duplicate-lora-overlay" aria-hidden="true">
+  <div class="dup-modal" role="dialog" aria-modal="true" aria-labelledby="dup-title">
+    <div class="dup-title" id="dup-title">같은 이름의 LoRA가 이미 있어</div>
+    <div class="dup-desc">기존 카드의 이미지·노트·상태·즐겨찾기는 보존하면서 파일/메타만 업데이트할 수 있어.</div>
+    <div class="dup-info">
+      <div class="dup-row"><b>새 파일</b><span id="dup-file-name">-</span></div>
+      <div class="dup-row"><b>기존 카드</b><span id="dup-card-name">-</span></div>
+    </div>
+    <div class="dup-actions">
+      <button class="dup-action update" type="button" data-dup-action="update">기존 카드 업데이트</button>
+      <button class="dup-action new" type="button" data-dup-action="new">새 카드로 추가</button>
+      <button class="dup-action cancel" type="button" data-dup-action="cancel">취소</button>
+    </div>
   </div>
 </div>
 
@@ -631,6 +684,63 @@ async function readSafetensorsMetadata(file){const first=await file.slice(0,8).a
 
 function cleanNameForMatch(v){return String(v||'').toLowerCase().replace(/\.(safetensors|ckpt|pt|bin|json|png|jpe?g|webp)$/g,'').replace(/[\[\](){}]/g,' ').replace(/[_\-]+/g,' ').replace(/\s+/g,' ').trim()}
 function cardMatchKeys(c){return [c.title,c.fileName,c.triggerWord].map(cleanNameForMatch).filter(Boolean).sort((a,b)=>b.length-a.length)}
+
+const LORA_UPDATE_FIELDS=['fileName','fileSize','uploadedAt','metaRead','metaError','baseModel','datasetCount','resolution','captionMethod','triggerWord','repeat','epoch','totalSteps','batchSize','learningRate','textEncoderLR','unetLR','optimizer','scheduler','networkType','rankDim','alpha','weightDecay','rawMetadata'];
+function findDuplicateLoraCard(file){
+  const incoming=cleanNameForMatch(file?.name||'');
+  if(!incoming)return null;
+  return state.cards.find(c=>{
+    const keys=[c.fileName,c.title].map(cleanNameForMatch).filter(Boolean);
+    return keys.some(k=>k===incoming);
+  })||null;
+}
+let duplicateLoraResolver=null;
+function askDuplicateLoraAction(existing,file){
+  return new Promise(resolve=>{
+    const overlay=$('duplicate-lora-overlay');
+    if(!overlay){resolve('cancel');return;}
+    $('dup-file-name').textContent=file?.name||'이름 없음';
+    $('dup-card-name').textContent=existing?.title||existing?.fileName||'기존 카드';
+    duplicateLoraResolver=resolve;
+    overlay.classList.add('open');
+    overlay.setAttribute('aria-hidden','false');
+    document.body.classList.add('lb-open');
+    const first=overlay.querySelector('[data-dup-action="update"]');
+    setTimeout(()=>first&&first.focus&&first.focus(),0);
+  });
+}
+function closeDuplicateLoraModal(action='cancel'){
+  const overlay=$('duplicate-lora-overlay');
+  if(overlay){
+    overlay.classList.remove('open');
+    overlay.setAttribute('aria-hidden','true');
+  }
+  document.body.classList.remove('lb-open');
+  const resolver=duplicateLoraResolver;
+  duplicateLoraResolver=null;
+  if(resolver)resolver(action);
+}
+function bindDuplicateLoraModal(){
+  const overlay=$('duplicate-lora-overlay');
+  if(!overlay)return;
+  overlay.querySelectorAll('[data-dup-action]').forEach(btn=>{
+    btn.onclick=()=>closeDuplicateLoraModal(btn.dataset.dupAction||'cancel');
+  });
+  overlay.addEventListener('click',e=>{if(e.target===overlay)closeDuplicateLoraModal('cancel')});
+  document.addEventListener('keydown',e=>{
+    if(!overlay.classList.contains('open'))return;
+    if(e.key==='Escape'){e.preventDefault();closeDuplicateLoraModal('cancel')}
+    if(e.key==='Enter'){e.preventDefault();closeDuplicateLoraModal('update')}
+  });
+}
+function applyLoraFileUpdate(existing,incoming){
+  if(!existing||!incoming)return;
+  LORA_UPDATE_FIELDS.forEach(k=>{
+    if(k in incoming) existing[k]=incoming[k];
+  });
+  existing.updatedAt=now();
+  syncLegacyImageFields(existing);
+}
 function extractLoraCandidatesFromText(text){const out=[];const src=String(text||'');const patterns=[/<lora:([^:>]+)(?::[^>]*)?>/gi,/lora_name["']?\s*[:=]\s*["']([^"']+)/gi,/lora["']?\s*[:=]\s*["']([^"']+\.(?:safetensors|ckpt|pt|bin)|[^"',}]+)/gi];patterns.forEach(re=>{let m;while((m=re.exec(src))){if(m[1])out.push(m[1])}});return out.map(cleanNameForMatch).filter(Boolean)}
 async function readPngTextLoose(file){try{const buf=await file.slice(0,1024*1024).arrayBuffer();return new TextDecoder('latin1').decode(buf).replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]+/g,' ')}catch(e){return ''}}
 async function imageToThumb(file,max=1024,quality=.82){
@@ -737,20 +847,44 @@ async function handleFiles(files){
   const all=[...files];
   const imageFiles=all.filter(f=>/^image\//i.test(f.type)||/\.(png|jpe?g|webp|gif)$/i.test(f.name));
   const loraFiles=all.filter(f=>!imageFiles.includes(f));
-  let added=0,fail=0;
+  let added=0,updated=0,canceled=0,fail=0;
   for(const file of loraFiles){
-    let c=blankCard({title:file.name.replace(/\.(safetensors|ckpt|pt|bin)$/i,''),fileName:file.name,fileSize:file.size,uploadedAt:now()});
+    let c=blankCard({title:file.name.replace(/\.(safetensors|ckpt|pt|bin|json)$/i,''),fileName:file.name,fileSize:file.size,uploadedAt:now()});
     if(/\.safetensors$/i.test(file.name)){
       try{const meta=await readSafetensorsMetadata(file);c=mapMeta(meta,c);if(!c.title||c.title==='LoRA')c.title=file.name.replace(/\.safetensors$/i,'')}catch(e){c.metaError=e.message||String(e);fail++}
     }else if(/\.json$/i.test(file.name)){
       try{const txt=await file.text();const meta=JSON.parse(txt);c=mapMeta(meta.__metadata__||meta,c)}catch(e){c.metaError=e.message||String(e);fail++}
     }else if(file.name){c.metaError='지원하지 않는 형식: 이름/크기만 저장'}
-    if(file.name){state.cards.unshift(c);added++;}
+    if(!file.name)continue;
+    const duplicate=findDuplicateLoraCard(file);
+    if(duplicate){
+      const action=await askDuplicateLoraAction(duplicate,file);
+      if(action==='update'){
+        applyLoraFileUpdate(duplicate,c);
+        state.selectedId=duplicate.id;
+        updated++;
+        continue;
+      }
+      if(action==='cancel'){
+        canceled++;
+        continue;
+      }
+    }
+    state.cards.unshift(c);
+    state.selectedId=c.id;
+    added++;
   }
   if(imageFiles.length) await handleImageFiles(imageFiles);
   if(!state.selectedId&&state.cards[0])state.selectedId=state.cards[0].id;
   save();render();
-  if(loraFiles.length)toast(`${added}개 추가${fail?`, ${fail}개 메타 실패`:''}`);
+  if(loraFiles.length){
+    const parts=[];
+    if(added)parts.push(`${added}개 추가`);
+    if(updated)parts.push(`${updated}개 업데이트`);
+    if(canceled)parts.push(`${canceled}개 취소`);
+    if(fail)parts.push(`${fail}개 메타 실패`);
+    toast(parts.length?parts.join(' · '):'변경 없음');
+  }
 }
 function searchableText(c){return [
   c.title,c.fileName,c.baseModel,c.triggerWord,c.optimizer,c.scheduler,c.networkType,
@@ -1171,6 +1305,7 @@ $('gist-overlay').addEventListener('click',e=>{
 
 // 이미지 크게보기 바인딩
 bindImageLightbox();
+bindDuplicateLoraModal();
 
 // 시작 시 토큰/ID 있으면 자동저장 시작 + 인디케이터 점등
 startAutoSave();
