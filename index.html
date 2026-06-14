@@ -3,217 +3,3175 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>✦ 작업실</title>
+<title>LORE FORGE — 챗봇 빌더</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #ffffff;
-    --bg2: #f7f6f3;
-    --text: #1a1a1a;
-    --text2: #555;
-    --text3: #999;
-    --border: rgba(0,0,0,0.08);
-    --border2: rgba(0,0,0,0.18);
-    --c1: #8888CC;
-    --c2: #BB6688;
-    --c3: #DDAACC;
-    --c4: #CCAA88;
+    --bg:#1a1520; --surface:#221b2a; --surface2:#2a2235; --border:#3a2e48;
+    --accent:#8888CC; --accent2:#BB6688; --accent3:#DDAACC; --accent4:#CCAA88;
+    --text:#f0eaf5; --muted:#7a6e8a; --success:#CCAA88;
   }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #1a1a1a;
-      --bg2: #232323;
-      --text: #f0f0f0;
-      --text2: #aaa;
-      --text3: #666;
-      --border: rgba(255,255,255,0.08);
-      --border2: rgba(255,255,255,0.18);
-    }
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    padding: 4rem 1.5rem 3rem;
-  }
-  .wrap { max-width: 720px; margin: 0 auto; }
-  header { margin-bottom: 2.5rem; }
-  .star {
-    font-size: 32px;
-    color: var(--c1);
-    line-height: 1;
-    letter-spacing: -1px;
-  }
-  h1 {
-    font-size: 26px;
-    font-weight: 500;
-    color: var(--text);
-    letter-spacing: -0.3px;
-    margin-top: 6px;
-  }
-  .subtitle {
-    font-size: 13px;
-    color: var(--text3);
-    margin-top: 10px;
-    font-style: italic;
-    line-height: 1.5;
-  }
-  .divider {
-    height: 0.5px;
-    background: var(--border);
-    margin: 2rem 0 1.25rem;
-  }
-  .section-label {
-    font-size: 10px;
-    color: var(--text3);
-    text-transform: uppercase;
-    letter-spacing: 1.8px;
-    margin-bottom: 1rem;
-    font-weight: 600;
-  }
-  .apps {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    gap: 12px;
-  }
-  .app {
-    position: relative;
-    background: var(--bg);
-    border: 0.5px solid var(--border);
-    border-radius: 10px;
-    padding: 18px 40px 18px 26px;
-    text-decoration: none;
-    color: inherit;
-    cursor: pointer;
-    transition: border-color 0.18s, transform 0.18s, box-shadow 0.18s;
-    display: block;
-    overflow: hidden;
-  }
-  .app:hover {
-    border-color: var(--border2);
-    transform: translateY(-1px);
-    box-shadow: 0 6px 20px rgba(0,0,0,0.05);
-  }
-  .app::before {
-    content: '';
-    position: absolute;
-    left: 0; top: 14px; bottom: 14px;
-    width: 4px;
-    border-radius: 0 2px 2px 0;
-    background: var(--app-color, var(--c1));
-    transition: width 0.18s;
-  }
-  .app:hover::before {
-    width: 6px;
-  }
-  .app-title {
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--text);
-    margin-bottom: 4px;
-    letter-spacing: -0.2px;
-  }
-  .app-desc {
-    font-size: 12px;
-    color: var(--text2);
-    line-height: 1.55;
-  }
-  .app-meta {
-    font-size: 10px;
-    color: var(--text3);
-    letter-spacing: 0.5px;
-    margin-top: 8px;
-  }
-  .app-arrow {
-    position: absolute;
-    right: 16px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--text3);
-    font-size: 16px;
-    transition: transform 0.18s, color 0.18s;
-  }
-  .app:hover .app-arrow {
-    color: var(--app-color, var(--c1));
-    transform: translateY(-50%) translateX(3px);
-  }
-  .app.upcoming {
-    opacity: 0.55;
-    cursor: default;
-    background: var(--bg2);
-  }
-  .app.upcoming:hover {
-    transform: none;
-    box-shadow: none;
-    border-color: var(--border);
-  }
-  .app.upcoming::before {
-    background: var(--text3);
-  }
-  .app.upcoming:hover::before { width: 4px; }
-  .app.upcoming .app-arrow { display: none; }
-  footer {
-    margin-top: 3.5rem;
-    font-size: 11px;
-    color: var(--text3);
-    text-align: center;
-    letter-spacing: 0.3px;
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;min-height:100vh;overflow:hidden;}
+  body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");}
+
+  /* 헤더 */
+  .header{border-bottom:1px solid var(--border);padding:11px 18px;display:flex;align-items:center;gap:10px;z-index:10;background:rgba(26,21,32,0.97);backdrop-filter:blur(20px);position:sticky;top:0;height:50px;}
+  .logo{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:4px;background:linear-gradient(135deg,var(--accent),var(--accent3));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;flex-shrink:0;}
+  .logo-sub{font-size:9px;color:var(--muted);letter-spacing:2px;font-family:'JetBrains Mono',monospace;}
+  .project-selector{display:flex;align-items:center;gap:5px;margin-left:10px;}
+  .project-select-wrap{position:relative;}
+  .project-dropdown{background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:12px;padding:5px 26px 5px 9px;cursor:pointer;outline:none;-webkit-appearance:none;appearance:none;min-width:150px;max-width:200px;}
+  .project-dropdown:focus{border-color:var(--accent);}
+  .project-select-wrap::after{content:'▾';position:absolute;right:8px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:10px;pointer-events:none;}
+  .header-right{margin-left:auto;display:flex;gap:5px;align-items:center;}
+  .btn{padding:5px 12px;border-radius:6px;border:none;cursor:pointer;font-family:'Noto Sans KR',sans-serif;font-size:11px;font-weight:500;transition:all 0.2s;white-space:nowrap;}
+  .btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted);}
+  .btn-ghost:hover{border-color:var(--accent);color:var(--accent);}
+  .btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:white;}
+  .btn-primary:hover{opacity:0.85;transform:translateY(-1px);}
+  .btn-danger{background:transparent;border:1px solid rgba(187,102,136,0.4);color:var(--accent2);}
+  .btn-danger:hover{background:rgba(187,102,136,0.15);}
+  .btn-guide{background:linear-gradient(135deg,rgba(204,170,136,0.15),rgba(221,170,204,0.15));border:1px solid rgba(204,170,136,0.4);color:var(--accent4);font-weight:600;}
+  .btn-guide:hover{background:linear-gradient(135deg,rgba(204,170,136,0.25),rgba(221,170,204,0.25));border-color:var(--accent4);transform:translateY(-1px);box-shadow:0 4px 12px rgba(204,170,136,0.2);}
+
+  /* 레이아웃 */
+  .app-body{display:grid;grid-template-columns:200px 1fr 380px;height:calc(100vh - 50px);position:relative;z-index:1;}
+
+  /* 사이드바 */
+  .char-sidebar{border-right:1px solid var(--border);background:var(--surface);display:flex;flex-direction:column;overflow:hidden;}
+  .sidebar-header{padding:9px 11px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+  .sidebar-title{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--muted);}
+  .char-list{flex:1;overflow-y:auto;padding:6px;display:flex;flex-direction:column;gap:3px;}
+  .char-item{padding:8px 9px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all 0.15s;border:1px solid transparent;}
+  .char-item:hover{background:var(--surface2);border-color:var(--border);}
+  .char-item.active{background:rgba(136,137,205,0.12);border-color:rgba(136,137,205,0.35);}
+  .char-avatar{width:27px;height:27px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;font-weight:700;font-family:'Bebas Neue',sans-serif;}
+  .char-info{flex:1;min-width:0;}
+  .char-name-label{font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .char-role-label{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px;}
+  .char-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;opacity:0;transition:opacity 0.15s;padding:2px 4px;border-radius:4px;flex-shrink:0;}
+  .char-item:hover .char-del{opacity:1;}
+  .char-del:hover{color:var(--accent2);}
+  .sidebar-add{padding:7px;border-top:1px solid var(--border);}
+  .add-char-btn{width:100%;padding:7px;background:rgba(136,137,205,0.08);border:1px dashed rgba(136,137,205,0.3);border-radius:7px;color:var(--accent);font-size:11px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:5px;}
+  .add-char-btn:hover{background:rgba(136,137,205,0.15);border-color:rgba(136,137,205,0.5);}
+
+  /* 에디터 */
+  .editor-col{display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--border);}
+  .tab-bar{display:flex;border-bottom:1px solid var(--border);background:var(--bg);flex-shrink:0;overflow-x:auto;}
+  .tab{padding:9px 14px;font-size:11px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:all 0.2s;font-weight:500;display:flex;align-items:center;gap:5px;white-space:nowrap;}
+  .tab:hover{color:var(--text);}
+  .tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+  .editor-area{flex:1;padding:18px 22px;overflow-y:auto;}
+  .empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--muted);gap:12px;text-align:center;}
+  .empty-state-icon{font-size:34px;opacity:0.4;}
+  .empty-state-text{font-size:13px;}
+  .empty-state-sub{font-size:11px;opacity:0.6;}
+
+  /* 패널 */
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:9px;margin-bottom:11px;overflow:hidden;transition:border-color 0.2s;}
+  .panel:hover{border-color:#4a3a5a;}
+  .panel-header{padding:10px 13px;display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;background:var(--surface2);}
+  .panel-icon{width:25px;height:25px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;}
+  .panel-title{font-weight:700;font-size:12px;}
+  .panel-badge{margin-left:auto;font-size:9px;font-family:'JetBrains Mono',monospace;color:var(--muted);background:var(--bg);padding:2px 6px;border-radius:4px;border:1px solid var(--border);}
+  .panel-arrow{color:var(--muted);transition:transform 0.2s;font-size:10px;}
+  .panel.collapsed .panel-arrow{transform:rotate(-90deg);}
+  .panel.collapsed .panel-body{display:none;}
+  .panel-body{padding:13px;display:flex;flex-direction:column;gap:11px;}
+
+  /* 입력 */
+  .field-label{font-size:10px;color:var(--muted);letter-spacing:1px;font-family:'JetBrains Mono',monospace;margin-bottom:5px;display:flex;align-items:center;gap:5px;}
+  .field-label .required{color:var(--accent2);font-size:12px;}
+  input[type="text"],textarea,select{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:13px;padding:7px 10px;transition:border-color 0.2s, box-shadow 0.2s, min-height 0.2s ease, height 0.2s ease;outline:none;resize:none;}
+  input[type="text"]:focus,textarea:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(136,137,205,0.1);}
+  select option{background:var(--surface2);}
+  textarea{min-height:72px;line-height:1.6;overflow:hidden;}
+  textarea:focus{min-height:300px;overflow-y:auto;}
+  .tag-input-container{display:flex;flex-wrap:wrap;gap:4px;background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:5px 8px;min-height:34px;cursor:text;transition:border-color 0.2s;}
+  .tag-input-container:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(136,137,205,0.1);}
+  .tag{background:rgba(136,137,205,0.15);border:1px solid rgba(136,137,205,0.3);color:var(--accent);padding:2px 7px;border-radius:20px;font-size:11px;display:flex;align-items:center;gap:4px;user-select:text;-webkit-user-select:text;cursor:text;}
+  .tag-remove{cursor:pointer;opacity:0.6;font-size:12px;line-height:1;user-select:none;-webkit-user-select:none;}
+  .tag-remove:hover{opacity:1;}
+  .tag-input{background:none;border:none;outline:none;color:var(--text);font-size:12px;min-width:60px;flex:1;padding:1px 3px;font-family:'Noto Sans KR',sans-serif;}
+  .slider-row{display:flex;align-items:center;gap:9px;}
+  input[type="range"]{flex:1;-webkit-appearance:none;height:3px;background:var(--border);border-radius:2px;outline:none;}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 0 8px rgba(136,137,205,0.5);}
+  .slider-val{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);width:60px;text-align:right;}
+  .chip-group{display:flex;flex-wrap:wrap;gap:5px;}
+  .chip{padding:4px 9px;border-radius:20px;border:1px solid var(--border);color:var(--muted);font-size:11px;cursor:pointer;transition:all 0.15s;user-select:none;}
+  .chip:hover{border-color:var(--accent);color:var(--accent);}
+  .chip.active{background:rgba(136,137,205,0.15);border-color:var(--accent);color:var(--accent);}
+  .chip-add{border-style:dashed!important;color:var(--accent)!important;border-color:rgba(136,137,205,0.4)!important;padding:4px 9px;min-width:26px;text-align:center;}
+  .chip-add:hover{background:rgba(136,137,205,0.1)!important;}
+  .chip-custom-del{margin-left:3px;opacity:0.5;cursor:pointer;font-size:11px;}
+  .chip-custom-del:hover{opacity:1;color:var(--accent2);}
+  .add-btn{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);cursor:pointer;padding:4px 0;border:none;background:none;font-family:'Noto Sans KR',sans-serif;transition:color 0.2s;}
+  .add-btn:hover{color:var(--accent);}
+  .field-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
+  .relation-item{display:grid;grid-template-columns:1fr 1fr auto;gap:5px;align-items:center;margin-bottom:5px;}
+  .del-btn{background:none;border:1px solid var(--border);color:var(--muted);border-radius:5px;width:25px;height:25px;cursor:pointer;font-size:13px;transition:all 0.2s;display:flex;align-items:center;justify-content:center;}
+  .del-btn:hover{border-color:var(--accent2);color:var(--accent2);}
+  .trait-item{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:6px;display:flex;flex-direction:column;gap:6px;transition:border-color 0.2s;}
+  .trait-item:hover{border-color:#4a3a5a;}
+  .trait-item-head{display:grid;grid-template-columns:1fr auto auto auto;gap:5px;align-items:center;}
+  .trait-item-head input{background:var(--surface);border:1px solid var(--border);font-size:12px;padding:6px 8px;font-weight:600;}
+  .trait-item-head input::placeholder{font-weight:400;color:var(--muted);}
+  .trait-item textarea{min-height:50px;font-size:12px;background:var(--surface);}
+  .trait-move-btn{background:none;border:1px solid var(--border);color:var(--muted);border-radius:5px;width:25px;height:25px;cursor:pointer;font-size:11px;transition:all 0.2s;display:flex;align-items:center;justify-content:center;padding:0;}
+  .trait-move-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent);}
+  .trait-move-btn:disabled{opacity:0.3;cursor:not-allowed;}
+  .trait-count{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;}
+  .trait-limit-msg{font-size:10px;color:var(--accent2);margin-top:4px;text-align:center;}
+  .tab-panel{display:none;}
+  .tab-panel.active{display:block;}
+  .hint{font-size:10px;color:var(--muted);font-style:italic;line-height:1.5;padding:6px 8px;background:rgba(136,137,205,0.06);border-radius:5px;border-left:2px solid rgba(136,137,205,0.3);}
+
+  /* 로어북 */
+  .lorebook-item{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;}
+  .lorebook-item-header{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+  .lorebook-item.collapsed .lorebook-item-body{display:none;}
+  .lorebook-item.collapsed .lorebook-item-header{margin-bottom:0;}
+  .lorebook-item.collapsed .panel-arrow{transform:rotate(-90deg);}
+  .lorebook-title-input{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:12px;padding:5px 9px;outline:none;}
+  .lorebook-title-input:focus{border-color:var(--accent);}
+
+  /* 프리뷰 */
+  .preview-area{padding:18px 16px;background:var(--surface);overflow-y:auto;display:flex;flex-direction:column;}
+  .preview-title{font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:3px;color:var(--muted);margin-bottom:10px;display:flex;align-items:center;gap:10px;}
+  .preview-title::after{content:'';flex:1;height:1px;background:var(--border);}
+  .char-select-bar{display:flex;gap:4px;margin-bottom:7px;flex-wrap:wrap;}
+  .preview-char-btn{padding:3px 9px;border-radius:20px;border:1px solid var(--border);background:none;color:var(--muted);font-size:10px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all 0.15s;}
+  .preview-char-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .preview-char-btn.active{background:rgba(136,137,205,0.15);border-color:var(--accent);color:var(--accent);}
+  .preview-char-btn.all-btn{border-color:rgba(204,170,136,0.4);color:var(--accent4);}
+  .preview-char-btn.all-btn.active{background:rgba(204,170,136,0.15);}
+  .prompt-output{background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:11px;font-family:'JetBrains Mono',monospace;font-size:10.5px;line-height:1.8;color:#b0a8c0;white-space:pre-wrap;word-break:break-word;flex:1;min-height:200px;overflow-y:auto;}
+  .prompt-stats{display:flex;gap:12px;margin-top:7px;}
+  .stat{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);display:flex;align-items:center;gap:3px;}
+  .stat-val{color:var(--success);}
+  .copy-btn{margin-top:7px;width:100%;padding:9px;background:linear-gradient(135deg,rgba(136,137,205,0.15),rgba(187,102,136,0.15));border:1px solid rgba(136,137,205,0.3);border-radius:7px;color:var(--accent);font-family:'Noto Sans KR',sans-serif;font-size:11px;font-weight:700;cursor:pointer;transition:all 0.2s;letter-spacing:1px;}
+  .copy-btn:hover{background:linear-gradient(135deg,rgba(136,137,205,0.25),rgba(187,102,136,0.25));transform:translateY(-1px);}
+  .copy-btn.copied{background:rgba(204,170,136,0.15);border-color:var(--success);color:var(--success);}
+
+  /* 모달 */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:1000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+  .modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;width:340px;display:flex;flex-direction:column;gap:14px;}
+  .modal-title{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:3px;color:var(--accent);}
+  .modal-input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:13px;padding:9px 12px;outline:none;}
+  .modal-input:focus{border-color:var(--accent);}
+  .modal-msg{font-size:13px;color:var(--text);line-height:1.6;white-space:pre-line;}
+  .modal-btns{display:flex;gap:7px;justify-content:flex-end;}
+  /* 위험 모달 — 삭제·초기화·덮어쓰기 강조 */
+  .modal-danger .modal{border-color:rgba(187,102,136,0.55);box-shadow:0 0 0 1px rgba(187,102,136,0.15),0 8px 32px rgba(0,0,0,0.5);}
+  .modal-danger .modal-title{color:#BB6688;}
+  .btn-confirm-danger{background:linear-gradient(135deg,#BB6688,#EE1166);color:white;}
+  .btn-confirm-danger:hover{opacity:0.92;transform:translateY(-1px);box-shadow:0 4px 14px rgba(238,17,102,0.35);}
+
+  /* Gist 연동 모달 */
+  .gist-modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:26px;width:400px;max-width:calc(100vw - 32px);display:flex;flex-direction:column;gap:16px;}
+  .gist-modal-title{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:3px;color:var(--accent);display:flex;align-items:center;gap:8px;}
+  .gist-section{display:flex;flex-direction:column;gap:6px;}
+  .gist-label{font-size:10px;color:var(--muted);letter-spacing:1px;font-family:'JetBrains Mono',monospace;}
+  .gist-input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;padding:8px 11px;outline:none;transition:border-color 0.2s;}
+  .gist-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(136,137,205,0.1);}
+  .gist-input::placeholder{color:var(--muted);opacity:0.6;}
+  .gist-hint{font-size:10px;color:var(--muted);font-style:italic;line-height:1.5;}
+  .gist-btn-row{display:flex;gap:7px;flex-wrap:wrap;}
+  .gist-btn{flex:1;padding:9px 12px;border-radius:7px;border:none;cursor:pointer;font-family:'Noto Sans KR',sans-serif;font-size:12px;font-weight:600;transition:all 0.2s;min-width:80px;}
+  .gist-btn-upload{background:linear-gradient(135deg,var(--accent),var(--accent2));color:white;}
+  .gist-btn-upload:hover{opacity:0.85;transform:translateY(-1px);}
+  .gist-btn-download{background:linear-gradient(135deg,rgba(106,200,176,0.2),rgba(106,136,200,0.2));border:1px solid rgba(106,200,176,0.4);color:#6AC8B0;}
+  .gist-btn-download:hover{background:linear-gradient(135deg,rgba(106,200,176,0.3),rgba(106,136,200,0.3));transform:translateY(-1px);}
+  .gist-btn-cancel{background:transparent;border:1px solid var(--border);color:var(--muted);}
+  .gist-btn-cancel:hover{border-color:var(--accent2);color:var(--accent2);}
+  .gist-status{font-size:11px;padding:8px 11px;border-radius:6px;font-family:'JetBrains Mono',monospace;display:none;}
+  .gist-status.ok{background:rgba(106,200,176,0.1);border:1px solid rgba(106,200,176,0.3);color:#6AC8B0;display:block;}
+  .gist-status.err{background:rgba(187,102,136,0.1);border:1px solid rgba(187,102,136,0.3);color:var(--accent2);display:block;}
+  .gist-status.loading{background:rgba(136,137,205,0.1);border:1px solid rgba(136,137,205,0.3);color:var(--accent);display:block;}
+  .gist-id-row{display:flex;gap:6px;align-items:center;}
+  .gist-id-row .gist-input{flex:1;}
+  .gist-copy-btn{padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;color:var(--muted);cursor:pointer;font-size:11px;transition:all 0.2s;white-space:nowrap;}
+  .gist-copy-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .sync-indicator{width:7px;height:7px;border-radius:50%;background:var(--muted);display:inline-block;margin-left:4px;vertical-align:middle;transition:background 0.3s;}
+  .sync-indicator.synced{background:#6AC8B0;}
+  .sync-indicator.error{background:var(--accent2);}
+
+  .tag-add-btn{padding:4px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--accent);cursor:pointer;font-size:14px;flex-shrink:0;transition:all 0.2s;line-height:1;}
+  .tag-add-btn:hover{border-color:var(--accent);background:rgba(136,137,205,0.15);}
+  .tag-input-container{display:flex;flex-wrap:wrap;gap:4px;align-items:center;}
+
+  ::-webkit-scrollbar{width:4px;height:4px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+  ::-webkit-scrollbar-thumb:hover{background:#4a3a5a;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+  .char-item{animation:fadeIn 0.2s ease both;}
+
+  /* 모바일 반응형 */
+  .mob-char-bar{display:none;}
+  .mob-bottom-tab{display:none;}
+
+  @media(max-width:768px){
+    body{overflow:auto;}
+    .header{padding:10px 14px;height:auto;flex-wrap:wrap;gap:8px;}
+    .logo{font-size:18px;}
+    .project-selector{margin-left:0;flex:1;}
+    .project-dropdown{min-width:110px;font-size:11px;}
+    .header-right{gap:4px;}
+    .header-right .btn{padding:5px 8px;font-size:10px;}
+    .btn-sync-mob-hide{display:none!important;}
+    .app-body{display:flex;flex-direction:column;height:auto;min-height:calc(100vh - 100px);padding-bottom:60px;}
+    .char-sidebar{display:none;}
+    .mob-char-bar{display:flex;align-items:center;gap:6px;background:var(--surface);border-bottom:1px solid var(--border);padding:8px 12px;overflow-x:auto;flex-shrink:0;}
+    .mob-char-bar select{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:12px;padding:6px 10px;outline:none;}
+    .mob-char-bar .btn{flex-shrink:0;padding:6px 10px;font-size:11px;}
+    .editor-col{flex:1;border-right:none;overflow:visible;}
+    .tab-bar{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+    .tab{padding:8px 11px;font-size:11px;}
+    .editor-area{padding:14px;overflow:visible;}
+    .preview-area{display:none;padding:14px;border-top:1px solid var(--border);}
+    .preview-area.mob-active{display:flex;}
+    .mob-bottom-tab{display:flex;position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);z-index:50;height:54px;}
+    .mob-tab-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:none;border:none;cursor:pointer;color:var(--muted);font-family:'Noto Sans KR',sans-serif;font-size:9px;transition:color 0.2s;padding:6px 2px;}
+    .mob-tab-btn.active{color:var(--accent);}
+    .mob-tab-icon{font-size:16px;}
+    .mob-more-item{display:flex;align-items:center;gap:14px;width:100%;padding:13px 24px;background:none;border:none;color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:14px;cursor:pointer;text-align:left;}
+    .mob-more-item:active{background:var(--surface2);}
+    .field-grid{grid-template-columns:1fr;}
+    .modal{width:calc(100vw - 32px);max-width:340px;}
+    .trait-item-head{grid-template-columns:1fr auto;gap:4px;}
+    .trait-item-head .trait-move-btn,.trait-item-head .del-btn{width:32px;height:32px;}
+    .trait-actions-row{display:flex;gap:4px;justify-content:flex-end;grid-column:1 / -1;margin-top:2px;}
   }
 </style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <div class="star">✦</div>
-    <h1>작업실</h1>
-    <div class="subtitle">도구함과 메모를 모아두는 곳.</div>
-  </header>
 
-  <div class="section-label">도구</div>
-  <div class="apps">
-    <a class="app" href="cd_idea.html" style="--app-color: #8888CC">
-      <div class="app-title">CD Idea</div>
-      <div class="app-desc">캐릭터 디자인 아이디어 캐디 — 러프 컨셉부터 프롬프트까지</div>
-      <div class="app-meta">자유 배치 · 그리드 · 가나다</div>
-      <div class="app-arrow">→</div>
-    </a>
+<header class="header">
+  <div>
+    <div class="logo">LORE FORGE</div>
+    <div class="logo-sub">CHATBOT BUILDER</div>
+  </div>
+  <div class="project-selector">
+    <div class="project-select-wrap">
+      <select class="project-dropdown" id="project-dropdown" onchange="switchProject(this.value)"></select>
+    </div>
+    <button class="btn btn-ghost" onclick="newProject()">＋</button>
+    <button class="btn btn-ghost" onclick="renameProject()">✏️</button>
+    <button class="btn btn-danger" onclick="deleteProject()">🗑</button>
+  </div>
+  <div class="header-right">
+    <button class="btn btn-danger" onclick="resetProject()">↺ 초기화</button>
+    <button class="btn btn-ghost" onclick="importJSON()">📂 가져오기</button>
+    <button class="btn btn-primary" onclick="exportJSON()">💾 내보내기</button>
+    <button class="btn btn-ghost btn-sync-mob-hide" onclick="openGistModal()" title="GitHub Gist로 클라우드 동기화" style="border-color:rgba(106,200,176,0.5);color:#6AC8B0;">☁️ 동기화 <span class="sync-indicator" id="sync-indicator"></span></button>
+    <button class="btn btn-ghost btn-sync-mob-hide" onclick="openDriveModal()" title="Google Drive appDataFolder 슬롯 동기화" style="border-color:rgba(136,136,204,0.55);color:#8888CC;">🟣 Drive <span class="sync-indicator" id="drive-sync-indicator"></span></button>
+    <button class="btn btn-guide" onclick="openGuide()" title="프롬프트 가이드 보기">📖 가이드</button>
+    <button class="btn btn-guide" onclick="openTip()" title="마크다운 & UI 레퍼런스" style="background:linear-gradient(135deg,rgba(136,137,205,0.15),rgba(187,102,136,0.15));border-color:rgba(136,137,205,0.4);color:var(--accent);">💡 TIP</button>
+    <button class="btn btn-guide" onclick="openReference()" title="캐릭터 성격 분류 레퍼런스" style="background:linear-gradient(135deg,rgba(221,170,204,0.15),rgba(204,170,136,0.15));border-color:rgba(221,170,204,0.4);color:var(--accent3);">📚 레퍼런스</button>
+  </div>
+  <input type="file" id="import-file" accept=".json" style="display:none" onchange="handleImport(event)">
+</header>
 
-    <a class="app" href="archive.html" style="--app-color: #DDAACC">
-      <div class="app-title">Archive</div>
-      <div class="app-desc">JSON · TXT · MD 자료 색인 — 요약, 태그, 미리보기 중심의 가벼운 보관함</div>
-      <div class="app-meta">분류 · 검색 · 미리보기 · 백업</div>
-      <div class="app-arrow">→</div>
-    </a>
-
-    <a class="app" href="result_gallery.html" style="--app-color: #CCAA88">
-      <div class="app-title">Result Gallery</div>
-      <div class="app-desc">생성 이미지 결과 관리 — ComfyUI 메타값, 점수, 상태, 실패 이유 기록</div>
-      <div class="app-meta">이미지 · 메타데이터 · 점수 · 재작업</div>
-      <div class="app-arrow">→</div>
-    </a>
-
-    <a class="app" href="lora_lab.html" style="--app-color: #BB6688">
-      <div class="app-title">LoRA Lab</div>
-      <div class="app-desc">LoRA 학습 실험 기록장 — 파일 메타데이터, 세팅, 평가, 다음 실험 메모</div>
-      <div class="app-meta">safetensors · 메타데이터 · 검색 · 실험노트</div>
-      <div class="app-arrow">→</div>
-    </a>
-
-    <a class="app" href="lora_lookup.html" style="--app-color: #8888CC">
-      <div class="app-title">LoRA Lookup</div>
-      <div class="app-desc">LoRA 파일 해시 조회 — civitai 모델 유형과 트리거 워드 빠른 확인</div>
-      <div class="app-meta">safetensors · trigger words · civitai</div>
-      <div class="app-arrow">→</div>
-    </a>
-
-    <div class="app upcoming" style="--app-color: #884499">
-      <div class="app-title">곧 추가 예정</div>
-      <div class="app-desc">새 메모/도구가 여기에 들어올 자리.</div>
+<!-- Gist 동기화 모달 -->
+<div class="modal-overlay" id="gist-modal-overlay" style="display:none;">
+  <div class="gist-modal">
+    <div class="gist-modal-title">☁️ GIST 동기화</div>
+    <div class="gist-section">
+      <div class="gist-label">GITHUB PERSONAL ACCESS TOKEN</div>
+      <input class="gist-input" type="password" id="gist-token-input" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+      <div class="gist-hint">⚠️ 토큰은 이 기기 localStorage에만 저장돼. 절대 다른 사람한테 공유하지 마!</div>
+    </div>
+    <div class="gist-section">
+      <div class="gist-label">GIST ID <span style="color:var(--muted);font-size:9px;">(처음엔 비워둬 — 업로드하면 자동 생성)</span></div>
+      <div class="gist-id-row">
+        <input class="gist-input" type="text" id="gist-id-input" placeholder="처음엔 비워둬도 돼">
+        <button class="gist-copy-btn" onclick="copyGistId()" title="Gist ID 복사">📋 복사</button>
+      </div>
+      <div class="gist-hint">💡 다른 기기에서 불러오려면 이 ID가 필요해. 복사해서 옮겨줘!</div>
+    </div>
+    <div class="gist-status" id="gist-status"></div>
+    <div class="gist-btn-row">
+      <button class="gist-btn gist-btn-upload" onclick="gistUpload()">⬆️ 업로드 (저장)</button>
+      <button class="gist-btn gist-btn-download" onclick="gistDownload()">⬇️ 다운로드 (불러오기)</button>
+    </div>
+    <div class="gist-hint" id="gist-autosave-hint" style="text-align:center;"></div>
+    <div class="gist-btn-row">
+      <button class="gist-btn gist-btn-cancel" onclick="closeGistModal()">닫기</button>
     </div>
   </div>
 
-  <footer>✦ 작업실 · 본인 전용</footer>
+</div>
+
+<!-- Google Drive appDataFolder 동기화 모달 -->
+<div class="modal-overlay" id="drive-modal-overlay" style="display:none;">
+  <div class="gist-modal">
+    <div class="gist-modal-title">🟣 DRIVE 동기화</div>
+    <div class="gist-section">
+      <div class="gist-label">GOOGLE OAUTH CLIENT ID</div>
+      <input class="gist-input" type="text" id="drive-client-id-input" placeholder="xxxxxxxxxxxx-xxxxxxxxxxxxxxxx.apps.googleusercontent.com" autocomplete="off">
+      <div class="gist-hint">Client ID는 이 기기 localStorage에 저장돼. access token은 저장하지 않고 현재 세션 메모리에만 둬.</div>
+    </div>
+    <div class="gist-section">
+      <div class="gist-label">저장 위치</div>
+      <div class="gist-hint">Google Drive의 앱 전용 숨김 저장소(appDataFolder)에 <b>app_drive.json</b> 하나로 슬롯 5개를 저장해. 일반 내 드라이브 목록에는 보이지 않아.</div>
+    </div>
+    <div class="gist-status" id="drive-status"></div>
+    <div class="gist-btn-row">
+      <button class="gist-btn gist-btn-upload" onclick="driveConnectManual()">🔗 연결</button>
+      <button class="gist-btn gist-btn-download" onclick="driveUploadSlot()">⬆️ 슬롯 저장</button>
+      <button class="gist-btn gist-btn-download" onclick="driveDownloadSlots()">⬇️ 슬롯 불러오기</button>
+    </div>
+    <div class="gist-btn-row">
+      <button class="gist-btn gist-btn-cancel" onclick="driveClearClientId()">Client ID 삭제</button>
+      <button class="gist-btn gist-btn-cancel" onclick="closeDriveModal()">닫기</button>
+    </div>
+    <div class="gist-hint" style="line-height:1.6;">
+      OAuth Authorized JavaScript origins에는 GitHub Pages 주소와 Electron 로컬 서버 주소를 둘 다 넣어줘.<br>
+      예: <code>https://사용자명.github.io</code> / <code>http://127.0.0.1:47837</code>
+    </div>
+  </div>
+</div>
+
+<!-- 모바일 캐릭터 선택바 -->
+<div class="mob-char-bar" id="mob-char-bar">
+  <select id="mob-char-select" onchange="mobSelectChar(this.value)"></select>
+  <button onclick="deleteCurrentMobileChar()" style="background: var(--accent2); color: white; border: none; padding: 6px 12px; border-radius: 4px; margin-left: 8px; font-weight: bold; cursor: pointer;">삭제 🗑️</button>
+  <button class="btn btn-ghost" onclick="addCharacter()">＋</button>
+</div>
+
+<div class="app-body">
+  <!-- 사이드바 -->
+  <div class="char-sidebar">
+    <div class="sidebar-header">
+      <span class="sidebar-title">CHARACTERS</span>
+      <span id="char-count" style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent)">0명</span>
+    </div>
+    <div class="char-list" id="char-list"></div>
+    <div class="sidebar-add">
+      <button class="add-char-btn" onclick="addCharacter()">＋ 캐릭터 추가</button>
+    </div>
+  </div>
+
+  <!-- 에디터 -->
+  <div class="editor-col">
+    <div class="tab-bar">
+      <div class="tab active" onclick="switchTab('character')" id="tab-character">🎭 캐릭터</div>
+      <div class="tab" onclick="switchTab('world')" id="tab-world">🌍 세계관</div>
+      <div class="tab" onclick="switchTab('output')" id="tab-output">📋 출력지침</div>
+      <div class="tab" onclick="switchTab('rules')" id="tab-rules">📜 행동 규칙</div>
+      <div class="tab" onclick="switchTab('lorebook')" id="tab-lorebook">📚 로어북</div>
+      <div style="margin-left:auto;display:flex;align-items:center;padding:0 8px;">
+        <button id="copy-tab-btn" onclick="openCopyTabModal()" style="font-size:10px;padding:4px 9px;background:rgba(136,137,205,0.15);border:1px solid rgba(136,137,205,0.35);color:#8888CC;border-radius:6px;cursor:pointer;white-space:nowrap;display:none;">📋 복사</button>
+      </div>
+    </div>
+    <div class="editor-area">
+
+      <!-- 캐릭터 탭 -->
+      <div class="tab-panel active" id="panel-character">
+        <div id="char-editor-content">
+          <div class="empty-state">
+            <div class="empty-state-icon">🎭</div>
+            <div class="empty-state-text">캐릭터를 선택하거나 추가해봐</div>
+            <div class="empty-state-sub">왼쪽 사이드바 ＋ 버튼을 눌러</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 세계관 탭 -->
+      <div class="tab-panel" id="panel-world">
+        <div class="panel" id="p-world-basic">
+          <div class="panel-header" onclick="togglePanel('p-world-basic')">
+            <div class="panel-icon" style="background:rgba(106,176,255,0.15)">🌍</div>
+            <div class="panel-title">세계 기본 설정</div>
+            <span class="panel-badge">WORLD</span><span class="panel-arrow">▾</span>
+          </div>
+          <div class="panel-body">
+            <div><div class="field-label">세계관 이름</div><input type="text" id="world-name" placeholder="예: 아르카나 대륙, 네온 도쿄 2077..." oninput="saveAll();updatePreview()"></div>
+            <div>
+              <div class="field-label">장르</div>
+              <div class="chip-group" id="genre-chips">
+                <div class="chip" onclick="toggleChip(this,'genre')" ontouchend="event.preventDefault();toggleChip(this,'genre')">판타지</div><div class="chip" onclick="toggleChip(this,'genre')" ontouchend="event.preventDefault();toggleChip(this,'genre')">SF</div><div class="chip" onclick="toggleChip(this,'genre')" ontouchend="event.preventDefault();toggleChip(this,'genre')">현대</div><div class="chip" onclick="toggleChip(this,'genre')" ontouchend="event.preventDefault();toggleChip(this,'genre')">역사</div><div class="chip" onclick="toggleChip(this,'genre')" ontouchend="event.preventDefault();toggleChip(this,'genre')">사이버펑크</div><div class="chip" onclick="toggleChip(this,'genre')" ontouchend="event.preventDefault();toggleChip(this,'genre')">포스트아포칼립스</div><div class="chip" onclick="toggleChip(this,'genre')" ontouchend="event.preventDefault();toggleChip(this,'genre')">이세계</div><div class="chip" onclick="toggleChip(this,'genre')" ontouchend="event.preventDefault();toggleChip(this,'genre')">학원물</div><div class="chip" onclick="toggleChip(this,'genre')" ontouchend="event.preventDefault();toggleChip(this,'genre')">호러</div><div class="chip" onclick="toggleChip(this,'genre')" ontouchend="event.preventDefault();toggleChip(this,'genre')">로맨스</div>
+                <div class="chip chip-add" onclick="addCustomChip('genre-chips','genre')">＋</div>
+              </div>
+            </div>
+            <div><div class="field-label">시대 / 배경</div><input type="text" id="world-era" placeholder="예: 중세 마법 시대, 근미래 2089년..." oninput="saveAll();updatePreview()"></div>
+            <div><div class="field-label">세계관 개요</div><textarea id="world-desc" style="min-height:100px" placeholder="이 세계가 어떤 곳인지, 어떻게 돌아가는지..." oninput="saveAll();updatePreview()"></textarea></div>
+          </div>
+        </div>
+        <div class="panel" id="p-world-rules-panel">
+          <div class="panel-header" onclick="togglePanel('p-world-rules-panel')">
+            <div class="panel-icon" style="background:rgba(255,212,106,0.15)">⚖️</div>
+            <div class="panel-title">세계의 법칙</div>
+            <span class="panel-badge">LORE</span><span class="panel-arrow">▾</span>
+          </div>
+          <div class="panel-body">
+            <div><div class="field-label">마법 / 기술 체계</div><textarea id="world-magic" placeholder="마법이 있다면 어떻게 작동하는지, 기술 수준은..." oninput="saveAll();updatePreview()"></textarea></div>
+            <div><div class="field-label">사회 구조 / 세력</div><textarea id="world-society" placeholder="국가, 파벌, 계급 구조 등..." oninput="saveAll();updatePreview()"></textarea></div>
+            <div>
+              <div class="field-label">세계 고유 규칙 <span style="color:var(--muted)">(엔터)</span></div>
+              <div class="tag-input-container" id="world-rule-tags" onclick="document.getElementById('world-rule-input').focus()">
+                <div style="display:flex;gap:6px;align-items:center;"><input type="text" class="tag-input" id="world-rule-input" placeholder="예: 마나 고갈 시 사망..." onkeydown="handleTagInput(event,'world-rule')" onkeyup="handleTagInput(event,'world-rule')"><button onclick="addTagBtn('world-rule')" class="tag-add-btn">＋</button></div>
+              </div>
+            </div>
+            <div><div class="field-label">금기 / 터부</div><textarea id="world-taboo" placeholder="이 세계에서 절대 하면 안 되는 것..." oninput="saveAll();updatePreview()"></textarea></div>
+          </div>
+        </div>
+        <div class="panel" id="p-world-traits-panel">
+          <div class="panel-header" onclick="togglePanel('p-world-traits-panel')">
+            <div class="panel-icon" style="background:rgba(221,170,204,0.15)">🌐</div>
+            <div class="panel-title">세계관 추가 설정</div>
+            <span class="panel-badge">EXTRAS</span><span class="panel-arrow">▾</span>
+          </div>
+          <div class="panel-body">
+            <div class="hint" style="font-size:10px;color:var(--muted);margin-bottom:8px;">💡 마법·사회·장소·금기 외의 자유 항목을 추가해. 달력 체계, 통화, 종교, 역사적 사건, 세력관계, 언어, 이종족 등. 라벨을 비우면 내용만 출력돼. (최대 15개)</div>
+            <div id="world-traits-list"></div>
+            <button class="add-btn" id="world-trait-add-btn" onclick="addWorldTrait()">＋ 항목 추가</button>
+            <div id="world-trait-limit-msg" class="trait-limit-msg" style="display:none;">최대 15개까지만 추가할 수 있어.</div>
+          </div>
+        </div>
+        <div class="panel" id="p-world-place">
+          <div class="panel-header" onclick="togglePanel('p-world-place')">
+            <div class="panel-icon" style="background:rgba(106,255,176,0.15)">📍</div>
+            <div class="panel-title">장소 설정</div>
+            <span class="panel-badge">PLACES</span><span class="panel-arrow">▾</span>
+          </div>
+          <div class="panel-body">
+            <div><div class="field-label">주요 장소 / 무대</div><textarea id="world-places" style="min-height:90px" placeholder="예: 미드나잇 바 - 세계의 틈새에 존재하는 중립 공간. 모든 캐릭터가 모이는 곳..." oninput="saveAll();updatePreview()"></textarea></div>
+            <div>
+              <div class="field-label">장소 태그 <span style="color:var(--muted)">(엔터)</span></div>
+              <div class="tag-input-container" id="place-tags" onclick="document.getElementById('place-input').focus()">
+                <div style="display:flex;gap:6px;align-items:center;"><input type="text" class="tag-input" id="place-input" placeholder="예: 왕도, 마법학원, 뒷골목..." onkeydown="handleTagInput(event,'place')" onkeyup="handleTagInput(event,'place')"><button onclick="addTagBtn('place')" class="tag-add-btn">＋</button></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="panel" id="p-world-atmo">
+          <div class="panel-header" onclick="togglePanel('p-world-atmo')">
+            <div class="panel-icon" style="background:rgba(212,106,255,0.15)">🎨</div>
+            <div class="panel-title">분위기 & 톤</div>
+            <span class="panel-badge">TONE</span><span class="panel-arrow">▾</span>
+          </div>
+          <div class="panel-body">
+            <div>
+              <div class="field-label">전체 분위기</div>
+              <div class="slider-row">
+                <span style="font-size:10px;color:var(--muted)">어두움</span>
+                <input type="range" id="tone-slider" min="0" max="100" value="50" oninput="updateSliderLabel(this,'tone-label');saveAll();updatePreview()">
+                <span style="font-size:10px;color:var(--muted)">밝음</span>
+                <span class="slider-val" id="tone-label">중간</span>
+              </div>
+            </div>
+            <div>
+              <div class="field-label">분위기 키워드 <span style="color:var(--muted)">(엔터)</span></div>
+              <div class="tag-input-container" id="atmo-tags" onclick="document.getElementById('atmo-input').focus()">
+                <div style="display:flex;gap:6px;align-items:center;"><input type="text" class="tag-input" id="atmo-input" placeholder="예: 음습한, 따뜻한, 낭만적인..." onkeydown="handleTagInput(event,'atmo')" onkeyup="handleTagInput(event,'atmo')"><button onclick="addTagBtn('atmo')" class="tag-add-btn">＋</button></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 출력지침 탭 -->
+      <div class="tab-panel" id="panel-output">
+        <div class="panel" id="p-out-narr">
+          <div class="panel-header" onclick="togglePanel('p-out-narr')">
+            <div class="panel-icon" style="background:rgba(136,137,205,0.15)">✍️</div>
+            <div class="panel-title">나레이션 스타일</div>
+            <span class="panel-badge">NARRATION</span><span class="panel-arrow">▾</span>
+          </div>
+          <div class="panel-body">
+            <div>
+              <div class="field-label">시점</div>
+              <div class="chip-group" id="pov-chips">
+                <div class="chip" onclick="toggleChip(this,'pov')" ontouchend="event.preventDefault();toggleChip(this,'pov')">1인칭 (나)</div>
+                <div class="chip" onclick="toggleChip(this,'pov')" ontouchend="event.preventDefault();toggleChip(this,'pov')">2인칭 (당신)</div>
+                <div class="chip" onclick="toggleChip(this,'pov')" ontouchend="event.preventDefault();toggleChip(this,'pov')">3인칭 관찰자</div>
+                <div class="chip" onclick="toggleChip(this,'pov')" ontouchend="event.preventDefault();toggleChip(this,'pov')">3인칭 전지적</div>
+                <div class="chip chip-add" onclick="addCustomChip('pov-chips','pov')">＋</div>
+              </div>
+            </div>
+            <div>
+              <div class="field-label">문체 스타일</div>
+              <div class="chip-group" id="style-chips">
+                <div class="chip" onclick="toggleChip(this,'style')" ontouchend="event.preventDefault();toggleChip(this,'style')">소설 서술체</div>
+                <div class="chip" onclick="toggleChip(this,'style')" ontouchend="event.preventDefault();toggleChip(this,'style')">블랙코미디</div>
+                <div class="chip" onclick="toggleChip(this,'style')" ontouchend="event.preventDefault();toggleChip(this,'style')">시적 묘사</div>
+                <div class="chip" onclick="toggleChip(this,'style')" ontouchend="event.preventDefault();toggleChip(this,'style')">하드보일드</div>
+                <div class="chip" onclick="toggleChip(this,'style')" ontouchend="event.preventDefault();toggleChip(this,'style')">감각적 묘사 중심</div>
+                <div class="chip" onclick="toggleChip(this,'style')" ontouchend="event.preventDefault();toggleChip(this,'style')">간결 단문체</div>
+                <div class="chip" onclick="toggleChip(this,'style')" ontouchend="event.preventDefault();toggleChip(this,'style')">만화/라이트노벨체</div>
+                <div class="chip chip-add" onclick="addCustomChip('style-chips','style')">＋</div>
+              </div>
+            </div>
+            <div>
+              <div class="field-label">묘사 밀도</div>
+              <div class="chip-group" id="density-chips">
+                <div class="chip" onclick="toggleChip(this,'density')" ontouchend="event.preventDefault();toggleChip(this,'density')">간결 (핵심만)</div>
+                <div class="chip" onclick="toggleChip(this,'density')" ontouchend="event.preventDefault();toggleChip(this,'density')">보통</div>
+                <div class="chip" onclick="toggleChip(this,'density')" ontouchend="event.preventDefault();toggleChip(this,'density')">상세 (오감 묘사)</div>
+                <div class="chip" onclick="toggleChip(this,'density')" ontouchend="event.preventDefault();toggleChip(this,'density')">극도로 상세</div>
+                <div class="chip chip-add" onclick="addCustomChip('density-chips','density')">＋</div>
+              </div>
+            </div>
+            <div><div class="field-label">추가 나레이션 지침</div><textarea id="out-narr-detail" placeholder="예: 시간 흐름을 따라 묘사, 매 답변마다 다른 표현 사용..." oninput="saveAll();updatePreview()"></textarea></div>
+          </div>
+        </div>
+        <div class="panel" id="p-out-length">
+          <div class="panel-header" onclick="togglePanel('p-out-length')">
+            <div class="panel-icon" style="background:rgba(255,176,106,0.15)">📏</div>
+            <div class="panel-title">출력량 설정</div>
+            <span class="panel-badge">LENGTH</span><span class="panel-arrow">▾</span>
+          </div>
+          <div class="panel-body">
+            <div>
+              <div class="field-label">답변 길이</div>
+              <div class="chip-group" id="length-chips">
+                <div class="chip" onclick="toggleChip(this,'length')" ontouchend="event.preventDefault();toggleChip(this,'length')">짧게 (1~2문장)</div>
+                <div class="chip" onclick="toggleChip(this,'length')" ontouchend="event.preventDefault();toggleChip(this,'length')">보통 (3~5문장)</div>
+                <div class="chip" onclick="toggleChip(this,'length')" ontouchend="event.preventDefault();toggleChip(this,'length')">길게 (상세 묘사)</div>
+                <div class="chip chip-add" onclick="addCustomChip('length-chips','length')">＋</div>
+              </div>
+            </div>
+            <div>
+              <div class="field-label">행동 묘사 방식</div>
+              <div class="chip-group" id="action-chips">
+                <div class="chip" onclick="toggleChip(this,'action')" ontouchend="event.preventDefault();toggleChip(this,'action')">*별표로 행동 묘사*</div>
+                <div class="chip" onclick="toggleChip(this,'action')" ontouchend="event.preventDefault();toggleChip(this,'action')">(괄호로 행동 묘사)</div>
+                <div class="chip" onclick="toggleChip(this,'action')" ontouchend="event.preventDefault();toggleChip(this,'action')">묘사 없이 대사만</div>
+                <div class="chip" onclick="toggleChip(this,'action')" ontouchend="event.preventDefault();toggleChip(this,'action')">소설 서술체</div>
+                <div class="chip chip-add" onclick="addCustomChip('action-chips','action')">＋</div>
+              </div>
+            </div>
+            <div><div class="field-label">글자수 / 분량 지정</div><input type="text" id="out-length-detail" placeholder="예: 800자 이상 1000자 이하, 문단 수 2배..." oninput="saveAll();updatePreview()"></div>
+          </div>
+        </div>
+        <div class="panel" id="p-out-status">
+          <div class="panel-header" onclick="togglePanel('p-out-status')">
+            <div class="panel-icon" style="background:rgba(106,255,212,0.15)">📊</div>
+            <div class="panel-title">상태창 설정</div>
+            <span class="panel-badge">STATUS</span><span class="panel-arrow">▾</span>
+          </div>
+          <div class="panel-body">
+            <div class="hint">💡 상태창은 매 답변 끝에 코드블럭으로 출력되는 정보창이야. 직접 형식을 작성해줘.</div>
+            <div><div class="field-label">상태창 형식</div><textarea id="out-status" style="min-height:120px;font-family:'JetBrains Mono',monospace;font-size:11px;" placeholder="예:&#10;```&#10;{{user}} | 위치 | 날짜&#10;❤ HP: now/max | ⚡ SP: now/max&#10;💰 코인: n | LV: n (xp: now/max)&#10;💖 호감도: 캐릭터명 (n/100)&#10;```" oninput="saveAll();updatePreview()"></textarea></div>
+          </div>
+        </div>
+        <div class="panel" id="p-out-affection">
+          <div class="panel-header" onclick="togglePanel('p-out-affection')">
+            <div class="panel-icon" style="background:rgba(187,102,136,0.15)">💖</div>
+            <div class="panel-title">호감도 시스템</div>
+            <span class="panel-badge">AFFECTION</span><span class="panel-arrow">▾</span>
+          </div>
+          <div class="panel-body">
+            <div class="hint">💡 호감도 구간별 행동 변화, 이벤트 트리거 등을 설정해줘.</div>
+            <div><div class="field-label">호감도 시스템 정의</div><textarea id="out-affection" style="min-height:130px" placeholder="예:&#10;0~49: 무관계 - 무신경한 대화, 건조한 말투&#10;50~99: 관심 - 서로를 의식하기 시작&#10;100~149: 호기심 - 감정이 흔들리기 시작&#10;150~199: 상호 호감 - 감정을 숨기지 못함&#10;200: 연인 - 완전한 신뢰" oninput="saveAll();updatePreview()"></textarea></div>
+            <div><div class="field-label">호감도 변화 요인</div><textarea id="out-affection-factor" placeholder="예:&#10;상승: 스킨십(+2~15), 공감(+3), 도움(+5)&#10;하락: 무시(-3), 배신(-20), 거짓말(-10)" oninput="saveAll();updatePreview()"></textarea></div>
+          </div>
+        </div>
+        <div class="panel" id="p-out-extra">
+          <div class="panel-header" onclick="togglePanel('p-out-extra')">
+            <div class="panel-icon" style="background:rgba(204,170,136,0.15)">⚙️</div>
+            <div class="panel-title">기타 출력 설정</div>
+            <span class="panel-badge">EXTRA</span><span class="panel-arrow">▾</span>
+          </div>
+          <div class="panel-body">
+            <div class="hint" style="font-size:10px;color:var(--muted);margin-bottom:8px;">💡 항목별로 라벨을 달아서 자유롭게 추가해. 예: 이미지 출력 규칙, 인코딩 규칙, 좌표계, AI 정체 숨김 등. 라벨을 비우면 내용만 출력돼. (최대 15개)</div>
+            <div id="output-traits-list"></div>
+            <button class="add-btn" id="output-trait-add-btn" onclick="addOutputTrait()">＋ 항목 추가</button>
+            <div id="output-trait-limit-msg" class="trait-limit-msg" style="display:none;">최대 15개까지만 추가할 수 있어.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 행동 규칙 탭 (전체 공통) -->
+      <div class="tab-panel" id="panel-rules">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:12px;padding:7px 10px;background:rgba(136,137,205,0.07);border-radius:6px;border-left:2px solid rgba(136,137,205,0.3);">
+          💡 여기는 <b style="color:var(--accent3)">모든 캐릭터에 공통 적용</b>되는 규칙이야. 캐릭터별 개별 규칙은 캐릭터 탭에서 설정해봐.
+        </div>
+        <div class="panel" id="p-rules-global">
+          <div class="panel-header" onclick="togglePanel('p-rules-global')">
+            <div class="panel-icon" style="background:rgba(106,255,176,0.15)">📜</div>
+            <div class="panel-title">전체 공통 규칙</div>
+            <span class="panel-badge">GLOBAL</span><span class="panel-arrow">▾</span>
+          </div>
+          <div class="panel-body">
+            <div>
+              <div class="field-label">전체 반드시 할 것 <span style="color:var(--muted)">(엔터)</span></div>
+              <div class="tag-input-container" id="must-tags" onclick="document.getElementById('must-input').focus()">
+                <div style="display:flex;gap:6px;align-items:center;"><input type="text" class="tag-input" id="must-input" placeholder="예: 항상 한국어로 답변, 존댓말 금지..." onkeydown="handleTagInput(event,'must')" onkeyup="handleTagInput(event,'must')"><button onclick="addTagBtn('must')" class="tag-add-btn">＋</button></div>
+              </div>
+            </div>
+            <div>
+              <div class="field-label">전체 절대 하지 말 것 <span style="color:var(--muted)">(엔터)</span></div>
+              <div class="tag-input-container" id="never-tags" onclick="document.getElementById('never-input').focus()">
+                <div style="display:flex;gap:6px;align-items:center;"><input type="text" class="tag-input" id="never-input" placeholder="예: AI임을 밝히기, 롤플레이 깨기, 설정 외 행동..." onkeydown="handleTagInput(event,'never')" onkeyup="handleTagInput(event,'never')"><button onclick="addTagBtn('never')" class="tag-add-btn">＋</button></div>
+              </div>
+            </div>
+            <div><div class="field-label">전체 공통 추가 설정</div><textarea id="rules-extra-text" style="min-height:90px" placeholder="모든 캐릭터에 공통으로 적용할 규칙을 자유롭게..." oninput="saveAll();updatePreview()"></textarea></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 로어북 탭 -->
+      <div class="tab-panel" id="panel-lorebook">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;color:var(--accent3);">LOREBOOK</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:2px;">키워드가 감지되면 자동으로 삽입되는 설정 항목들</div>
+          </div>
+          <button class="btn btn-primary" onclick="addLorebook()">＋ 항목 추가</button>
+        </div>
+        <div id="lorebook-list"></div>
+        <div id="lorebook-empty" style="display:none;">
+          <div class="empty-state" style="height:200px;">
+            <div class="empty-state-icon">📚</div>
+            <div class="empty-state-text">로어북 항목이 없어</div>
+            <div class="empty-state-sub">＋ 항목 추가 버튼을 눌러봐</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 프리뷰 -->
+  <div class="preview-area">
+    <div class="preview-title">PROMPT PREVIEW</div>
+    <div class="char-select-bar" id="preview-char-bar">
+      <button class="preview-char-btn all-btn active" onclick="setPreviewMode('all',this)">전체 합치기</button>
+    </div>
+    <div class="prompt-output" id="prompt-output">// 프로젝트를 선택하고
+// 캐릭터를 추가해봐.</div>
+    <div class="prompt-stats">
+      <div class="stat">글자수: <span class="stat-val" id="stat-chars">0</span></div>
+      <div class="stat">토큰 추정: <span class="stat-val" id="stat-tokens">0</span></div>
+    </div>
+    <button class="copy-btn" id="copy-btn" onclick="copyPrompt()">📋 프롬프트 전체 복사</button>
+    <div style="display:flex;gap:6px;margin-top:6px;align-items:center;">
+      <input type="number" id="compress-target" value="2000" min="100"
+        style="width:80px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:11px;padding:6px 8px;outline:none;text-align:center;">
+      <span style="font-size:10px;color:var(--muted);flex-shrink:0;">자 이하로</span>
+      <button class="copy-btn" style="margin-top:0;flex:1;padding:7px;font-size:11px;background:linear-gradient(135deg,rgba(204,170,136,0.15),rgba(187,102,136,0.15));border-color:rgba(204,170,136,0.35);color:var(--accent4);" onclick="copyCompressRequest()">✂️ 압축 요청 복사</button>
+    </div>
+  </div>
+</div>
+
+<!-- 모바일 하단 탭바 -->
+<div class="mob-bottom-tab" id="mob-bottom-tab">
+  <button class="mob-tab-btn active" id="mobtab-character" onclick="mobSwitchTab('character',this)">
+    <span class="mob-tab-icon">🎭</span>캐릭터
+  </button>
+  <button class="mob-tab-btn" id="mobtab-world" onclick="mobSwitchTab('world',this)">
+    <span class="mob-tab-icon">🌍</span>세계관
+  </button>
+  <button class="mob-tab-btn" id="mobtab-output" onclick="mobSwitchTab('output',this)">
+    <span class="mob-tab-icon">📋</span>출력
+  </button>
+  <button class="mob-tab-btn" id="mobtab-rules" onclick="mobSwitchTab('rules',this)">
+    <span class="mob-tab-icon">📜</span>규칙
+  </button>
+  <button class="mob-tab-btn" id="mobtab-lorebook" onclick="mobSwitchTab('lorebook',this)">
+    <span class="mob-tab-icon">📚</span>로어북
+  </button>
+  <button class="mob-tab-btn" id="mobtab-more" onclick="toggleMobMore(this)">
+    <span class="mob-tab-icon">⋯</span>더보기
+  </button>
+</div>
+
+<!-- 모바일 더보기 슬라이드업 -->
+<div id="mob-more-overlay" onclick="closeMobMore()" style="display:none;position:fixed;inset:0;z-index:98;background:rgba(0,0,0,0.45);"></div>
+<div id="mob-more-sheet" style="display:none;position:fixed;bottom:54px;left:0;right:0;z-index:99;background:var(--surface);border-top:1px solid var(--border);border-radius:16px 16px 0 0;padding:8px 0 12px;">
+  <div style="width:36px;height:3px;background:var(--border);border-radius:99px;margin:8px auto 14px;"></div>
+  <button class="mob-more-item" onclick="mobSwitchTab('preview',document.getElementById('mobtab-more'));closeMobMore()">
+    <span style="font-size:18px;">👁</span><span>프리뷰</span>
+  </button>
+  <button class="mob-more-item" id="mob-more-copy-btn" onclick="openCopyTabModal();closeMobMore()" style="display:none;">
+    <span style="font-size:18px;">📋</span><span>현재 탭 복사</span>
+  </button>
+  <button class="mob-more-item" onclick="openGistModal();closeMobMore()">
+    <span style="font-size:18px;">☁️</span><span>동기화</span>
+  </button>
+  <button class="mob-more-item" onclick="openDriveModal();closeMobMore()">
+    <span style="font-size:18px;">🟣</span><span>Drive 슬롯</span>
+  </button>
+</div>
+
+<script>
+
+// ===== 데이터 =====
+let projects={}, currentProjectId=null, previewMode='all';
+let customChips={};
+
+const DRIVE_FILE_NAME='app_drive.json';
+const DRIVE_CLIENT_ID_KEY='loreforge_google_client_id';
+const DRIVE_SCOPE='https://www.googleapis.com/auth/drive.appdata';
+const ELECTRON_LOCAL_ORIGIN='http://127.0.0.1:47837';
+let driveAccessToken=null;
+let driveTokenClient=null;
+let driveSilentTried=false;
+
+const COLORS=[
+  ['rgba(136,137,205,0.25)','#8888CC'],['rgba(187,102,136,0.25)','#BB6688'],
+  ['rgba(221,170,204,0.25)','#DDAACC'],['rgba(204,170,136,0.25)','#CCAA88'],
+  ['rgba(106,200,176,0.25)','#6AC8B0'],['rgba(200,160,106,0.25)','#C8A06A'],
+  ['rgba(160,200,106,0.25)','#A0C86A'],['rgba(106,136,200,0.25)','#6A88C8'],
+];
+
+const OUTFIT_CHIPS_F=['원피스','교복','와이셔츠+스커트','캐주얼','운동복','수영복','전통 한복','드레스','후드집업','제복'];
+const OUTFIT_CHIPS_M=['교복(남)','정장','캐주얼','후드+청바지','운동복','전통 한복','군복','제복'];
+
+// ===== 프로젝트 =====
+function getProject(){return projects[currentProjectId]||null;}
+function getCurrentChar(){const p=getProject();if(!p)return null;return p.characters.find(c=>c.id===p.currentCharId)||null;}
+
+function newProjectData(name){
+  return{id:'proj_'+Date.now(),name:name||'새 프로젝트',characters:[],currentCharId:null,
+    globalTagData:{},lorebook:[],
+    world:{name:'',era:'',desc:'',magic:'',society:'',taboo:'',places:'',toneVal:'50',ruleTags:[],atmoTags:[],placeTags:[],genreChips:[],worldTraits:[]},
+    output:{povChips:[],styleChips:[],densityChips:[],lengthChips:[],actionChips:[],narrDetail:'',lengthDetail:'',status:'',affection:'',affectionFactor:'',extra:'',outputTraits:[]},
+    rules:{extra:'',mustTags:[],neverTags:[]}
+  };
+}
+
+function newProject(){
+  showModal('새 프로젝트 이름','새 프로젝트',(name)=>{
+    if(!name.trim())return;
+    const proj=newProjectData(name.trim());
+    projects[proj.id]=proj;currentProjectId=proj.id;
+    renderProjectDropdown();loadProjectUI();saveAll();showToast('✅ 프로젝트 생성!');
+  });
+}
+
+function switchProject(id){
+  if(!id||!projects[id])return;
+  currentProjectId=id;loadProjectUI();
+}
+
+function renameProject(){
+  const proj=getProject();if(!proj)return;
+  showModal('프로젝트 이름 변경',proj.name,(name)=>{
+    if(!name.trim())return;proj.name=name.trim();saveAll();renderProjectDropdown();showToast('✅ 이름 변경됨!');
+  });
+}
+
+function deleteProject(){
+  const proj=getProject();if(!proj)return;
+  const keys=Object.keys(projects);
+  if(keys.length===1){alert('마지막 프로젝트는 삭제할 수 없어!');return;}
+  (async()=>{
+    if(!(await showConfirm(`"${proj.name}" 프로젝트를 삭제할까?`,{danger:true,title:'⚠️ 프로젝트 삭제'})))return;
+    safetyBackup('프로젝트 삭제: '+proj.name);
+    delete projects[currentProjectId];
+    currentProjectId=Object.keys(projects)[0];
+    saveAll();renderProjectDropdown();loadProjectUI();showToast('🗑 삭제됨 (실수면 F12 콘솔에서 loreForgeDebug.listBackups())');
+  })();
+}
+
+function resetProject(){
+  const proj=getProject();if(!proj)return;
+  (async()=>{
+    if(!(await showConfirm(`"${proj.name}" 세계관/출력지침/행동규칙을 초기화할까?\n캐릭터는 유지돼.`,{danger:true,title:'⚠️ 프로젝트 초기화'})))return;
+    safetyBackup('프로젝트 초기화: '+proj.name);
+    proj.world={name:'',era:'',desc:'',magic:'',society:'',taboo:'',places:'',toneVal:'50',ruleTags:[],atmoTags:[],placeTags:[],genreChips:[],worldTraits:[]};
+    proj.output={povChips:[],styleChips:[],densityChips:[],lengthChips:[],actionChips:[],narrDetail:'',lengthDetail:'',status:'',affection:'',affectionFactor:'',extra:'',outputTraits:[]};
+    proj.rules={extra:'',mustTags:[],neverTags:[]};
+    proj.globalTagData={};proj.lorebook=[];
+    saveAll();loadProjectUI();showToast('↺ 초기화 완료! (실수면 F12 콘솔에서 loreForgeDebug.listBackups())');
+  })();
+}
+
+function renderProjectDropdown(){
+  const sel=document.getElementById('project-dropdown');sel.innerHTML='';
+  Object.values(projects).forEach(proj=>{
+    const opt=document.createElement('option');opt.value=proj.id;opt.textContent=proj.name;opt.selected=proj.id===currentProjectId;sel.appendChild(opt);
+  });
+}
+
+// ===== UI 저장/로드 =====
+function saveCurrentProjectFromUI(){
+  const proj=getProject();if(!proj)return;
+  const prevWorld=proj.world||{};
+  proj.world={
+    name:gv('world-name'),era:gv('world-era'),desc:gv('world-desc'),magic:gv('world-magic'),
+    society:gv('world-society'),taboo:gv('world-taboo'),places:gv('world-places'),
+    toneVal:(document.getElementById('tone-slider')||{value:'50'}).value,
+    ruleTags:proj.globalTagData['world-rule']||[],atmoTags:proj.globalTagData['atmo']||[],
+    placeTags:proj.globalTagData['place']||[],
+    genreChips:getActiveChips(document.getElementById('genre-chips')),
+    worldTraits:Array.isArray(prevWorld.worldTraits)?prevWorld.worldTraits:[],
+  };
+  const prevOutput=proj.output||{};
+  proj.output={
+    povChips:getActiveChips(document.getElementById('pov-chips')),
+    styleChips:getActiveChips(document.getElementById('style-chips')),
+    densityChips:getActiveChips(document.getElementById('density-chips')),
+    lengthChips:getActiveChips(document.getElementById('length-chips')),
+    actionChips:getActiveChips(document.getElementById('action-chips')),
+    narrDetail:gv('out-narr-detail'),lengthDetail:gv('out-length-detail'),
+    status:gv('out-status'),affection:gv('out-affection'),
+    affectionFactor:gv('out-affection-factor'),
+    outputTraits:Array.isArray(prevOutput.outputTraits)?prevOutput.outputTraits:[],
+  };
+  proj.rules={
+    extra:gv('rules-extra-text'),
+    mustTags:proj.globalTagData['must']||[],neverTags:proj.globalTagData['never']||[],
+  };
+}
+
+function loadProjectUI(){
+  const proj=getProject();previewMode='all';
+  const globalIds=['world-name','world-era','world-desc','world-magic','world-society','world-taboo','world-places',
+    'out-narr-detail','out-length-detail','out-status','out-affection','out-affection-factor',
+    'rules-extra-text'];
+  globalIds.forEach(id=>setVal(id,''));
+  document.querySelectorAll('.chip.active').forEach(c=>c.classList.remove('active'));
+  ['world-rule','atmo','place','must','never'].forEach(k=>{if(proj)proj.globalTagData[k]=proj.globalTagData[k]||[];});
+  renderGlobalTags('world-rule');renderGlobalTags('atmo');renderGlobalTags('place');renderGlobalTags('must');renderGlobalTags('never');
+
+  if(proj){
+    const w=proj.world||{};
+    setVal('world-name',w.name);setVal('world-era',w.era);setVal('world-desc',w.desc);
+    setVal('world-magic',w.magic);setVal('world-society',w.society);setVal('world-taboo',w.taboo);
+    setVal('world-places',w.places);
+    const ts=document.getElementById('tone-slider');if(ts){ts.value=w.toneVal||'50';updateSliderLabel(ts,'tone-label');}
+    proj.globalTagData['world-rule']=w.ruleTags||[];proj.globalTagData['atmo']=w.atmoTags||[];
+    proj.globalTagData['place']=w.placeTags||[];
+    renderGlobalTags('world-rule');renderGlobalTags('atmo');renderGlobalTags('place');
+    restoreChips('genre-chips',w.genreChips||[]);
+    if(!Array.isArray(w.worldTraits))w.worldTraits=[];
+    renderWorldTraits();
+
+    const o=proj.output||{};
+    setVal('out-narr-detail',o.narrDetail);setVal('out-length-detail',o.lengthDetail);
+    setVal('out-status',o.status);setVal('out-affection',o.affection);
+    setVal('out-affection-factor',o.affectionFactor);
+    // ── 마이그레이션: 구버전 o.extra 단일 텍스트를 outputTraits 첫 카드로 변환 ──
+    if(!Array.isArray(o.outputTraits))o.outputTraits=[];
+    if(o.extra&&o.extra.trim()&&o.outputTraits.length===0){
+      o.outputTraits.push({label:'추가 출력 지침',content:o.extra});
+      o.extra='';
+    }
+    renderOutputTraits();
+    restoreChips('pov-chips',o.povChips||[]);restoreChips('style-chips',o.styleChips||[]);
+    restoreChips('density-chips',o.densityChips||[]);restoreChips('length-chips',o.lengthChips||[]);
+    restoreChips('action-chips',o.actionChips||[]);
+
+    const r=proj.rules||{};
+    setVal('rules-extra-text',r.extra);
+    proj.globalTagData['must']=r.mustTags||[];proj.globalTagData['never']=r.neverTags||[];
+    renderGlobalTags('must');renderGlobalTags('never');
+
+    renderLorebook();
+  }
+
+  renderSidebar();renderCharEditor();updatePreviewBar();
+  setTimeout(injectAllCustomChips,60);
+  updatePreview();
+}
+
+// ===== 캐릭터 =====
+function addCharacter(){
+  const proj=getProject();if(!proj){alert('먼저 프로젝트를 만들어!');return;}
+  const id='c'+Date.now();
+  proj.characters.push({id,colorIdx:proj.characters.length%COLORS.length,
+    data:{name:'',age:'',gender:'',role:'',intro:'',personality:'',values:'',appearance:'',outfit:'',backstory:'',secret:'',emotionVal:50,userTitle:'',userRole:'',talkStyle:'',special:''},
+    tagData:{personality:[],habit:[],like:[],dislike:[],must:[],never:[]},speechChips:[],outfitChips:[],bdsmChips:[],relations:[],traits:[]
+  });
+  proj.currentCharId=id;saveAll();renderSidebar();renderCharEditor();switchTab('character');
+}
+
+function selectCharacter(id){const proj=getProject();if(!proj)return;proj.currentCharId=id;saveAll();renderSidebar();renderCharEditor();switchTab('character');}
+
+function deleteCharacter(id,e){
+  e.stopPropagation();const proj=getProject();if(!proj)return;
+  (async()=>{
+    if(!(await showConfirm('이 캐릭터를 삭제할까?',{danger:true,title:'⚠️ 캐릭터 삭제'})))return;
+    proj.characters=proj.characters.filter(c=>c.id!==id);
+    if(proj.currentCharId===id)proj.currentCharId=proj.characters.length?proj.characters[proj.characters.length-1].id:null;
+    saveAll();renderSidebar();renderCharEditor();updatePreviewBar();updatePreview();
+  })();
+}
+
+function renderSidebar(){
+  const list=document.getElementById('char-list');const proj=getProject();list.innerHTML='';
+  if(!proj){document.getElementById('char-count').textContent='0명';return;}
+  proj.characters.forEach(char=>{
+    const[bg,fg]=COLORS[char.colorIdx];
+    const item=document.createElement('div');item.className='char-item'+(char.id===proj.currentCharId?' active':'');
+    item.dataset.charId=char.id;
+    item.onclick=()=>selectCharacter(char.id);
+    item.innerHTML=`<div class="char-avatar" style="background:${bg};color:${fg}">${(char.data.name||'?')[0].toUpperCase()}</div><div class="char-info"><div class="char-name-label">${char.data.name||'이름 없음'}</div><div class="char-role-label">${char.data.role||'역할 미정'}</div></div><button class="char-del" onclick="deleteCharacter('${char.id}',event)">×</button>`;
+    list.appendChild(item);
+  });
+  document.getElementById('char-count').textContent=proj.characters.length+'명';
+  renderMobCharBar();
+}
+
+function renderCharEditor(){
+  const container=document.getElementById('char-editor-content');
+  const char=getCurrentChar();
+  normalizeCharacterData(char);
+  if(!char){container.innerHTML=`<div class="empty-state"><div class="empty-state-icon">🎭</div><div class="empty-state-text">캐릭터를 선택하거나 추가해봐</div><div class="empty-state-sub">왼쪽 사이드바 ＋ 버튼을 눌러</div></div>`;return;}
+  const d=char.data;const[bg]=COLORS[char.colorIdx];
+
+  const outfitAll=[...new Set([...OUTFIT_CHIPS_F,...OUTFIT_CHIPS_M])];
+
+  container.innerHTML=`
+    <div class="panel" id="cp-basic">
+      <div class="panel-header" onclick="togglePanel('cp-basic')">
+        <div class="panel-icon" style="background:${bg}">🎭</div><div class="panel-title">기본 정보</div>
+        <span class="panel-badge">BASIC</span>
+        <button onclick="event.stopPropagation();openCopyCharModal()" style="margin-left:auto;margin-right:6px;font-size:10px;padding:3px 8px;background:rgba(136,137,205,0.15);border:1px solid rgba(136,137,205,0.35);color:#8888CC;border-radius:6px;cursor:pointer;">📋 복사</button>
+        <span class="panel-arrow">▾</span>
+      </div>
+      <div class="panel-body">
+        <div><div class="field-label"><span class="required">*</span> 캐릭터 이름</div><input type="text" id="c-name" placeholder="예: 아리아, 리온..." value="${esc(d.name)}" oninput="saveField('name',this.value)"></div>
+        <div class="field-grid">
+          <div><div class="field-label">나이</div><input type="text" id="c-age" placeholder="예: 17세, 불명..." value="${esc(d.age)}" oninput="saveField('age',this.value)"></div>
+          <div><div class="field-label">성별</div><select id="c-gender" onchange="saveField('gender',this.value)">${['','여성','남성','논바이너리','불명','기타'].map(g=>`<option value="${g}"${d.gender===g?' selected':''}>${g||'선택 안 함'}</option>`).join('')}</select></div>
+        </div>
+        <div><div class="field-label">직업 / 역할</div><input type="text" id="c-role" placeholder="예: 마법사, 탐정, 카페 알바생..." value="${esc(d.role)}" oninput="saveField('role',this.value)"></div>
+        <div><div class="field-label">한 줄 소개</div><input type="text" id="c-intro" placeholder="캐릭터를 한 문장으로..." value="${esc(d.intro)}" oninput="saveField('intro',this.value)"></div>
+      </div>
+    </div>
+    <div class="panel" id="cp-persona">
+      <div class="panel-header" onclick="togglePanel('cp-persona')">
+        <div class="panel-icon" style="background:rgba(187,102,136,0.15)">✨</div><div class="panel-title">성격 & 말투</div>
+        <span class="panel-badge">PERSONA</span><span class="panel-arrow">▾</span>
+      </div>
+      <div class="panel-body">
+        <div>
+          <div class="field-label">성격 키워드 <span style="color:var(--muted)">(엔터)</span></div>
+          <div class="tag-input-container" id="c-personality-tags" onclick="document.getElementById('c-personality-input').focus()">
+            <div style="display:flex;gap:6px;align-items:center;"><input type="text" class="tag-input" id="c-personality-input" placeholder="예: 냉소적, 따뜻한, 충동적..." onkeydown="handleCharTag(event,'personality')" onkeyup="handleCharTag(event,'personality')"><button onclick="addCharTagBtn('personality')" class="tag-add-btn">＋</button></div>
+          </div>
+        </div>
+        <div>
+          <div class="field-label">말투 스타일</div>
+          <div class="chip-group" id="c-speech-chips">
+            ${['반말체','존댓말','사투리','고어체','무뚝뚝','수다스러움','시적인 표현','짧고 단호함'].map(s=>`<div class="chip${(char.speechChips||[]).includes(s)?' active':''}" onclick="toggleSpeechChip(this,'${s}')" ontouchend="event.preventDefault();toggleSpeechChip(this,'${s}')">${s}</div>`).join('')}
+            <div class="chip chip-add" onclick="addCustomChip('c-speech-chips','speech')">＋</div>
+          </div>
+        </div>
+        <div>
+          <div class="field-label">감정 표현 방식</div>
+          <div class="slider-row">
+            <span style="font-size:10px;color:var(--muted)">절제됨</span>
+            <input type="range" id="c-emotion" min="0" max="100" value="${d.emotionVal||50}" oninput="saveField('emotionVal',this.value);updateSliderLabel(this,'c-emotion-label');updatePreview()">
+            <span style="font-size:10px;color:var(--muted)">풍부함</span>
+            <span class="slider-val" id="c-emotion-label">${sLabel(d.emotionVal||50)}</span>
+          </div>
+        </div>
+        <div><div class="field-label">성격 상세 설명</div><textarea id="c-personality-detail" placeholder="캐릭터가 어떻게 행동하고 반응하는지..." oninput="saveField('personality',this.value)">${esc(d.personality)}</textarea></div>
+        <div><div class="field-label">가치관 / 행동 원리 / 도덕관</div><textarea id="c-values" placeholder="예: 오직 돈과 이익을 따름. 자신만의 엄격한 도덕률을 지킴. 결국 정의는 승리한다고 믿는다..." oninput="saveField('values',this.value)">${esc(d.values)}</textarea></div>
+      </div>
+    </div>
+    <div class="panel" id="cp-appear">
+      <div class="panel-header" onclick="togglePanel('cp-appear')">
+        <div class="panel-icon" style="background:rgba(106,176,255,0.15)">👁️</div><div class="panel-title">외모 & 특징</div>
+        <span class="panel-badge">APPEARANCE</span><span class="panel-arrow">▾</span>
+      </div>
+      <div class="panel-body">
+        <div><div class="field-label">외모 설명</div><textarea id="c-appearance" placeholder="머리카락 색, 눈 색, 체형, 특징적인 외모..." oninput="saveField('appearance',this.value)">${esc(d.appearance)}</textarea></div>
+        <div>
+          <div class="field-label">주로 입는 의상 스타일</div>
+          <div class="chip-group" id="c-outfit-chips">
+            ${outfitAll.map(s=>`<div class="chip${(char.outfitChips||[]).includes(s)?' active':''}" data-val="${s}" onclick="toggleOutfitChipByEl(this)">${s}</div>`).join('')}
+            <div class="chip chip-add" onclick="addCustomChip('c-outfit-chips','outfit')">＋</div>
+          </div>
+        </div>
+        <div><div class="field-label">의상 상세 설명</div><input type="text" id="c-outfit" placeholder="예: Black highwaist Skirt, white sleeveless lace shirts..." value="${esc(d.outfit)}" oninput="saveField('outfit',this.value)"></div>
+        <div>
+          <div class="field-label">버릇 / 습관 <span style="color:var(--muted)">(엔터)</span></div>
+          <div class="tag-input-container" id="c-habit-tags" onclick="document.getElementById('c-habit-input').focus()">
+            <div style="display:flex;gap:6px;align-items:center;"><input type="text" class="tag-input" id="c-habit-input" placeholder="예: 머리 만지기, 혼잣말, 손가락 두드리기..." onkeydown="handleCharTag(event,'habit')" onkeyup="handleCharTag(event,'habit')"><button onclick="addCharTagBtn('habit')" class="tag-add-btn">＋</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="panel" id="cp-back">
+      <div class="panel-header" onclick="togglePanel('cp-back')">
+        <div class="panel-icon" style="background:rgba(106,255,212,0.15)">📖</div><div class="panel-title">배경 & 과거</div>
+        <span class="panel-badge">BACKSTORY</span><span class="panel-arrow">▾</span>
+      </div>
+      <div class="panel-body">
+        <div><div class="field-label">배경 스토리 / 핵심 동기 / 목표</div><textarea id="c-backstory" style="min-height:100px" placeholder="캐릭터의 과거, 핵심 동기, 궁극적 목표, 어떻게 지금의 모습이 됐는지..." oninput="saveField('backstory',this.value)">${esc(d.backstory)}</textarea></div>
+        <div>
+          <div class="field-label">좋아하는 것 <span style="color:var(--muted)">(엔터)</span></div>
+          <div class="tag-input-container" id="c-like-tags" onclick="document.getElementById('c-like-input').focus()">
+            <div style="display:flex;gap:6px;align-items:center;"><input type="text" class="tag-input" id="c-like-input" placeholder="예: 고양이, 빗소리, 단 음식..." onkeydown="handleCharTag(event,'like')" onkeyup="handleCharTag(event,'like')"><button onclick="addCharTagBtn('like')" class="tag-add-btn">＋</button></div>
+          </div>
+        </div>
+        <div>
+          <div class="field-label">싫어하는 것 <span style="color:var(--muted)">(엔터)</span></div>
+          <div class="tag-input-container" id="c-dislike-tags" onclick="document.getElementById('c-dislike-input').focus()">
+            <div style="display:flex;gap:6px;align-items:center;"><input type="text" class="tag-input" id="c-dislike-input" placeholder="예: 시끄러운 곳, 거짓말, 배신..." onkeydown="handleCharTag(event,'dislike')" onkeyup="handleCharTag(event,'dislike')"><button onclick="addCharTagBtn('dislike')" class="tag-add-btn">＋</button></div>
+          </div>
+        </div>
+        <div><div class="field-label">비밀 / 트라우마 / 숨겨진 면</div><textarea id="c-secret" placeholder="숨기고 있는 것, 약점, 트라우마, 결핍..." oninput="saveField('secret',this.value)">${esc(d.secret)}</textarea></div>
+      </div>
+    </div>
+    <div class="panel" id="cp-traits">
+      <div class="panel-header" onclick="togglePanel('cp-traits')">
+        <div class="panel-icon" style="background:rgba(204,170,136,0.15)">🎯</div><div class="panel-title">특징 & 기타</div>
+        <span class="panel-badge">TRAITS</span><span class="panel-arrow">▾</span>
+      </div>
+      <div class="panel-body">
+        <div class="hint" style="font-size:10px;color:var(--muted);margin-bottom:8px;">💡 능력, 특기, 직책, 신앙, 소속 등 외모·성격·배경에 안 들어가는 자유 항목을 추가해. 라벨을 비우면 내용만 출력돼. (최대 10개)</div>
+        <div id="c-traits-list"></div>
+        <button class="add-btn" id="c-trait-add-btn" onclick="addTrait()">＋ 항목 추가</button>
+        <div id="c-trait-limit-msg" class="trait-limit-msg" style="display:none;">최대 10개까지만 추가할 수 있어.</div>
+      </div>
+    </div>
+    <div class="panel" id="cp-rel">
+      <div class="panel-header" onclick="togglePanel('cp-rel')">
+        <div class="panel-icon" style="background:rgba(255,176,106,0.15)">🔗</div><div class="panel-title">인간관계</div>
+        <span class="panel-badge">RELATIONS</span><span class="panel-arrow">▾</span>
+      </div>
+      <div class="panel-body">
+        <div id="c-relations-list"></div>
+        <button class="add-btn" onclick="addRelation()">＋ 관계 추가</button>
+      </div>
+    </div>
+    <div class="panel" id="cp-sexuality">
+      <div class="panel-header" onclick="togglePanel('cp-sexuality')">
+        <div class="panel-icon" style="background:rgba(187,102,136,0.15)">🔞</div><div class="panel-title">성적 성향</div>
+        <span class="panel-badge">SEXUALITY</span><span class="panel-arrow">▾</span>
+      </div>
+      <div class="panel-body">
+        <div class="hint" style="font-size:10px;color:var(--muted);margin-bottom:8px;">💡 선택 사항이야. 해당하는 성향만 골라봐. 복수 선택 가능하고, 선택 안 해도 돼.</div>
+        <div>
+          <div class="field-label" style="margin-bottom:6px;">성향 유형 <span style="color:var(--muted);font-size:10px;">(클릭으로 토글)</span></div>
+          <div class="chip-group" id="c-bdsm-chips" style="gap:5px;">
+            ${[
+              {label:'도미넌트',val:'도미넌트: 상대방에게 명령하고 지시하는 것을 즐기며, 여러 수단과 방법으로 상대를 자신의 의지대로 지배함'},
+              {label:'서브미시브',val:'서브미시브: 상대방의 명령과 지시에 따르며 복종하는 것에 즐거움을 느낌. 복종·순종·굴복·반항 등 다양한 형태로 나타남'},
+              {label:'탑',val:'탑: 플레이 중 능동적으로 행동하며 상황과 상대를 주도함. 명령보다 행동으로 이끌며 상대의 복종이나 소유에는 관심 없음'},
+              {label:'바텀',val:'바텀: 플레이 중 수동적으로 행동하며 상대가 능동적으로 이끌어주기를 바람. 저항이 아니라 먼저 나서는 것이 망설여지는 것이며 순종이나 소속에는 관심 없음'},
+              {label:'사디스트',val:'사디스트: 상대방에게 고통을 주는 것을 즐기며, 상대가 고통스러워하거나 두려워하는 모습에 흥분함. 정신적 가학을 포함하기도 함'},
+              {label:'마조히스트',val:'마조히스트: 상대방에게 피학 당하면서 느껴지는 고통을 통해 쾌락을 느낌. 고통을 짜릿하게 여기며 정신적 피학을 포함하기도 함'},
+              {label:'마스터/미스트레스',val:'마스터/미스트레스: 상대방에게 존경받기를 원하며, 상대의 정신과 육체를 통제·지배할 자격을 갖추기 위해 노력함. 상대가 더 나은 사람이 될 수 있도록 이끎'},
+              {label:'슬레이브',val:'슬레이브: 존경하는 상대에게 모든 의사결정권을 맡기고, 정신과 육체를 완전히 통제·지배받기를 원함. 상대를 통해 배우고 더 나은 사람이 되는 것을 추구함'},
+              {label:'대디/마미',val:'대디/마미: 상대방을 관심과 애정으로 부드럽게 보살피며, 상대가 자신에게 의지하기를 원함. 지배 수단은 주로 대화와 부탁으로 이루어짐'},
+              {label:'리틀',val:'리틀: 상대방에게 보살핌을 받고 싶어 하며, 의지할 때 가장 안정감을 느낌. 관심을 끌기 위해 투정을 부리기도 하지만 혼나고 싶은 것이 아니라 안아주기를 바라는 것'},
+              {label:'브랫테이머',val:'브랫테이머: 순종하는 상대에게 흥미를 느끼지 못하며, 반항하고 저항하는 상대를 강제로 굴복시키는 것에 흥미를 느낌. 평소엔 상냥하지만 선을 넘으면 180도 돌변함'},
+              {label:'브랫',val:'브랫: 이유 없이 순종하지 않으며 상대가 강제로 굴복시켜 주기를 바람. 장난과 말썽으로 상대를 곤란하게 만들고, 상대가 돌변하는 모습을 보고 싶어함. 굴복이 순종보다 짜릿하다고 생각함'},
+              {label:'헌터',val:'헌터: 상대방을 육체적으로 완벽하게 제압하고 싶어함. 명령이나 순종에 관심 없으며, 상대가 저항하고 반항할수록 더 흥분함. 제압하는 과정 자체를 즐김'},
+              {label:'프레이',val:'프레이: 거칠게 저항하면서 상대가 무참하게 제압해주기를 바람. 명령이나 순종에는 관심 없으며, 있는 힘껏 저항하고 밀어내는 과정에서 흥분과 쾌감을 느낌'},
+              {label:'오너',val:'오너: 강한 유대감과 교감을 통해 상대를 소유하고 싶어함. 소유욕이 강하며 상대가 다른 것에 관심 갖는 것을 싫어함. 훈육 안에 애정이 담겨 있음'},
+              {label:'펫',val:'펫: 상대방과 강한 유대감을 가지며 소유되고 싶어함. 소속 욕구가 강하며 상대를 기쁘게 하는 행동을 살피고 끝없이 애정과 관심을 갈구함'},
+              {label:'리거',val:'리거: 로프나 수갑 등으로 상대를 움직이지 못하도록 구속하는 것을 즐김. 아름다운 형태로 묶으면서 동시에 완전히 속박하는 예술가적 성향'},
+              {label:'로프버니',val:'로프버니: 로프나 수갑 등으로 움직이지 못하게 구속될 때 흥분함. 예쁜 모양으로 묶여 움직이지 못하는 상태에서 짜릿한 흥분감을 느낌'},
+              {label:'스팽커',val:'스팽커: 상대의 신체 부위(특히 엉덩이)를 찰싹 소리가 나도록 때리는 행위에 흥분함. 소리·상대의 반응·자국 모양을 중요하게 여김'},
+              {label:'스팽키',val:'스팽키: 신체 부위(특히 엉덩이)를 찰싹 소리가 나도록 맞으면서 흥분과 쾌감을 느낌. 소리와 고통이 주는 쾌감, 자국 모양을 중요하게 여김'},
+              {label:'디그레이더',val:'디그레이더: 상대가 수치스러워하거나 부끄러워하는 것을 보며 흥분함. 음란하고 저속한 말과 행동, 수치스러운 상황에 노출시키는 것 자체를 즐김'},
+              {label:'디그레이디',val:'디그레이디: 상대에게 수치스럽고 부끄러운 모습을 보여주면서 흥분함. 음담패설이나 수치스러운 호칭으로 불리는 것을 좋아하며 다양한 형태로 나타남'},
+              {label:'보스',val:'보스: 특별히 명령이나 지시를 내리지 않으며, 상대가 주도적으로 알아서 봉사하고 원하는 것을 해주기를 바람'},
+              {label:'서번트',val:'서번트: 상대를 모시고 봉사하면서 즐거움을 느낌. 명령이나 지시를 기다리지 않고 주도적으로 행동하며 상대에게 복종하는 모습을 보임'},
+              {label:'스위치',val:'스위치: 항상 지배적이거나 항상 복종하는 역할을 원하지 않음. 상황이나 상대에 따라 성향이 변화하며 역할 전환을 통해 만족을 얻음'},
+              {label:'바닐라',val:'바닐라: 무성향자. 일반적이고 보통의 플레이를 즐기며 지배나 복종 없이 서로 배려하고 만족을 주기 위해 노력함'},
+            ].map(({label,val})=>`<div class="chip${(char.bdsmChips||[]).some(c=>c===val)?' active':''}" data-val="${val}" onclick="toggleBdsmChipByEl(this)"><span style="font-size:10px;">${label}</span></div>`).join('')}
+          </div>
+        </div>
+        <div style="margin-top:10px;">
+          <div class="field-label">성향 상세 설명 (선택)</div>
+          <textarea id="c-sexuality-detail" style="min-height:70px;" placeholder="예: 평소엔 강인하지만 신뢰하는 상대 앞에선 순종적이 됨. 명령하는 것보다 상대가 자발적으로 따르길 선호함..." oninput="saveField('sexualityDetail',this.value)">${esc(d.sexualityDetail||'')}</textarea>
+        </div>
+      </div>
+    </div>
+    <div class="panel" id="cp-rules">
+      <div class="panel-header" onclick="togglePanel('cp-rules')">
+        <div class="panel-icon" style="background:rgba(106,255,176,0.15)">⚙️</div><div class="panel-title">행동 규칙 (이 캐릭터 전용)</div>
+        <span class="panel-badge">RULES</span><span class="panel-arrow">▾</span>
+      </div>
+      <div class="panel-body">
+        <div><div class="field-label">{{user}} 호칭</div><input type="text" id="c-user-title" placeholder="예: 마스터, 선배, 이름으로 부르기..." value="${esc(d.userTitle||'')}" oninput="saveField('userTitle',this.value)"></div>
+        <div><div class="field-label">{{user}} 역할 인식</div><textarea id="c-user-role" placeholder="예: 유저를 오랜 친구로 인식. 의뢰인으로 대함. 라이벌로 인식..." oninput="saveField('userRole',this.value)">${esc(d.userRole||'')}</textarea></div>
+        <div><div class="field-label">{{user}}와의 대화 방식</div><textarea id="c-talk-style" placeholder="예: 질문을 많이 하는 편. 먼저 말을 건다. 유저 의견에 자주 반박한다..." oninput="saveField('talkStyle',this.value)">${esc(d.talkStyle||'')}</textarea></div>
+        <div>
+          <div class="field-label">반드시 할 것 <span style="color:var(--muted)">(엔터)</span></div>
+          <div class="tag-input-container" id="c-must-tags" onclick="document.getElementById('c-must-input').focus()">
+            <div style="display:flex;gap:6px;align-items:center;"><input type="text" class="tag-input" id="c-must-input" placeholder="예: 항상 반말 사용, 먼저 인사하기..." onkeydown="handleCharTag(event,'must')" onkeyup="handleCharTag(event,'must')"><button onclick="addCharTagBtn('must')" class="tag-add-btn">＋</button></div>
+          </div>
+        </div>
+        <div>
+          <div class="field-label">절대 하지 말 것 <span style="color:var(--muted)">(엔터)</span></div>
+          <div class="tag-input-container" id="c-never-tags" onclick="document.getElementById('c-never-input').focus()">
+            <div style="display:flex;gap:6px;align-items:center;"><input type="text" class="tag-input" id="c-never-input" placeholder="예: 먼저 사과하기, 감정 직접 표현..." onkeydown="handleCharTag(event,'never')" onkeyup="handleCharTag(event,'never')"><button onclick="addCharTagBtn('never')" class="tag-add-btn">＋</button></div>
+          </div>
+        </div>
+        <div><div class="field-label">특수 상황 대응</div><textarea id="c-special" placeholder="화가 났을 때, 무서울 때, 부끄러울 때 이 캐릭터는 어떻게 행동하는지..." oninput="saveField('special',this.value)">${esc(d.special||'')}</textarea></div>
+      </div>
+    </div>`;
+
+  renderCharTags('personality');renderCharTags('habit');renderCharTags('like');renderCharTags('dislike');renderCharTags('must');renderCharTags('never');
+  renderRelations();renderTraits();updatePreviewBar();
+
+  // 유령 칩 자동 청소: UI에 존재하는 칩만 데이터에 유지 + 경고
+  const validSpeech=['반말체','존댓말','사투리','고어체','무뚝뚝','수다스러움','시적인 표현','짧고 단호함',...(customChips['c-speech-chips']||[])];
+  const validOutfit=[...new Set([...OUTFIT_CHIPS_F,...OUTFIT_CHIPS_M,...(customChips['c-outfit-chips']||[])])];
+  const validBdsm=document.querySelectorAll('#c-bdsm-chips .chip[data-val]');
+  const validBdsmVals=[...validBdsm].map(el=>el.getAttribute('data-val'));
+
+  const ghostList=[];
+  const ghostSpeech=(char.speechChips||[]).filter(s=>!validSpeech.includes(s));
+  const ghostOutfit=(char.outfitChips||[]).filter(s=>!validOutfit.includes(s));
+  const ghostBdsm=(char.bdsmChips||[]).filter(s=>!validBdsmVals.includes(s));
+  if(ghostSpeech.length) ghostList.push('말투 스타일: '+ghostSpeech.join(', '));
+  if(ghostOutfit.length) ghostList.push('의상 스타일: '+ghostOutfit.join(', '));
+  if(ghostBdsm.length) ghostList.push('BDSM 성향: '+ghostBdsm.join(', '));
+
+  if(ghostList.length){
+    const overlay=document.createElement('div');overlay.className='modal-overlay';
+    const items=ghostList.map(g=>`<div style="margin-bottom:6px;"><span style="color:var(--accent);font-weight:bold;">${g.split(':')[0]}:</span><br><span style="user-select:text;-webkit-user-select:text;color:var(--text);font-size:13px;">${g.split(':').slice(1).join(':').trim()}</span></div>`).join('');
+    overlay.innerHTML=`<div class="modal" style="width:380px;max-width:calc(100vw - 32px);">
+      <div class="modal-title">⚠️ 유령 칩 감지</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.6;">현재 UI에 없는 칩이 감지되었습니다.<br>확인을 누르면 제거됩니다.<br>유지하려면 취소 후 ＋ 버튼으로 먼저 등록해주세요.</div>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;user-select:text;-webkit-user-select:text;font-size:13px;line-height:1.8;">${items}</div>
+      <div class="modal-btns">
+        <button class="btn btn-ghost" id="ghost-cancel">취소</button>
+        <button class="btn btn-primary" id="ghost-ok">확인 (제거)</button>
+      </div>
+    </div>`;
+    document.body.appendChild(overlay);
+    overlay.querySelector('#ghost-ok').onclick=()=>{
+      char.speechChips=(char.speechChips||[]).filter(s=>validSpeech.includes(s));
+      char.outfitChips=(char.outfitChips||[]).filter(s=>validOutfit.includes(s));
+      char.bdsmChips=(char.bdsmChips||[]).filter(s=>validBdsmVals.includes(s));
+      saveAll();updatePreview();overlay.remove();
+    };
+    overlay.querySelector('#ghost-cancel').onclick=()=>{overlay.remove();};
+    overlay.onclick=(e)=>{if(e.target===overlay)overlay.remove();};
+  }
+
+  setTimeout(()=>{injectCustomChips('c-speech-chips','speech');injectOutfitChips();},30);
+  updatePreview();
+}
+
+// ===== 의상 칩 =====
+function toggleOutfitChip(el,value){
+  const char=getCurrentChar();if(!char)return;
+  const v=String(value??'').trim();if(!v)return;
+  char.outfitChips=uniqStrings(char.outfitChips||[]);
+  const wasActive=char.outfitChips.includes(v);
+  if(wasActive){el.classList.remove('active');char.outfitChips=char.outfitChips.filter(s=>s!==v);}
+  else{el.classList.add('active');char.outfitChips.push(v);}
+  saveAll();updatePreview();
+}
+function toggleOutfitChipByEl(el){
+  const value=el.dataset.val||el.textContent.replace('×','').trim();
+  toggleOutfitChip(el,value);
+}
+function toggleBdsmChip(el,value){
+  const char=getCurrentChar();if(!char)return;
+  const v=String(value??'').trim();if(!v)return;
+  char.bdsmChips=uniqStrings(char.bdsmChips||[]);
+  const wasActive=char.bdsmChips.includes(v);
+  if(wasActive){el.classList.remove('active');char.bdsmChips=char.bdsmChips.filter(s=>s!==v);}
+  else{el.classList.add('active');char.bdsmChips.push(v);}
+  saveAll();updatePreview();
+}
+function toggleBdsmChipByEl(el){
+  const value=el.dataset.val||el.textContent.replace('×','').trim();
+  toggleBdsmChip(el,value);
+}
+
+// 모바일 터치용 - outfit 칩 전용
+
+function injectOutfitChips(){
+  const char=getCurrentChar();if(!char)return;
+  const container=document.getElementById('c-outfit-chips');if(!container)return;
+  const addBtn=container.querySelector('.chip-add');
+  container.querySelectorAll('.chip-custom').forEach(c=>c.remove());
+  (customChips['c-outfit-chips']||[]).forEach(name=>{
+    const chip=document.createElement('div');
+    chip.className='chip chip-custom'+((char.outfitChips||[]).includes(name)?' active':'');
+    chip.innerHTML=`${name}<span class="chip-custom-del" onclick="removeCustomChip(event,'c-outfit-chips','outfit','${name.replace(/'/g,"\\'")}')">×</span>`;
+    chip.onclick=(e)=>{if(e.target.classList.contains('chip-custom-del'))return;toggleOutfitChip(chip,name);};
+    if(addBtn)container.insertBefore(chip,addBtn);else container.appendChild(chip);
+  });
+}
+
+// ===== 필드 저장 =====
+function uniqStrings(arr){
+  const out=[];const seen=new Set();
+  (Array.isArray(arr)?arr:[]).forEach(v=>{
+    const s=String(v??'').trim();
+    if(!s||seen.has(s))return;
+    seen.add(s);out.push(s);
+  });
+  return out;
+}
+
+function normalizeCharacterData(char){
+  if(!char)return;
+  char.tagData=char.tagData||{};
+  ['personality','habit','like','dislike','must','never'].forEach(k=>{
+    char.tagData[k]=uniqStrings(char.tagData[k]||[]);
+  });
+  char.speechChips=uniqStrings(char.speechChips||[]);
+  char.outfitChips=uniqStrings(char.outfitChips||[]);
+  char.bdsmChips=uniqStrings(char.bdsmChips||[]);
+}
+
+function normalizeAllData(){
+  Object.values(projects||{}).forEach(p=>{
+    (p.characters||[]).forEach(normalizeCharacterData);
+  });
+}
+
+function updateSidebarCurrentChar(char){
+  if(!char)return;
+  const item=document.querySelector(`.char-item[data-char-id="${char.id}"]`);
+  if(item){
+    const avatar=item.querySelector('.char-avatar');
+    const name=item.querySelector('.char-name-label');
+    const role=item.querySelector('.char-role-label');
+    if(avatar)avatar.textContent=(char.data.name||'?')[0].toUpperCase();
+    if(name)name.textContent=char.data.name||'이름 없음';
+    if(role)role.textContent=char.data.role||'역할 미정';
+  }
+  const mob=document.getElementById('mob-char-select');
+  if(mob){
+    const opt=mob.querySelector(`option[value="${char.id}"]`);
+    if(opt)opt.textContent=char.data.name||'이름 없음';
+  }
+}
+
+function saveField(field,value){
+  const char=getCurrentChar();if(!char)return;
+  char.data[field]=value;
+  if(field==='name'||field==='role'){
+    updateSidebarCurrentChar(char);
+    if(field==='name')updatePreviewBar();
+  }
+  saveAll();updatePreview();
+}
+
+// ===== 캐릭터 태그 =====
+function addUniqueCharTag(key,val){
+  const char=getCurrentChar();if(!char)return false;
+  const s=String(val??'').trim();if(!s)return false;
+  char.tagData[key]=uniqStrings(char.tagData[key]||[]);
+  if(char.tagData[key].includes(s)){showToast('⚠️ 이미 있는 태그야!');return false;}
+  char.tagData[key].push(s);
+  return true;
+}
+
+function handleCharTag(e,key){
+  if(e.key!=='Enter')return;
+  if(e.type==='keydown')return;e.preventDefault();
+  if(addUniqueCharTag(key,e.target.value)){
+    e.target.value='';renderCharTags(key);saveAll();updatePreview();
+  }
+}
+
+function addCharTagBtn(key){
+  const inp = document.getElementById('c-'+key+'-input');
+  if(!inp) return;
+  if(addUniqueCharTag(key,inp.value)){
+    inp.value=''; renderCharTags(key); saveAll(); updatePreview();
+  }
+}
+
+function addTagBtn(key){
+  const inp = document.getElementById(key+'-input');
+  if(!inp) return;
+  const val = inp.value.trim();
+  if(!val) return;
+  const proj = getProject(); if(!proj) return;
+  proj.globalTagData[key] = uniqStrings(proj.globalTagData[key]||[]);
+  if(proj.globalTagData[key].includes(val)){showToast('⚠️ 이미 있는 태그야!');return;}
+  proj.globalTagData[key].push(val);
+  inp.value=''; renderGlobalTags(key); saveAll(); updatePreview();
+}
+
+function renderCharTags(key){
+  const char=getCurrentChar();if(!char)return;
+  char.tagData[key]=uniqStrings(char.tagData[key]||[]);
+  const con=document.getElementById('c-'+key+'-tags');const inp=document.getElementById('c-'+key+'-input');
+  if(!con||!inp)return;
+  con.querySelectorAll('.tag').forEach(t=>t.remove());
+  const inpWrap=inp.parentElement||inp;
+  (char.tagData[key]||[]).forEach((t,i)=>{
+    const el=document.createElement('div');el.className='tag';
+    el.innerHTML=`${esc(t)}<span class="tag-remove" onclick="removeCharTag('${key}',${i})">×</span>`;
+    con.insertBefore(el,inpWrap);
+  });
+}
+
+function removeCharTag(key,i){const c=getCurrentChar();if(!c)return;c.tagData[key].splice(i,1);renderCharTags(key);saveAll();updatePreview();}
+
+// ===== 글로벌 태그 =====
+const TAG_IDS={'world-rule':['world-rule-tags','world-rule-input'],'atmo':['atmo-tags','atmo-input'],'place':['place-tags','place-input'],'must':['must-tags','must-input'],'never':['never-tags','never-input']};
+
+function handleTagInput(e,key){
+  if(e.key!=='Enter')return;
+  if(e.type==='keydown')return;e.preventDefault();
+  const proj=getProject();if(!proj)return;
+  const val=e.target.value.trim();if(!val)return;
+  proj.globalTagData[key]=uniqStrings(proj.globalTagData[key]||[]);
+  if(proj.globalTagData[key].includes(val)){showToast('⚠️ 이미 있는 태그야!');return;}
+  proj.globalTagData[key].push(val);
+  e.target.value='';renderGlobalTags(key);saveAll();updatePreview();
+}
+
+function renderGlobalTags(key){
+  const proj=getProject();const[cid,iid]=TAG_IDS[key]||[];
+  if(proj)proj.globalTagData[key]=uniqStrings(proj.globalTagData[key]||[]);
+  const con=document.getElementById(cid);const inp=document.getElementById(iid);
+  if(!con||!inp)return;
+  con.querySelectorAll('.tag').forEach(t=>t.remove());
+  const inpWrap2=inp.parentElement||inp;
+  ((proj?proj.globalTagData[key]:null)||[]).forEach((t,i)=>{
+    const el=document.createElement('div');el.className='tag';
+    el.innerHTML=`${esc(t)}<span class="tag-remove" onclick="removeGlobalTag('${key}',${i})">×</span>`;
+    con.insertBefore(el,inpWrap2);
+  });
+}
+
+function removeGlobalTag(key,i){const p=getProject();if(!p)return;p.globalTagData[key].splice(i,1);renderGlobalTags(key);saveAll();updatePreview();}
+
+// ===== 칩 =====
+function toggleChip(el,group){
+  el.classList.toggle('active');saveAll();updatePreview();
+}
+
+function toggleSpeechChip(el,value){
+  const char=getCurrentChar();if(!char)return;
+  const v=String(value??'').trim();if(!v)return;
+  char.speechChips=uniqStrings(char.speechChips||[]);
+  const wasActive=char.speechChips.includes(v);
+  if(wasActive){
+    char.speechChips=char.speechChips.filter(s=>s!==v);
+    el.classList.remove('active');
+  }else{
+    char.speechChips.push(v);
+    el.classList.add('active');
+  }
+  saveAll();updatePreview();
+}
+
+function toggleChipMobile(el,group){
+  toggleChip(el,group);saveAll();updatePreview();
+}
+
+function getActiveChips(el){if(!el)return[];return Array.from(el.querySelectorAll('.chip.active')).map(c=>c.textContent.replace('×','').trim());}
+
+function restoreChips(groupId,activeList){
+  const group=document.getElementById(groupId);if(!group)return;
+  group.querySelectorAll('.chip').forEach(chip=>chip.classList.toggle('active',activeList.includes(chip.textContent.replace('×','').trim())));
+}
+
+// ===== 커스텀 칩 =====
+function loadCustomChips(){try{customChips=JSON.parse(localStorage.getItem('loreforge_custom_chips')||'{}');}catch(e){customChips={};}}
+function saveCustomChips(){try{localStorage.setItem('loreforge_custom_chips',JSON.stringify(customChips));}catch(e){}}
+
+function addCustomChip(groupId,group){
+  showModal('추가할 항목 이름','',(label)=>{
+    if(!label||!label.trim())return;
+    const name=label.trim();
+    customChips[groupId]=customChips[groupId]||[];
+    if(customChips[groupId].includes(name)){showToast('⚠️ 이미 있는 항목이야!');return;}
+    customChips[groupId].push(name);
+    saveCustomChips();
+    if(groupId==='c-outfit-chips')injectOutfitChips();
+    else if(groupId==='c-speech-chips')injectCustomChips(groupId,'speech');
+    else injectCustomChips(groupId,group);
+    saveAll();updatePreview();
+  });
+}
+
+function injectCustomChips(groupId,group){
+  const container=document.getElementById(groupId);if(!container)return;
+  const addBtn=container.querySelector('.chip-add');
+  container.querySelectorAll('.chip-custom').forEach(c=>c.remove());
+  customChips[groupId]=uniqStrings(customChips[groupId]||[]);
+  (customChips[groupId]||[]).forEach(name=>{
+    const chip=document.createElement('div');
+    const currentActive=Array.from(container.querySelectorAll('.chip.active')).map(c=>c.textContent.replace('×','').trim());
+    const char=getCurrentChar();
+    const isSpeechActive=group==='speech'&&char&&(char.speechChips||[]).includes(name);
+    const isActive=isSpeechActive||currentActive.includes(name);
+    chip.className='chip chip-custom'+(isActive?' active':'');
+    chip.innerHTML=`${esc(name)}<span class="chip-custom-del" onclick="removeCustomChip(event,'${groupId}','${group}','${name.replace(/'/g,"\\'")}')">×</span>`;
+    if(group==='speech')chip.onclick=(e)=>{if(e.target.classList.contains('chip-custom-del'))return;toggleSpeechChip(chip,name);};
+    else {
+      chip.onclick=(e)=>{if(e.target.classList.contains('chip-custom-del'))return;toggleChip(chip,group);};
+    }
+    if(addBtn)container.insertBefore(chip,addBtn);else container.appendChild(chip);
+  });
+}
+
+function removeCustomChip(e,groupId,group,name){
+  e.stopPropagation();
+  (async()=>{
+    if(!(await showConfirm(`"${name}" 항목을 삭제할까?`)))return;
+    customChips[groupId]=(customChips[groupId]||[]).filter(n=>n!==name);
+    saveCustomChips();
+    if(groupId==='c-outfit-chips')injectOutfitChips();
+    else injectCustomChips(groupId,group);
+    saveAll();updatePreview();
+  })();
+}
+
+function injectAllCustomChips(){
+  injectCustomChips('genre-chips','genre');injectCustomChips('action-chips','action');
+  injectCustomChips('length-chips','length');injectCustomChips('pov-chips','pov');
+  injectCustomChips('style-chips','style');injectCustomChips('density-chips','density');
+  injectCustomChips('c-speech-chips','speech');injectOutfitChips();
+}
+
+// ===== 관계 =====
+function addRelation(){const c=getCurrentChar();if(!c)return;c.relations.push({name:'',rel:''});renderRelations();saveAll();}
+function renderRelations(){
+  const c=getCurrentChar();const list=document.getElementById('c-relations-list');if(!c||!list)return;
+  list.innerHTML='';
+  c.relations.forEach((r,i)=>{
+    const div=document.createElement('div');div.className='relation-item';
+    div.innerHTML=`<input type="text" placeholder="이름" value="${esc(r.name)}" oninput="saveRel(${i},'name',this.value)"><input type="text" placeholder="관계 (예: 라이벌)" value="${esc(r.rel)}" oninput="saveRel(${i},'rel',this.value)"><button class="del-btn" onclick="removeRel(${i})">×</button>`;
+    list.appendChild(div);
+  });
+}
+function saveRel(i,f,v){const c=getCurrentChar();if(!c)return;c.relations[i][f]=v;saveAll();updatePreview();}
+function removeRel(i){const c=getCurrentChar();if(!c)return;c.relations.splice(i,1);renderRelations();saveAll();updatePreview();}
+
+// ===== 특징 & 기타 (Traits) =====
+const TRAIT_MAX=10;
+function ensureTraits(c){if(c&&!Array.isArray(c.traits))c.traits=[];}
+function addTrait(){
+  const c=getCurrentChar();if(!c)return;
+  ensureTraits(c);
+  if(c.traits.length>=TRAIT_MAX){
+    const m=document.getElementById('c-trait-limit-msg');
+    if(m){m.style.display='block';setTimeout(()=>{m.style.display='none';},2000);}
+    return;
+  }
+  c.traits.push({label:'',content:''});
+  renderTraits();saveAll();updatePreview();
+  // 새로 추가된 항목의 라벨 input에 자동 포커스 (모바일에서 키보드 자동 안 뜨면 무시됨)
+  setTimeout(()=>{
+    const list=document.getElementById('c-traits-list');
+    if(!list)return;
+    const inputs=list.querySelectorAll('.trait-item-head input');
+    if(inputs.length)inputs[inputs.length-1].focus();
+  },50);
+}
+function renderTraits(){
+  const c=getCurrentChar();const list=document.getElementById('c-traits-list');if(!c||!list)return;
+  ensureTraits(c);
+  list.innerHTML='';
+  const isMob=window.innerWidth<=768;
+  c.traits.forEach((t,i)=>{
+    const div=document.createElement('div');div.className='trait-item';
+    const upDisabled=i===0?'disabled':'';
+    const downDisabled=i===c.traits.length-1?'disabled':'';
+    if(isMob){
+      // 모바일: 라벨 + (이동/삭제 아래줄) + 내용
+      div.innerHTML=`
+        <div class="trait-item-head">
+          <input type="text" placeholder="라벨 (예: 능력, 직책, 신앙... 비워도 됨)" value="${esc(t.label||'')}" oninput="saveTrait(${i},'label',this.value)">
+          <div class="trait-actions-row">
+            <button class="trait-move-btn" ${upDisabled} onclick="moveTrait(${i},-1)" title="위로">▲</button>
+            <button class="trait-move-btn" ${downDisabled} onclick="moveTrait(${i},1)" title="아래로">▼</button>
+            <button class="del-btn" onclick="removeTrait(${i})">×</button>
+          </div>
+        </div>
+        <textarea placeholder="내용을 자유롭게 작성해..." oninput="saveTrait(${i},'content',this.value)">${esc(t.content||'')}</textarea>`;
+    }else{
+      div.innerHTML=`
+        <div class="trait-item-head">
+          <input type="text" placeholder="라벨 (예: 능력, 직책, 신앙... 비워도 됨)" value="${esc(t.label||'')}" oninput="saveTrait(${i},'label',this.value)">
+          <button class="trait-move-btn" ${upDisabled} onclick="moveTrait(${i},-1)" title="위로">▲</button>
+          <button class="trait-move-btn" ${downDisabled} onclick="moveTrait(${i},1)" title="아래로">▼</button>
+          <button class="del-btn" onclick="removeTrait(${i})">×</button>
+        </div>
+        <textarea placeholder="내용을 자유롭게 작성해..." oninput="saveTrait(${i},'content',this.value)">${esc(t.content||'')}</textarea>`;
+    }
+    list.appendChild(div);
+  });
+  // 상한 도달 시 추가 버튼 흐리게
+  const addBtn=document.getElementById('c-trait-add-btn');
+  if(addBtn){
+    if(c.traits.length>=TRAIT_MAX){addBtn.style.opacity='0.4';addBtn.style.cursor='not-allowed';}
+    else{addBtn.style.opacity='1';addBtn.style.cursor='pointer';}
+  }
+}
+function saveTrait(i,f,v){const c=getCurrentChar();if(!c)return;ensureTraits(c);if(!c.traits[i])return;c.traits[i][f]=v;saveAll();updatePreview();}
+function removeTrait(i){
+  const c=getCurrentChar();if(!c)return;ensureTraits(c);
+  (async()=>{
+    if(!(await showConfirm('이 항목을 삭제할까?')))return;
+    c.traits.splice(i,1);renderTraits();saveAll();updatePreview();
+  })();
+}
+function moveTrait(i,dir){
+  const c=getCurrentChar();if(!c)return;ensureTraits(c);
+  const j=i+dir;
+  if(j<0||j>=c.traits.length)return;
+  [c.traits[i],c.traits[j]]=[c.traits[j],c.traits[i]];
+  renderTraits();saveAll();updatePreview();
+}
+// 화면 회전/리사이즈 시 모바일↔데스크탑 레이아웃 전환
+// ⚠️ 모바일 키보드는 viewport 세로만 줄여서 resize 이벤트가 발생하는데,
+// 이때 list.innerHTML='' 재렌더하면 포커스 input이 사라져서 키보드가 즉시 닫힘.
+// 따라서 (1) 가로 폭이 바뀐 경우에만 (2) trait 안에 포커스 없을 때만 리렌더.
+let __traitResizeTimer=null;
+let __lastViewportWidth=window.innerWidth;
+window.addEventListener('resize',()=>{
+  const newW=window.innerWidth;
+  const widthChanged=newW!==__lastViewportWidth;
+  // 모바일↔데스크탑 경계(768px)를 가로지른 경우만 진짜 의미있는 변화
+  const crossedBreakpoint=(__lastViewportWidth<=768)!==(newW<=768);
+  __lastViewportWidth=newW;
+  if(!widthChanged)return; // 키보드로 인한 세로만 변화 → 무시
+  clearTimeout(__traitResizeTimer);
+  __traitResizeTimer=setTimeout(()=>{
+    // 포커스가 trait input 안에 있으면 리렌더 스킵 (입력 끊기지 않도록)
+    const ae=document.activeElement;
+    const inTraitInput=ae&&(ae.tagName==='INPUT'||ae.tagName==='TEXTAREA')&&ae.closest('.trait-item');
+    if(inTraitInput&&!crossedBreakpoint)return;
+    if(document.getElementById('c-traits-list'))renderTraits();
+    if(document.getElementById('world-traits-list'))renderWorldTraits();
+  },300);
+});
+
+// ===== 세계관 추가 설정 (World Traits) =====
+const WORLD_TRAIT_MAX=15;
+function ensureWorldTraits(){
+  const p=getProject();if(!p)return null;
+  if(!p.world)p.world={};
+  if(!Array.isArray(p.world.worldTraits))p.world.worldTraits=[];
+  return p.world.worldTraits;
+}
+function addWorldTrait(){
+  const arr=ensureWorldTraits();if(!arr)return;
+  if(arr.length>=WORLD_TRAIT_MAX){
+    const m=document.getElementById('world-trait-limit-msg');
+    if(m){m.style.display='block';setTimeout(()=>{m.style.display='none';},2000);}
+    return;
+  }
+  arr.push({label:'',content:''});
+  renderWorldTraits();saveAll();updatePreview();
+  setTimeout(()=>{
+    const list=document.getElementById('world-traits-list');
+    if(!list)return;
+    const inputs=list.querySelectorAll('.trait-item-head input');
+    if(inputs.length)inputs[inputs.length-1].focus();
+  },50);
+}
+function renderWorldTraits(){
+  const arr=ensureWorldTraits();const list=document.getElementById('world-traits-list');
+  if(!arr||!list)return;
+  list.innerHTML='';
+  const isMob=window.innerWidth<=768;
+  arr.forEach((t,i)=>{
+    const div=document.createElement('div');div.className='trait-item';
+    const upDisabled=i===0?'disabled':'';
+    const downDisabled=i===arr.length-1?'disabled':'';
+    if(isMob){
+      div.innerHTML=`
+        <div class="trait-item-head">
+          <input type="text" placeholder="라벨 (예: 달력, 통화, 종교, 역사... 비워도 됨)" value="${esc(t.label||'')}" oninput="saveWorldTrait(${i},'label',this.value)">
+          <div class="trait-actions-row">
+            <button class="trait-move-btn" ${upDisabled} onclick="moveWorldTrait(${i},-1)" title="위로">▲</button>
+            <button class="trait-move-btn" ${downDisabled} onclick="moveWorldTrait(${i},1)" title="아래로">▼</button>
+            <button class="del-btn" onclick="removeWorldTrait(${i})">×</button>
+          </div>
+        </div>
+        <textarea placeholder="내용을 자유롭게 작성해..." oninput="saveWorldTrait(${i},'content',this.value)">${esc(t.content||'')}</textarea>`;
+    }else{
+      div.innerHTML=`
+        <div class="trait-item-head">
+          <input type="text" placeholder="라벨 (예: 달력, 통화, 종교, 역사... 비워도 됨)" value="${esc(t.label||'')}" oninput="saveWorldTrait(${i},'label',this.value)">
+          <button class="trait-move-btn" ${upDisabled} onclick="moveWorldTrait(${i},-1)" title="위로">▲</button>
+          <button class="trait-move-btn" ${downDisabled} onclick="moveWorldTrait(${i},1)" title="아래로">▼</button>
+          <button class="del-btn" onclick="removeWorldTrait(${i})">×</button>
+        </div>
+        <textarea placeholder="내용을 자유롭게 작성해..." oninput="saveWorldTrait(${i},'content',this.value)">${esc(t.content||'')}</textarea>`;
+    }
+    list.appendChild(div);
+  });
+  const addBtn=document.getElementById('world-trait-add-btn');
+  if(addBtn){
+    if(arr.length>=WORLD_TRAIT_MAX){addBtn.style.opacity='0.4';addBtn.style.cursor='not-allowed';}
+    else{addBtn.style.opacity='1';addBtn.style.cursor='pointer';}
+  }
+}
+function saveWorldTrait(i,f,v){
+  const arr=ensureWorldTraits();if(!arr||!arr[i])return;
+  arr[i][f]=v;saveAll();updatePreview();
+}
+function removeWorldTrait(i){
+  const arr=ensureWorldTraits();if(!arr)return;
+  (async()=>{
+    if(!(await showConfirm('이 항목을 삭제할까?')))return;
+    arr.splice(i,1);renderWorldTraits();saveAll();updatePreview();
+  })();
+}
+function moveWorldTrait(i,dir){
+  const arr=ensureWorldTraits();if(!arr)return;
+  const j=i+dir;
+  if(j<0||j>=arr.length)return;
+  [arr[i],arr[j]]=[arr[j],arr[i]];
+  renderWorldTraits();saveAll();updatePreview();
+}
+
+// ===== 출력 설정 (Output Traits) =====
+const OUTPUT_TRAIT_MAX=15;
+function ensureOutputTraits(){
+  const p=getProject();if(!p)return null;
+  if(!p.output)p.output={};
+  if(!Array.isArray(p.output.outputTraits))p.output.outputTraits=[];
+  return p.output.outputTraits;
+}
+function addOutputTrait(){
+  const arr=ensureOutputTraits();if(!arr)return;
+  if(arr.length>=OUTPUT_TRAIT_MAX){
+    const m=document.getElementById('output-trait-limit-msg');
+    if(m){m.style.display='block';setTimeout(()=>{m.style.display='none';},2000);}
+    return;
+  }
+  arr.push({label:'',content:''});
+  renderOutputTraits();saveAll();updatePreview();
+  setTimeout(()=>{
+    const list=document.getElementById('output-traits-list');
+    if(!list)return;
+    const inputs=list.querySelectorAll('.trait-item-head input');
+    if(inputs.length)inputs[inputs.length-1].focus();
+  },50);
+}
+function renderOutputTraits(){
+  const arr=ensureOutputTraits();const list=document.getElementById('output-traits-list');
+  if(!arr||!list)return;
+  list.innerHTML='';
+  const isMob=window.innerWidth<=768;
+  arr.forEach((t,i)=>{
+    const div=document.createElement('div');div.className='trait-item';
+    const upDisabled=i===0?'disabled':'';
+    const downDisabled=i===arr.length-1?'disabled':'';
+    if(isMob){
+      div.innerHTML=`
+        <div class="trait-item-head">
+          <input type="text" placeholder="라벨 (예: 이미지 출력 규칙, 인코딩 규칙... 비워도 됨)" value="${esc(t.label||'')}" oninput="saveOutputTrait(${i},'label',this.value)">
+          <div class="trait-actions-row">
+            <button class="trait-move-btn" ${upDisabled} onclick="moveOutputTrait(${i},-1)" title="위로">▲</button>
+            <button class="trait-move-btn" ${downDisabled} onclick="moveOutputTrait(${i},1)" title="아래로">▼</button>
+            <button class="del-btn" onclick="removeOutputTrait(${i})">×</button>
+          </div>
+        </div>
+        <textarea placeholder="내용을 자유롭게 작성해..." oninput="saveOutputTrait(${i},'content',this.value)">${esc(t.content||'')}</textarea>`;
+    }else{
+      div.innerHTML=`
+        <div class="trait-item-head">
+          <input type="text" placeholder="라벨 (예: 이미지 출력 규칙, 인코딩 규칙... 비워도 됨)" value="${esc(t.label||'')}" oninput="saveOutputTrait(${i},'label',this.value)">
+          <button class="trait-move-btn" ${upDisabled} onclick="moveOutputTrait(${i},-1)" title="위로">▲</button>
+          <button class="trait-move-btn" ${downDisabled} onclick="moveOutputTrait(${i},1)" title="아래로">▼</button>
+          <button class="del-btn" onclick="removeOutputTrait(${i})">×</button>
+        </div>
+        <textarea placeholder="내용을 자유롭게 작성해..." oninput="saveOutputTrait(${i},'content',this.value)">${esc(t.content||'')}</textarea>`;
+    }
+    list.appendChild(div);
+  });
+  const addBtn=document.getElementById('output-trait-add-btn');
+  if(addBtn){
+    if(arr.length>=OUTPUT_TRAIT_MAX){addBtn.style.opacity='0.4';addBtn.style.cursor='not-allowed';}
+    else{addBtn.style.opacity='1';addBtn.style.cursor='pointer';}
+  }
+}
+function saveOutputTrait(i,f,v){
+  const arr=ensureOutputTraits();if(!arr||!arr[i])return;
+  arr[i][f]=v;saveAll();updatePreview();
+}
+function removeOutputTrait(i){
+  const arr=ensureOutputTraits();if(!arr)return;
+  (async()=>{
+    if(!(await showConfirm('이 항목을 삭제할까?')))return;
+    arr.splice(i,1);renderOutputTraits();saveAll();updatePreview();
+  })();
+}
+function moveOutputTrait(i,dir){
+  const arr=ensureOutputTraits();if(!arr)return;
+  const j=i+dir;
+  if(j<0||j>=arr.length)return;
+  [arr[i],arr[j]]=[arr[j],arr[i]];
+  renderOutputTraits();saveAll();updatePreview();
+}
+
+// ===== 로어북 =====
+function addLorebook(){
+  const proj=getProject();if(!proj)return;
+  proj.lorebook=proj.lorebook||[];
+  proj.lorebook.push({id:'lb_'+Date.now(),title:'새 항목',keywords:[],content:''});
+  saveAll();renderLorebook();
+}
+
+function renderLorebook(){
+  const proj=getProject();
+  const list=document.getElementById('lorebook-list');
+  const empty=document.getElementById('lorebook-empty');
+  if(!list)return;
+  // 렌더 전 collapsed 상태 저장
+  const collapsedSet=new Set();
+  list.querySelectorAll('.lorebook-item').forEach((el,i)=>{if(el.classList.contains('collapsed'))collapsedSet.add(i);});
+  list.innerHTML='';
+  const lb=proj?proj.lorebook||[]:[];
+  if(lb.length===0){if(empty)empty.style.display='block';return;}
+  if(empty)empty.style.display='none';
+  lb.forEach((item,idx)=>{
+    const div=document.createElement('div');
+    div.className='lorebook-item'+(collapsedSet.has(idx)?' collapsed':'');
+    div.innerHTML=`
+      <div class="lorebook-item-header" onclick="toggleLbItem(this)" style="cursor:pointer;user-select:none;">
+        <span class="panel-arrow" style="font-size:13px;color:var(--muted);transition:transform 0.2s;flex-shrink:0;width:20px;text-align:center;">▾</span>
+        <input class="lorebook-title-input" type="text" placeholder="항목 이름 (예: 마법 체계, 왕도)" value="${esc(item.title)}" oninput="saveLbField(${idx},'title',this.value)" onclick="event.stopPropagation()">
+        <button class="del-btn" onclick="event.stopPropagation();removeLorebook(${idx})">×</button>
+      </div>
+      <div class="lorebook-item-body">
+      <div style="margin-bottom:8px;">
+        <div class="field-label">트리거 키워드 <span style="color:var(--muted)">(엔터)</span></div>
+        <div class="tag-input-container" id="lb-kw-${idx}" onclick="document.getElementById('lb-kw-input-${idx}').focus()">
+          ${item.keywords.map((k,ki)=>`<div class="tag">${k}<span class="tag-remove" onclick="removeLbKeyword(${idx},${ki})">×</span></div>`).join('')}
+          <div style="display:flex;gap:6px;align-items:center;"><input type="text" class="tag-input" id="lb-kw-input-${idx}" placeholder="예: 마나, 오크, 왕도..." onkeydown="addLbKeyword(event,${idx})" onkeyup="addLbKeyword(event,${idx})"><button onclick="addLbKeywordBtn(${idx})" class="tag-add-btn">＋</button></div>
+        </div>
+      </div>
+      <div>
+        <div class="field-label">내용</div>
+        <textarea style="min-height:90px;font-size:12px;" placeholder="이 키워드가 감지되면 삽입될 설정 내용..." oninput="saveLbField(${idx},'content',this.value)">${esc(item.content)}</textarea>
+      </div>
+      <button class="btn btn-ghost" style="margin-top:8px;font-size:10px;" onclick="toggleLbPreview(${idx})">🔍 이 항목 프리뷰</button>
+      <div id="lb-preview-${idx}" style="display:none;margin-top:8px;">
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px 8px 0 0;padding:12px;font-family:JetBrains Mono,monospace;font-size:11px;color:var(--text);white-space:pre-wrap;line-height:1.7;max-height:300px;overflow-y:auto;" id="lb-preview-text-${idx}"></div>
+        <div id="lb-preview-stats-${idx}" style="background:var(--bg);border:1px solid var(--border);border-top:none;padding:6px 12px;display:flex;gap:12px;font-size:10px;color:var(--muted);font-family:JetBrains Mono,monospace;"></div>
+        <button class="copy-btn" style="margin-top:0;border-radius:0 0 8px 8px;border-top:none;" onclick="copyLbPreview(${idx})">📋 복사</button>
+      </div>
+      </div>
+    `;
+    list.appendChild(div);
+  });
+}
+
+function saveLbField(idx,field,value){const p=getProject();if(!p||!p.lorebook[idx])return;p.lorebook[idx][field]=value;saveAll();}
+
+function addLbKeyword(e,idx){
+  if(e.key!=='Enter')return;
+  if(e.type==='keydown')return;
+  e.preventDefault();
+  const proj=getProject();if(!proj||!proj.lorebook[idx])return;
+  const val=e.target.value.trim();if(!val)return;
+  proj.lorebook[idx].keywords.push(val);e.target.value='';
+  saveAll();renderLorebook();
+}
+function addLbKeywordBtn(idx){
+  const inp=document.getElementById('lb-kw-input-'+idx);if(!inp)return;
+  const val=inp.value.trim();if(!val)return;
+  const proj=getProject();if(!proj||!proj.lorebook[idx])return;
+  proj.lorebook[idx].keywords.push(val);inp.value='';
+  saveAll();renderLorebook();
+}
+
+function removeLbKeyword(idx,ki){const p=getProject();if(!p)return;p.lorebook[idx].keywords.splice(ki,1);saveAll();renderLorebook();}
+function removeLorebook(idx){
+  const p=getProject();if(!p)return;
+  (async()=>{
+    if(!(await showConfirm('이 항목을 삭제할까?')))return;
+    p.lorebook.splice(idx,1);saveAll();renderLorebook();
+  })();
+}
+
+function toggleLbItem(headerEl){
+  const item=headerEl.closest('.lorebook-item');
+  if(item)item.classList.toggle('collapsed');
+}
+function toggleLbPreview(idx){
+  const box=document.getElementById('lb-preview-'+idx);
+  if(!box)return;
+  if(box.style.display!=='none'){box.style.display='none';return;}
+  const p=getProject();if(!p||!p.lorebook[idx])return;
+  const item=p.lorebook[idx];
+  const text=`# 로어북: ${item.title}\n트리거 키워드: ${item.keywords.join(', ')||'(없음)'}\n\n${item.content||'(내용 없음)'}`;
+  document.getElementById('lb-preview-text-'+idx).textContent=text;
+  const stats=document.getElementById('lb-preview-stats-'+idx);
+  if(stats){
+    const chars=item.content?item.content.length:0;
+    const tokens=Math.ceil(chars/2.5);
+    stats.textContent=`글자수: ${chars.toLocaleString()} · 토큰 추정: ${tokens.toLocaleString()}`;
+  }
+  box.style.display='block';
+}
+async function copyText(text){
+  try{
+    if(navigator.clipboard&&window.isSecureContext){
+      await navigator.clipboard.writeText(text);return true;
+    }
+    // 폴백: execCommand
+    const ta=document.createElement('textarea');
+    ta.value=text;ta.style.cssText='position:fixed;top:-9999px;left:-9999px;opacity:0;';
+    document.body.appendChild(ta);ta.focus();ta.select();
+    const ok=document.execCommand('copy');
+    document.body.removeChild(ta);return ok;
+  }catch(e){return false;}
+}
+async function copyLbPreview(idx){
+  const el=document.getElementById('lb-preview-text-'+idx);
+  if(!el)return;
+  const ok=await copyText(el.textContent);
+  const btn=event.target;
+  btn.textContent=ok?'✅ 복사 완료!':'❌ 복사 실패';
+  btn.classList.add('copied');
+  setTimeout(()=>{btn.textContent='📋 복사';btn.classList.remove('copied');},2000);
+}
+
+// ===== 유틸 =====
+function togglePanel(id){const el=document.getElementById(id);if(el)el.classList.toggle('collapsed');}
+function switchTab(name){
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+  currentCopyTab=name;
+  const btn=document.getElementById('copy-tab-btn');
+  if(btn)btn.style.display=(name==='character')?'none':'inline-block';
+  const mobCopyBtn=document.getElementById('mob-more-copy-btn');
+  if(mobCopyBtn)mobCopyBtn.style.display=(name==='character')?'none':'flex';
+}
+function updateSliderLabel(el,labelId){const l=document.getElementById(labelId);if(l)l.textContent=sLabel(el.value);}
+function sLabel(v){v=parseInt(v);return v<25?'매우 낮음':v<45?'낮음':v<55?'중간':v<75?'높음':'매우 높음';}
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
+function gv(id){const el=document.getElementById(id);return el?el.value.trim():'';}
+function setVal(id,val){const el=document.getElementById(id);if(el)el.value=val||'';}
+
+// ===== 프리뷰 모드 =====
+function setPreviewMode(mode,btn){previewMode=mode;document.querySelectorAll('.preview-char-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');updatePreview();}
+
+function updatePreviewBar(){
+  const bar=document.getElementById('preview-char-bar');const proj=getProject();
+  bar.innerHTML=`<button class="preview-char-btn all-btn${previewMode==='all'?' active':''}" onclick="setPreviewMode('all',this)">전체 합치기</button>`;
+  if(proj)proj.characters.forEach(char=>{
+    const btn=document.createElement('button');btn.className='preview-char-btn'+(previewMode===char.id?' active':'');
+    btn.textContent=char.data.name||'이름 없음';btn.onclick=function(){setPreviewMode(char.id,this);};bar.appendChild(btn);
+  });
+  // 로어북 버튼
+  const lbBtn=document.createElement('button');
+  lbBtn.className='preview-char-btn'+(previewMode==='lorebook'?' active':'');
+  lbBtn.style.cssText='border-color:rgba(106,200,176,0.4);color:#6AC8B0;';
+  lbBtn.textContent='📚 로어북';
+  lbBtn.onclick=function(){setPreviewMode('lorebook',this);};
+  bar.appendChild(lbBtn);
+}
+
+// ===== 프롬프트 빌드 =====
+function buildCharPrompt(char){
+  const L=[];const p=s=>{if(s!==undefined&&s!==null&&s!=='')L.push(s);};
+  const d=char.data;const td=char.tagData;
+  p(`# 캐릭터: ${d.name||'이름 없음'}`);p('');
+  if(d.intro)p(d.intro);
+  const bp=[];if(d.name)bp.push(`이름: ${d.name}`);if(d.age)bp.push(`나이: ${d.age}`);if(d.gender)bp.push(`성별: ${d.gender}`);if(d.role)bp.push(`직업/역할: ${d.role}`);
+  if(bp.length)p(bp.join(' | '));p('');
+  const pt=td.personality||[];const sp=char.speechChips||[];const ev=parseInt(d.emotionVal||50);
+  const et=ev<30?'감정 표현이 절제되어 있음':ev>70?'감정 표현이 풍부하고 즉각적임':'감정 표현은 상황에 따라 달라짐';
+  if(pt.length||sp.length||d.personality||d.values){
+    p('## 성격 & 말투');if(pt.length)p(`성격 키워드: ${pt.join(', ')}`);if(sp.length)p(`말투: ${sp.join(', ')}`);p(`감정 표현: ${et}`);if(d.personality)p('\n'+d.personality);if(d.values)p('\n[가치관/행동원리] '+d.values);p('');
+  }
+  const ht=td.habit||[];const oc=char.outfitChips||[];
+  if(d.appearance||ht.length||oc.length||d.outfit){
+    p('## 외모 & 특징');if(d.appearance)p(d.appearance);
+    if(oc.length||d.outfit){p(`의상 스타일: ${[...oc,d.outfit].filter(Boolean).join(', ')}`);}
+    if(ht.length)p(`버릇/습관: ${ht.join(', ')}`);p('');
+  }
+  const lk=td.like||[];const dl=td.dislike||[];
+  if(d.backstory||lk.length||dl.length||d.secret){
+    p('## 배경 & 동기');if(d.backstory)p(d.backstory);if(lk.length)p(`좋아하는 것: ${lk.join(', ')}`);if(dl.length)p(`싫어하는 것: ${dl.join(', ')}`);if(d.secret)p(`\n[숨겨진 면] ${d.secret}`);p('');
+  }
+  if(char.relations&&char.relations.length){p('## 인간관계');char.relations.forEach(r=>{if(r.name||r.rel)p(`- ${r.name}: ${r.rel}`);});p('');}
+  if(char.traits&&char.traits.length){
+    const validTraits=char.traits.filter(t=>(t.label&&t.label.trim())||(t.content&&t.content.trim()));
+    if(validTraits.length){
+      p('## 특징 & 기타');
+      validTraits.forEach(t=>{
+        const lbl=(t.label||'').trim();
+        const ctn=(t.content||'').trim();
+        if(lbl&&ctn)p(`${lbl}: ${ctn}`);
+        else if(ctn)p(ctn);
+        else if(lbl)p(lbl);
+      });
+      p('');
+    }
+  }
+  const bdsmC=char.bdsmChips||[];const sexDetail=d.sexualityDetail||'';
+  if(bdsmC.length||sexDetail){
+    p('## 성적 성향');
+    if(bdsmC.length){bdsmC.forEach(t=>p(`- ${t}`));}
+    if(sexDetail){p('');p(sexDetail);}
+    p('');
+  }
+  const cm=char.tagData['must']||[];const cn=char.tagData['never']||[];
+  const cspecial=d.special||'';const cuserTitle=d.userTitle||'';const cuserRole=d.userRole||'';const ctalkStyle=d.talkStyle||'';
+  if(cm.length||cn.length||cspecial||cuserTitle||cuserRole||ctalkStyle){
+    p('## 행동 규칙');
+    if(cuserTitle)p(`{{user}} 호칭: ${cuserTitle}`);
+    if(cuserRole)p(`{{user}} 역할 인식: ${cuserRole}`);
+    if(ctalkStyle)p(`{{user}}와의 {{user}}와의 대화 방식: ${ctalkStyle}`);
+    if(cm.length){p('반드시 할 것:');cm.forEach(t=>p(`- ${t}`));}
+    if(cn.length){p('절대 하지 말 것:');cn.forEach(t=>p(`- ${t}`));}
+    if(cspecial){p('');p('[특수 상황 대응]');p(cspecial);}
+    p('');
+  }
+  return L.join('\n').trim();
+}
+
+function buildWorldPrompt(){
+  const proj=getProject();if(!proj)return'';const gd=proj.globalTagData||{};
+  const L=[];const p=s=>{if(s!==undefined&&s!==null&&s!=='')L.push(s);};
+  const wn=gv('world-name'),we=gv('world-era'),wd=gv('world-desc'),wm=gv('world-magic'),ws=gv('world-society'),wt=gv('world-taboo'),wp=gv('world-places');
+  const gc=getActiveChips(document.getElementById('genre-chips'));
+  const at=gd['atmo']||[];const wr=gd['world-rule']||[];const pt=gd['place']||[];
+  const tvEl=document.getElementById('tone-slider');const tv=parseInt(tvEl?tvEl.value:50);
+  const wt2Check=(proj.world&&Array.isArray(proj.world.worldTraits))?proj.world.worldTraits.filter(t=>(t.label&&t.label.trim())||(t.content&&t.content.trim())):[];
+  if(!wn&&!wd&&!gc.length&&!wm&&!ws&&!at.length&&!wr.length&&!wp&&!wt2Check.length)return'';
+  p('# 세계관 설정');p('');
+  if(wn)p(`세계 이름: ${wn}`);if(gc.length)p(`장르: ${gc.join(', ')}`);if(we)p(`시대: ${we}`);p('');
+  if(wd){p('## 세계 개요');p(wd);p('');}if(wm){p('## 마법/기술 체계');p(wm);p('');}if(ws){p('## 사회 구조');p(ws);p('');}
+  if(wr.length){p('## 세계 법칙');wr.forEach(r=>p(`- ${r}`));p('');}
+  const wt2=(proj.world&&Array.isArray(proj.world.worldTraits))?proj.world.worldTraits:[];
+  if(wt2.length){
+    const validWT=wt2.filter(t=>(t.label&&t.label.trim())||(t.content&&t.content.trim()));
+    if(validWT.length){
+      p('## 세계관 추가 설정');
+      validWT.forEach(t=>{
+        const lbl=(t.label||'').trim();
+        const ctn=(t.content||'').trim();
+        if(lbl&&ctn)p(`${lbl}: ${ctn}`);
+        else if(ctn)p(ctn);
+        else if(lbl)p(lbl);
+      });
+      p('');
+    }
+  }
+  if(wp||pt.length){p('## 주요 장소');if(wp)p(wp);if(pt.length)p(`장소 태그: ${pt.join(', ')}`);p('');}
+  if(at.length||tv!==50){p('## 분위기');p(tv<30?'전반적으로 어둡고 무거운 분위기':tv>70?'전반적으로 밝고 경쾌한 분위기':'밝음과 어둠이 공존하는 분위기');if(at.length)p(`분위기 키워드: ${at.join(', ')}`);p('');}
+  if(wt){p('## 금기사항');p(wt);p('');}
+  return L.join('\n').trim();
+}
+
+function buildOutputPrompt(){
+  const proj=getProject();if(!proj)return'';
+  const L=[];const p=s=>{if(s!==undefined&&s!==null&&s!=='')L.push(s);};
+  const pov=getActiveChips(document.getElementById('pov-chips'));
+  const style=getActiveChips(document.getElementById('style-chips'));
+  const density=getActiveChips(document.getElementById('density-chips'));
+  const length=getActiveChips(document.getElementById('length-chips'));
+  const action=getActiveChips(document.getElementById('action-chips'));
+  const narrDetail=gv('out-narr-detail');const lengthDetail=gv('out-length-detail');
+  const status=gv('out-status');const affection=gv('out-affection');
+  const affectionFactor=gv('out-affection-factor');
+  const ot=(proj.output&&Array.isArray(proj.output.outputTraits))?proj.output.outputTraits:[];
+  const otValid=ot.filter(t=>(t.label&&t.label.trim())||(t.content&&t.content.trim()));
+  const hasContent=pov.length||style.length||density.length||length.length||action.length||narrDetail||lengthDetail||status||affection||otValid.length;
+  if(!hasContent)return'';
+  p('# 출력 지침');p('');
+  if(pov.length||style.length||density.length||narrDetail){
+    p('## 나레이션 스타일');
+    if(pov.length)p(`시점: ${pov.join(', ')}`);if(style.length)p(`문체: ${style.join(', ')}`);if(density.length)p(`묘사 밀도: ${density.join(', ')}`);if(narrDetail)p(narrDetail);p('');
+  }
+  if(length.length||action.length||lengthDetail){
+    p('## 출력량');if(length.length)p(`답변 길이: ${length.join(', ')}`);if(action.length)p(`행동 묘사: ${action.join(', ')}`);if(lengthDetail)p(lengthDetail);p('');
+  }
+  if(status){p('## 상태창');p(status);p('');}
+  if(affection||affectionFactor){p('## 호감도 시스템');if(affection)p(affection);if(affectionFactor){p('');p('[변화 요인]');p(affectionFactor);}p('');}
+  if(otValid.length){
+    p('## 기타 출력 설정');
+    otValid.forEach(t=>{
+      const lbl=(t.label||'').trim();
+      const ctn=(t.content||'').trim();
+      if(lbl&&ctn){p(`### ${lbl}`);p(ctn);p('');}
+      else if(ctn){p(ctn);p('');}
+      else if(lbl){p(`### ${lbl}`);p('');}
+    });
+  }
+  return L.join('\n').trim();
+}
+
+function buildRulesPrompt(){
+  const proj=getProject();if(!proj)return'';const gd=proj.globalTagData||{};
+  const L=[];const p=s=>{if(s!==undefined&&s!==null&&s!=='')L.push(s);};
+  const mt=gd['must']||[];const nt=gd['never']||[];
+  const extra=gv('rules-extra-text');
+  if(!mt.length&&!nt.length&&!extra)return'';
+  p('# 공통 행동 지침');p('');
+  if(mt.length){p('## 전체 반드시 할 것');mt.forEach(t=>p(`- ${t}`));p('');}
+  if(nt.length){p('## 전체 절대 하지 말 것');nt.forEach(t=>p(`- ${t}`));p('');}
+  if(extra){p('## 추가 설정');p(extra);p('');}
+  return L.join('\n').trim();
+}
+
+function buildFullPrompt(){
+  const proj=getProject();if(!proj)return'';
+  const world=buildWorldPrompt();const output=buildOutputPrompt();const rules=buildRulesPrompt();
+  if(previewMode==='lorebook'){
+    const lb=proj.lorebook||[];
+    if(!lb.length)return'// 로어북 항목이 없어.';
+    return lb.map(item=>`# 로어북: ${item.title}\n트리거 키워드: ${item.keywords.join(', ')||'(없음)'}\n\n${item.content||'(내용 없음)'}`).join('\n\n---\n\n');
+  }
+  if(previewMode==='all'){
+    const parts=proj.characters.map(c=>buildCharPrompt(c)).filter(Boolean);
+    if(world)parts.push(world);if(output)parts.push(output);if(rules)parts.push(rules);
+    return parts.join('\n\n---\n\n');
+  }else{
+    const char=proj.characters.find(c=>c.id===previewMode);if(!char)return'';
+    const parts=[buildCharPrompt(char)];
+    if(world)parts.push(world);if(output)parts.push(output);if(rules)parts.push(rules);
+    return parts.filter(Boolean).join('\n\n---\n\n');
+  }
+}
+
+function updatePreview(){
+  const prompt=buildFullPrompt();const out=document.getElementById('prompt-output');
+  if(!prompt){out.textContent='// 프로젝트를 선택하고\n// 캐릭터를 추가해봐.';document.getElementById('stat-chars').textContent='0';document.getElementById('stat-tokens').textContent='0';return;}
+  out.textContent=prompt;
+  document.getElementById('stat-chars').textContent=prompt.length.toLocaleString();
+  document.getElementById('stat-tokens').textContent=Math.ceil(prompt.length/2.5).toLocaleString();
+}
+
+async function copyCompressRequest(){
+  const prompt=buildFullPrompt();
+  if(!prompt){showToast('⚠️ 프롬프트가 비어있어!');return;}
+  const target=document.getElementById('compress-target').value||'2000';
+  const request='아래 챗봇 프롬프트를 '+target+'자 이하로 압축해줘.\n의미와 뉘앙스는 최대한 유지하고, 불필요한 조사/중복 표현/설명 제거 후 핵심만 남겨.\n캐릭터 성격/말투/설정의 핵심은 절대 손대지 마.\n\n---\n'+prompt;
+  const ok=await copyText(request);
+  if(ok)showToast('✅ 압축 요청 복사 완료! 나한테 붙여넣어봐~');
+  else showToast('❌ 복사 실패. 직접 선택해줘.');
+}
+
+async function copyPrompt(){
+  const prompt=buildFullPrompt();if(!prompt)return;
+  const ok=await copyText(prompt);
+  const btn=document.getElementById('copy-btn');
+  btn.textContent=ok?'✅ 복사 완료!':'❌ 복사 실패';
+  btn.classList.add('copied');
+  setTimeout(()=>{btn.textContent='📋 프롬프트 전체 복사';btn.classList.remove('copied');},2000);
+}
+
+// ===== 저장 =====
+// 백업 시스템: 위험 동작 직전 자동 백업 5개 슬롯 보관
+
+// ===== 동기화용 데이터 분리 =====
+const GIST_STRIP_KEYS=new Set([
+  'thumbnail','thumbnailData','thumb','thumbData','image','imageData','images','imageList',
+  'original','originalImage','originalData','fullImage','blob','blobUrl','file','files',
+  'previewImage','gallery','resultGallery','resultsGallery','meta','metadata','largeMeta'
+]);
+
+function cloneJsonSafe(value){
+  try{return JSON.parse(JSON.stringify(value));}
+  catch(e){console.warn('[LoreForge] cloneJsonSafe 실패:',e);return value;}
+}
+
+function stripLargeFields(value){
+  if(Array.isArray(value)) return value.map(stripLargeFields);
+  if(value&&typeof value==='object'){
+    const out={};
+    Object.keys(value).forEach(k=>{
+      if(GIST_STRIP_KEYS.has(k)) return;
+      out[k]=stripLargeFields(value[k]);
+    });
+    return out;
+  }
+  if(typeof value==='string'&&/^data:image\//i.test(value)) return '';
+  return value;
+}
+
+function getFullState(){
+  saveCurrentProjectFromUI();
+  return {projects,currentProjectId,customChips};
+}
+
+function stripStateForSync(){
+  const state=cloneJsonSafe(getFullState());
+  return stripLargeFields(state);
+}
+
+function getStateForDrive(){
+  return cloneJsonSafe(getFullState());
+}
+
+function applyStateFromSync(state){
+  if(!state||typeof state!=='object')throw new Error('동기화 데이터 형식이 잘못됐어.');
+  projects=state.projects||{};
+  currentProjectId=state.currentProjectId||Object.keys(projects)[0]||null;
+  if(state.customChips){customChips=state.customChips;saveCustomChips();}
+  try{localStorage.setItem('loreforge_v3',JSON.stringify({projects,currentProjectId,customChips}));}
+  catch(e){console.error('[LoreForge] 동기화 데이터 저장 실패:',e);}
+  renderProjectDropdown();loadProjectUI();updatePreview();
+}
+
+const LF_BACKUP_KEY='loreforge_v3_backups';
+const LF_BACKUP_LIMIT=5;
+function safetyBackup(reason){
+  try{
+    const cur=localStorage.getItem('loreforge_v3');
+    if(!cur)return;
+    let slots=[];
+    try{const raw=localStorage.getItem(LF_BACKUP_KEY);if(raw)slots=JSON.parse(raw);}catch(e){slots=[];}
+    if(!Array.isArray(slots))slots=[];
+    // 같은 데이터가 직전 슬롯과 동일하면 또 백업 안 함 (중복 방지)
+    if(slots.length&&slots[0]&&slots[0].data===cur)return;
+    slots.unshift({savedAt:new Date().toISOString(),reason:reason||'auto',data:cur});
+    if(slots.length>LF_BACKUP_LIMIT)slots=slots.slice(0,LF_BACKUP_LIMIT);
+    try{localStorage.setItem(LF_BACKUP_KEY,JSON.stringify(slots));}
+    catch(e){console.warn('[LoreForge] 백업 저장 실패 (용량?):',e);}
+  }catch(e){console.warn('[LoreForge] 백업 함수 오류:',e);}
+}
+function saveAll(){
+  saveCurrentProjectFromUI();
+  normalizeAllData();
+  try{
+    localStorage.setItem('loreforge_v3',JSON.stringify({projects,currentProjectId,customChips}));
+  }catch(e){
+    console.error('[LoreForge] 저장 실패! 데이터가 디스크에 반영되지 않았어:',e);
+    showToast('⚠️ 저장 실패! 브라우저 콘솔 확인');
+  }
+}
+function loadAll(){
+  try{
+    const raw=localStorage.getItem('loreforge_v3');
+    if(!raw){window.__lfLoadStatus='empty';return false;}
+    const data=JSON.parse(raw);
+    projects=data.projects||{};
+    currentProjectId=data.currentProjectId||null;
+    if(data.customChips){customChips=data.customChips;saveCustomChips();}
+    if(currentProjectId&&!projects[currentProjectId])currentProjectId=Object.keys(projects)[0]||null;
+    normalizeAllData();
+    window.__lfLoadStatus='ok';
+    return true;
+  }catch(e){
+    // ⚠️ 파싱 실패 = 데이터 손상. 절대 그냥 무시하면 안 됨.
+    console.error('[LoreForge] loadAll 실패! localStorage 데이터가 손상됐어:',e);
+    console.error('[LoreForge] 손상된 원본:',localStorage.getItem('loreforge_v3'));
+    window.__lfLoadStatus='corrupt';
+    window.__lfLoadError=e;
+    return false;
+  }
+}
+
+// 콘솔 디버그/복구 함수 — 사용자가 F12 콘솔에서 호출
+window.loreForgeDebug={
+  listBackups(){
+    try{
+      const raw=localStorage.getItem(LF_BACKUP_KEY);
+      if(!raw){console.log('백업 슬롯 없음');return[];}
+      const slots=JSON.parse(raw);
+      if(!Array.isArray(slots)||!slots.length){console.log('백업 슬롯 비어있음');return[];}
+      console.log('=== LORE FORGE 백업 슬롯 ===');
+      slots.forEach((s,i)=>{
+        try{
+          const d=JSON.parse(s.data);
+          const projs=Object.values(d.projects||{});
+          console.log(`[${i}] ${s.savedAt} | 사유: ${s.reason||'-'} | 프로젝트 ${projs.length}개`);
+          projs.forEach(p=>console.log(`    └ "${p.name}" (캐릭터 ${(p.characters||[]).length}명)`));
+        }catch(e){console.log(`[${i}] ${s.savedAt} (파싱 실패)`);}
+      });
+      console.log('복구: loreForgeDebug.restoreBackup(인덱스)');
+      return slots;
+    }catch(e){console.error(e);return null;}
+  },
+  async restoreBackup(index){
+    try{
+      const raw=localStorage.getItem(LF_BACKUP_KEY);
+      if(!raw){console.log('백업 없음');return false;}
+      const slots=JSON.parse(raw);
+      if(!slots[index]){console.log('해당 인덱스의 백업 없음. listBackups()로 목록 확인');return false;}
+      const d=JSON.parse(slots[index].data);
+      const projCount=Object.keys(d.projects||{}).length;
+      if(!(await showConfirm(`백업 #${index} (${slots[index].savedAt})으로 복구할까?\n프로젝트 ${projCount}개로 되돌려져. 현재 데이터는 새 백업으로 보관돼.`,{danger:true,title:'⚠️ 백업 복구'})))return false;
+      safetyBackup('복구 직전 자동저장');
+      localStorage.setItem('loreforge_v3',slots[index].data);
+      alert('✅ 복구 완료! 페이지를 새로고침해줘 (F5).');
+      return true;
+    }catch(e){console.error(e);return false;}
+  },
+  showCurrent(){
+    try{
+      const raw=localStorage.getItem('loreforge_v3');
+      if(!raw){console.log('현재 저장된 데이터 없음');return null;}
+      const d=JSON.parse(raw);
+      const projs=Object.values(d.projects||{});
+      console.log(`=== 현재 저장 상태 ===`);
+      console.log(`프로젝트 ${projs.length}개:`);
+      projs.forEach(p=>console.log(`  - "${p.name}" (id: ${p.id}, 캐릭터 ${(p.characters||[]).length}명)`));
+      return d;
+    }catch(e){console.error(e);return null;}
+  },
+  exportAllRaw(){
+    // 비상시 전체 데이터 텍스트 덤프
+    const main=localStorage.getItem('loreforge_v3')||'';
+    const backups=localStorage.getItem(LF_BACKUP_KEY)||'';
+    const dump={exportedAt:new Date().toISOString(),main:main?JSON.parse(main):null,backups:backups?JSON.parse(backups):[]};
+    console.log('=== 전체 덤프 (복사해서 보관) ===');
+    console.log(JSON.stringify(dump,null,2));
+    return dump;
+  }
+};
+
+// ===== GITHUB GIST 연동 =====
+function openGistModal(){
+  const token=localStorage.getItem('loreforge_gist_token')||'';
+  const gistId=localStorage.getItem('loreforge_gist_id')||'';
+  document.getElementById('gist-token-input').value=token;
+  document.getElementById('gist-id-input').value=gistId;
+  document.getElementById('gist-status').className='gist-status';
+  document.getElementById('gist-status').textContent='';
+  const hint=document.getElementById('gist-autosave-hint');
+  if(hint){
+    if(token&&gistId){
+      hint.textContent='⏱ 10분마다 자동저장 중';
+      hint.style.color='#6AC8B0';
+    } else {
+      hint.textContent='💡 토큰+ID 설정 후 자동저장이 활성화돼!';
+      hint.style.color='var(--muted)';
+    }
+  }
+  document.getElementById('gist-modal-overlay').style.display='flex';
+}
+function closeGistModal(){
+  document.getElementById('gist-modal-overlay').style.display='none';
+}
+function setGistStatus(msg,type){
+  const el=document.getElementById('gist-status');
+  el.textContent=msg;el.className='gist-status '+type;
+}
+function setSyncIndicator(state){
+  const el=document.getElementById('sync-indicator');
+  if(!el)return;
+  el.className='sync-indicator'+(state==='ok'?' synced':state==='err'?' error':'');
+}
+function copyGistId(){
+  const id=document.getElementById('gist-id-input').value.trim();
+  if(!id){setGistStatus('Gist ID가 없어. 먼저 업로드해봐!','err');return;}
+  copyText(id).then(ok=>{
+    if(ok)setGistStatus('Gist ID 복사됨! 다른 기기에서 붙여넣어봐.','ok');
+    else setGistStatus('복사 실패. 직접 선택해서 복사해줘.','err');
+  });
+}
+async function gistUpload(){
+  const token=document.getElementById('gist-token-input').value.trim();
+  const gistId=document.getElementById('gist-id-input').value.trim();
+  if(!token){setGistStatus('토큰을 입력해줘!','err');return;}
+  setGistStatus('업로드 중...','loading');
+  saveAll();
+  await pushSlot(token, gistId, '수동');
+}
+
+async function readGistJsonFile(gistData, filename){
+  const file=gistData.files&&gistData.files[filename];
+  if(!file)return null;
+  if(file.content&&!file.truncated)return file.content;
+  if(file.raw_url){
+    const rawRes=await fetch(file.raw_url,{cache:'no-store'});
+    if(rawRes.ok)return await rawRes.text();
+  }
+  return file.content||null;
+}
+
+async function pushSlot(token, gistId, deviceLabel){
+  let slots=[];
+  if(gistId){
+    try{
+      const r=await fetch('https://api.github.com/gists/'+gistId,{headers:{'Authorization':'token '+token,'Accept':'application/vnd.github.v3+json'}});
+      if(r.ok){
+        const d=await r.json();
+        const fc=(await readGistJsonFile(d,'loreforge_data.json'))||(await readGistJsonFile(d,'app_data.json'));
+        if(fc){
+          const p=JSON.parse(fc);
+          slots=p.slots||[];
+          if(!slots.length&&p.projects) slots=[{savedAt:p.savedAt||new Date().toISOString(),device:'이전버전',...stripLargeFields(p)}];
+        }
+      }
+    }catch(e){console.warn('[LoreForge] Gist 기존 슬롯 읽기 실패:',e);}
+  }
+  const lightState=stripStateForSync();
+  slots.unshift({savedAt:new Date().toISOString(),device:deviceLabel,...lightState});
+  if(slots.length>5) slots=slots.slice(0,5);
+  const payload={version:5,kind:'gist-light',savedAt:new Date().toISOString(),slots};
+  const body={description:'LORE FORGE — Gist light backup (큰 이미지/메타 제외)',public:false,files:{'loreforge_data.json':{content:JSON.stringify(payload,null,2)}}};
+  try{
+    let url='https://api.github.com/gists',method='POST';
+    if(gistId){url='https://api.github.com/gists/'+gistId;method='PATCH';}
+    const res=await fetch(url,{method,headers:{'Authorization':'token '+token,'Content-Type':'application/json','Accept':'application/vnd.github.v3+json'},body:JSON.stringify(body)});
+    if(!res.ok){const err=await res.json();setGistStatus('오류: '+(err.message||res.status),'err');setSyncIndicator('err');return;}
+    const data=await res.json();
+    localStorage.setItem('loreforge_gist_token',token);
+    localStorage.setItem('loreforge_gist_id',data.id);
+    document.getElementById('gist-id-input').value=data.id;
+    setGistStatus('업로드 완료! Gist에는 큰 이미지/메타를 제외한 가벼운 백업만 저장했어.','ok');
+    setSyncIndicator('ok');
+    showToast('☁️ Gist 업로드 완료!');
+  }catch(e){setGistStatus('네트워크 오류: '+e.message,'err');setSyncIndicator('err');}
+}
+async function gistDownload(){
+  const token=document.getElementById('gist-token-input').value.trim();
+  const gistId=document.getElementById('gist-id-input').value.trim();
+  if(!token){setGistStatus('토큰을 입력해줘!','err');return;}
+  if(!gistId){setGistStatus('Gist ID를 입력해줘!','err');return;}
+  setGistStatus('슬롯 목록 가져오는 중...','loading');
+  try{
+    const res=await fetch('https://api.github.com/gists/'+gistId,{headers:{'Authorization':'token '+token,'Accept':'application/vnd.github.v3+json'}});
+    if(!res.ok){const err=await res.json();setGistStatus('오류: '+(err.message||res.status),'err');setSyncIndicator('err');return;}
+    const data=await res.json();
+    const fileContent=(await readGistJsonFile(data,'loreforge_data.json'))||(await readGistJsonFile(data,'app_data.json'));
+    if(!fileContent){setGistStatus('loreforge_data.json 파일을 못 찾았어.','err');setSyncIndicator('err');return;}
+    const parsed=JSON.parse(fileContent);
+    // 슬롯 구조 or 구버전 호환
+    let slots=parsed.slots||[];
+    if(!slots.length&&parsed.projects) slots=[{savedAt:parsed.savedAt||'',device:'이전버전',projects:parsed.projects,currentProjectId:parsed.currentProjectId}];
+    if(!slots.length){setGistStatus('불러올 데이터가 없어.','err');return;}
+    setGistStatus('','');
+    showSlotPicker(slots, token, gistId);
+  }catch(e){setGistStatus('오류: '+e.message,'err');setSyncIndicator('err');}
+}
+
+function showSlotPicker(slots, token, gistId){
+  const existing=document.getElementById('slot-picker-overlay');
+  if(existing)existing.remove();
+  const overlay=document.createElement('div');
+  overlay.id='slot-picker-overlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:2000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
+  const box=document.createElement('div');
+  box.style.cssText='background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px;width:360px;max-width:calc(100vw - 32px);max-height:calc(100vh - 60px);overflow-y:auto;display:flex;flex-direction:column;gap:12px;';
+  box.innerHTML='<div style="font-family:Bebas Neue,sans-serif;font-size:18px;letter-spacing:3px;color:var(--accent);">버전 선택</div><div style="font-size:11px;color:var(--muted);">불러올 버전을 선택해봐. 현재 데이터는 덮어씌워져!</div>';
+  slots.forEach((slot,i)=>{
+    const t=slot.savedAt?new Date(slot.savedAt).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'알 수 없음';
+    const projCount=slot.projects?Object.keys(slot.projects).length:0;
+    const btn=document.createElement('button');
+    btn.style.cssText='padding:11px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);cursor:pointer;text-align:left;font-family:Noto Sans KR,sans-serif;font-size:12px;transition:all 0.15s;display:flex;justify-content:space-between;align-items:center;';
+    btn.innerHTML=`<div><div style="font-weight:700;color:var(--accent);margin-bottom:3px;">${i===0?'🟢 최신':'📁 슬롯 '+(i+1)}</div><div style="color:var(--muted);font-size:10px;">${t} · ${slot.device||'알 수 없음'} · 프로젝트 ${projCount}개</div></div><span style="color:var(--muted);font-size:16px;">›</span>`;
+    btn.onmouseover=()=>btn.style.borderColor='var(--accent)';
+    btn.onmouseout=()=>btn.style.borderColor='var(--border)';
+    btn.onclick=()=>{
+      overlay.remove();
+      projects=slot.projects;
+      currentProjectId=slot.currentProjectId||Object.keys(slot.projects||{})[0]||null;
+      if(slot.customChips){customChips=slot.customChips;saveCustomChips();}
+      renderProjectDropdown();loadProjectUI();saveAll();
+      localStorage.setItem('loreforge_gist_token',token);
+      localStorage.setItem('loreforge_gist_id',gistId);
+      setGistStatus('불러오기 완료!','ok');setSyncIndicator('ok');showToast('☁️ Gist 불러오기 완료!');
+    };
+    box.appendChild(btn);
+  });
+  const cancelBtn=document.createElement('button');
+  cancelBtn.textContent='취소';
+  cancelBtn.style.cssText='padding:8px;background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);cursor:pointer;font-family:Noto Sans KR,sans-serif;font-size:12px;';
+  cancelBtn.onclick=()=>overlay.remove();
+  box.appendChild(cancelBtn);
+  overlay.appendChild(box);
+  overlay.onclick=(e)=>{if(e.target===overlay)overlay.remove();};
+  document.body.appendChild(overlay);
+}
+document.addEventListener('click',(e)=>{
+  const overlay=document.getElementById('gist-modal-overlay');
+  if(overlay&&e.target===overlay)closeGistModal();
+});
+
+function exportJSON(){
+  saveAll();
+  const projectCount=Object.keys(projects).length;
+  if(projectCount===0){alert('내보낼 프로젝트가 없어!');return;}
+  if(projectCount===1){exportCurrentProject();return;}
+  showExportChoice();
+}
+
+function showExportChoice(){
+  const projectCount=Object.keys(projects).length;
+  const curProj=getProject();
+  const overlay=document.createElement('div');
+  overlay.className='modal-overlay';
+  overlay.innerHTML=`<div class="modal" style="min-width:320px;max-width:420px;">
+    <div class="modal-title">💾 내보내기</div>
+    <div class="modal-msg" style="font-size:12px;color:var(--text-dim);">어떻게 내보낼까?</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">
+      <button class="btn btn-primary" data-act="current" style="text-align:left;padding:10px 14px;">📄 현재 프로젝트만<div style="font-size:11px;opacity:0.8;font-weight:normal;margin-top:2px;">${esc(curProj?curProj.name:'(없음)')}</div></button>
+      <button class="btn btn-primary" data-act="all" style="text-align:left;padding:10px 14px;background:linear-gradient(135deg,#8888CC,#BB6688);border-color:#8888CC;">📦 전체 프로젝트<div style="font-size:11px;opacity:0.85;font-weight:normal;margin-top:2px;">프로젝트 ${projectCount}개 + 커스텀 칩 한꺼번에</div></button>
+    </div>
+    <div class="modal-btns" style="margin-top:14px;"><button class="btn btn-ghost" data-act="cancel">취소</button></div>
+  </div>`;
+  document.body.appendChild(overlay);
+  const close=()=>overlay.remove();
+  overlay.querySelector('[data-act="current"]').onclick=()=>{close();exportCurrentProject();};
+  overlay.querySelector('[data-act="all"]').onclick=()=>{close();exportAllProjects();};
+  overlay.querySelector('[data-act="cancel"]').onclick=close;
+  overlay.onclick=(e)=>{if(e.target===overlay)close();};
+}
+
+function exportCurrentProject(){
+  const proj=getProject();if(!proj){alert('프로젝트가 없어!');return;}
+  const blob=new Blob([JSON.stringify({version:3,project:proj,customChips},null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(proj.name||'project').replace(/[^\w가-힣]/g,'_')+'.json';a.click();
+}
+
+function exportAllProjects(){
+  const projectCount=Object.keys(projects).length;
+  const dump={version:3,type:'all',exportedAt:new Date().toISOString(),projects,currentProjectId,customChips};
+  const blob=new Blob([JSON.stringify(dump,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  const date=new Date().toISOString().slice(0,10).replace(/-/g,'');
+  a.download=`lore-forge-all-${date}.json`;a.click();
+  showToast(`📦 전체 ${projectCount}개 프로젝트 내보냄!`);
+}
+
+function importJSON(){document.getElementById('import-file').click();}
+function handleImport(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=async (ev)=>{
+    try{
+      const data=JSON.parse(ev.target.result);
+      // 전체 내보내기 파일 판별: type:'all' 이거나 projects(객체)는 있고 단일 project 키는 없는 경우
+      const isAllExport=data.type==='all'||(data.projects&&typeof data.projects==='object'&&!Array.isArray(data.projects)&&!data.project);
+      if(isAllExport){
+        await importAllProjects(data);
+      } else {
+        // 기존 단일 프로젝트 import (그대로 유지)
+        const proj=data.project||data;if(!proj.id)proj.id='proj_'+Date.now();if(!proj.name)proj.name='불러온 프로젝트';
+        if(projects[proj.id]){if(!(await showConfirm(`"${proj.name}" 프로젝트가 이미 있어. 덮어쓸까?`,{danger:true,title:'⚠️ 프로젝트 덮어쓰기'})))return;}
+        safetyBackup('JSON 가져오기: '+proj.name);
+        projects[proj.id]=proj;currentProjectId=proj.id;
+        if(data.customChips){Object.keys(data.customChips).forEach(k=>{customChips[k]=[...new Set([...(customChips[k]||[]),...data.customChips[k]])];});saveCustomChips();}
+        renderProjectDropdown();loadProjectUI();saveAll();showToast('✅ 프로젝트 불러옴!');
+      }
+    }catch(err){console.error('[LoreForge] Import 오류:',err);alert('JSON 파일이 잘못됐어.');}
+  };
+  reader.readAsText(file);e.target.value='';
+}
+
+async function importAllProjects(data){
+  if(!data.projects||typeof data.projects!=='object'){alert('전체 내보내기 파일 형식이 잘못됐어.');return;}
+  const incomingIds=Object.keys(data.projects);
+  if(incomingIds.length===0){alert('가져올 프로젝트가 없어.');return;}
+  const conflicts=incomingIds.filter(id=>projects[id]);
+  const newOnes=incomingIds.filter(id=>!projects[id]);
+
+  let overwriteIds=[];
+  if(conflicts.length>0){
+    const result=await showImportConflictModal(conflicts,data.projects);
+    if(result===null)return; // 취소
+    overwriteIds=result;
+  } else {
+    if(!(await showConfirm(`프로젝트 ${newOnes.length}개를 가져올까?\n(충돌 없음 — 전부 신규 추가돼)`,{title:'📦 전체 가져오기'})))return;
+  }
+
+  safetyBackup(`전체 가져오기 (신규 ${newOnes.length}, 덮어쓰기 ${overwriteIds.length})`);
+
+  // 적용
+  newOnes.forEach(id=>{projects[id]=data.projects[id];});
+  overwriteIds.forEach(id=>{projects[id]=data.projects[id];});
+
+  // customChips 병합 (기존 단일 import와 동일 패턴)
+  if(data.customChips){
+    Object.keys(data.customChips).forEach(k=>{
+      customChips[k]=[...new Set([...(customChips[k]||[]),...data.customChips[k]])];
+    });
+    saveCustomChips();
+  }
+
+  // currentProjectId 결정
+  if(data.currentProjectId&&projects[data.currentProjectId]){
+    currentProjectId=data.currentProjectId;
+  } else if(!projects[currentProjectId]){
+    currentProjectId=Object.keys(projects)[0];
+  }
+
+  renderProjectDropdown();loadProjectUI();
+  try{localStorage.setItem('loreforge_v3',JSON.stringify({projects,currentProjectId,customChips}));}catch(e){console.error('[LoreForge] 저장 실패:',e);}
+
+  const appliedCount=newOnes.length+overwriteIds.length;
+  const skippedCount=conflicts.length-overwriteIds.length;
+  showToast(`✅ ${appliedCount}개 적용${skippedCount>0?` (${skippedCount}개 건너뜀)`:''}`);
+}
+
+function showImportConflictModal(conflictIds,incomingProjects){
+  return new Promise(resolve=>{
+    const overlay=document.createElement('div');
+    overlay.className='modal-overlay';
+    const items=conflictIds.map(id=>{
+      const existing=projects[id];
+      const incoming=incomingProjects[id];
+      const existingChars=(existing.characters&&existing.characters.length)||0;
+      const incomingChars=(incoming.characters&&incoming.characters.length)||0;
+      const sameName=(existing.name||'')===(incoming.name||'');
+      return `<label style="display:flex;align-items:flex-start;gap:10px;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;cursor:pointer;margin-bottom:6px;">
+        <input type="checkbox" data-pid="${esc(id)}" style="margin-top:3px;flex-shrink:0;cursor:pointer;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:bold;color:var(--accent);font-size:13px;margin-bottom:3px;word-break:break-all;">${esc(incoming.name||'(이름 없음)')}${sameName?'':` <span style="color:var(--text-dim);font-weight:normal;font-size:11px;">(기존: ${esc(existing.name||'-')})</span>`}</div>
+          <div style="font-size:11px;color:var(--text-dim);">기존 캐릭터 ${existingChars}개 → 가져올 거 ${incomingChars}개</div>
+        </div>
+      </label>`;
+    }).join('');
+    overlay.innerHTML=`<div class="modal" style="min-width:380px;max-width:520px;max-height:80vh;display:flex;flex-direction:column;">
+      <div class="modal-title">⚠️ 프로젝트 충돌 (${conflictIds.length}개)</div>
+      <div class="modal-msg" style="font-size:12px;color:var(--text-dim);">체크한 프로젝트만 가져온 파일로 덮어써. 체크 안 한 건 기존 그대로야.</div>
+      <div style="display:flex;gap:6px;margin-bottom:10px;">
+        <button class="btn btn-ghost" data-act="all-on" style="font-size:11px;padding:5px 10px;">전부 덮어쓰기</button>
+        <button class="btn btn-ghost" data-act="all-off" style="font-size:11px;padding:5px 10px;">전부 건너뛰기</button>
+      </div>
+      <div style="overflow-y:auto;max-height:50vh;padding-right:4px;">${items}</div>
+      <div class="modal-btns" style="margin-top:14px;"><button class="btn btn-ghost" data-act="cancel">취소</button><button class="btn btn-primary" data-act="ok">적용</button></div>
+    </div>`;
+    document.body.appendChild(overlay);
+    const checkboxes=()=>overlay.querySelectorAll('input[type="checkbox"]');
+    overlay.querySelector('[data-act="all-on"]').onclick=()=>{checkboxes().forEach(c=>c.checked=true);};
+    overlay.querySelector('[data-act="all-off"]').onclick=()=>{checkboxes().forEach(c=>c.checked=false);};
+    overlay.querySelector('[data-act="ok"]').onclick=()=>{
+      const selected=Array.from(checkboxes()).filter(c=>c.checked).map(c=>c.dataset.pid);
+      overlay.remove();resolve(selected);
+    };
+    overlay.querySelector('[data-act="cancel"]').onclick=()=>{overlay.remove();resolve(null);};
+    overlay.onclick=(e)=>{if(e.target===overlay){overlay.remove();resolve(null);}};
+  });
+}
+
+// ===== 모달 & 토스트 =====
+function showModal(title,defaultVal,callback){
+  const overlay=document.createElement('div');overlay.className='modal-overlay';
+  overlay.innerHTML=`<div class="modal"><div class="modal-title">${title}</div><input class="modal-input" id="modal-inp" type="text" value="${esc(defaultVal)}" placeholder="입력..."><div class="modal-btns"><button class="btn btn-ghost" onclick="this.closest('.modal-overlay').remove()">취소</button><button class="btn btn-primary" id="modal-ok">확인</button></div></div>`;
+  document.body.appendChild(overlay);
+  const inp=overlay.querySelector('#modal-inp');inp.focus();inp.select();
+  overlay.querySelector('#modal-ok').onclick=()=>{callback(inp.value);overlay.remove();};
+  inp.onkeydown=(e)=>{if(e.key==='Enter'){callback(inp.value);overlay.remove();}if(e.key==='Escape')overlay.remove();};
+  overlay.onclick=(e)=>{if(e.target===overlay)overlay.remove();};
+}
+
+// 자체 confirm — Electron native confirm 포커스 깨짐 이슈 회피 (electron/electron#41603)
+// 사용: const ok = await showConfirm('메시지', {danger:true, title:'⚠️ 삭제 확인'});
+function showConfirm(message,opts){
+  opts=opts||{};
+  const isDanger=!!opts.danger;
+  const title=opts.title||(isDanger?'⚠️ 확인':'확인');
+  return new Promise(resolve=>{
+    const overlay=document.createElement('div');
+    overlay.className='modal-overlay'+(isDanger?' modal-danger':'');
+    overlay.innerHTML=`<div class="modal"><div class="modal-title">${esc(title)}</div><div class="modal-msg">${esc(message)}</div><div class="modal-btns"><button class="btn btn-ghost" data-act="cancel">취소</button><button class="btn ${isDanger?'btn-confirm-danger':'btn-primary'}" data-act="ok">확인</button></div></div>`;
+    document.body.appendChild(overlay);
+    let settled=false;
+    const done=(result)=>{
+      if(settled)return;settled=true;
+      document.removeEventListener('keydown',onKey,true);
+      overlay.remove();
+      resolve(result);
+    };
+    const onKey=(e)=>{
+      if(e.key==='Enter'){e.preventDefault();done(true);}
+      else if(e.key==='Escape'){e.preventDefault();done(false);}
+    };
+    overlay.querySelector('[data-act="ok"]').onclick=()=>done(true);
+    overlay.querySelector('[data-act="cancel"]').onclick=()=>done(false);
+    overlay.onclick=(e)=>{if(e.target===overlay)done(false);};
+    document.addEventListener('keydown',onKey,true);
+    // 위험 모달은 취소 버튼에 자동 포커스 (실수 방지), 일반 모달은 확인 버튼에 포커스
+    setTimeout(()=>{
+      const focusSel=isDanger?'[data-act="cancel"]':'[data-act="ok"]';
+      const btn=overlay.querySelector(focusSel);
+      if(btn)btn.focus();
+    },0);
+  });
+}
+
+function showToast(msg){
+  const t=document.createElement('div');t.textContent=msg;
+  t.style.cssText='position:fixed;bottom:20px;right:20px;background:var(--surface2);border:1px solid var(--accent);color:var(--accent);padding:9px 16px;border-radius:8px;font-size:12px;z-index:9999;font-family:Noto Sans KR,sans-serif;';
+  document.body.appendChild(t);setTimeout(()=>t.remove(),2500);
+}
+
+// ===== 가이드 =====
+function openGuide(){
+  window.open('guide.html', '_blank');
+}
+function openTip(){
+  window.open('tip.html', '_blank');
+}
+function openReference(){
+  window.open('reference.html', '_blank');
+}
+
+// ===== 초기화 =====
+// ===== 모바일 함수 =====
+function isMobile(){ return window.innerWidth <= 768; }
+
+function mobSwitchTab(name, btn){
+  if(name === 'preview'){
+    // 프리뷰 탭
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+    document.querySelector('.preview-area').classList.add('mob-active');
+    updatePreview();
+  } else {
+    document.querySelector('.preview-area').classList.remove('mob-active');
+    switchTab(name);
+  }
+  document.querySelectorAll('.mob-tab-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function mobSelectChar(id){
+  if(!id) return;
+  selectCharacter(id);
+}
+function deleteCurrentMobileChar() {
+  const proj = getProject();
+  if (!proj || !proj.currentCharId) {
+    alert('삭제할 캐릭터를 먼저 선택해주세요');
+    return;
+  }
+  const dummyEvent = { stopPropagation: function() {} };
+    // PC에서 쓰는 진짜 삭제 함수 호출!
+  deleteCharacter(proj.currentCharId, dummyEvent);
+
+}
+function renderMobCharBar(){
+  const sel = document.getElementById('mob-char-select');
+  if(!sel) return;
+  const proj = getProject();
+  sel.innerHTML = '<option value="">캐릭터 선택...</option>';
+  if(proj){
+    proj.characters.forEach(char=>{
+      const opt = document.createElement('option');
+      opt.value = char.id;
+      opt.textContent = char.data.name || '이름 없음';
+      opt.selected = char.id === proj.currentCharId;
+      sel.appendChild(opt);
+    });
+  }
+}
+
+
+// ===== GOOGLE DRIVE appDataFolder 연동 =====
+function openDriveModal(){
+  const clientId=localStorage.getItem(DRIVE_CLIENT_ID_KEY)||'';
+  const input=document.getElementById('drive-client-id-input');
+  if(input)input.value=clientId;
+  const status=document.getElementById('drive-status');
+  if(status){status.className='gist-status';status.textContent='';}
+  setDriveStatus(driveAccessToken?'Drive 연결됨. 슬롯 저장/불러오기 가능해.':'Client ID 저장 후 연결을 눌러줘.',driveAccessToken?'ok':'loading');
+  document.getElementById('drive-modal-overlay').style.display='flex';
+}
+
+function closeDriveModal(){
+  document.getElementById('drive-modal-overlay').style.display='none';
+}
+
+function setDriveStatus(msg,type){
+  const el=document.getElementById('drive-status');
+  if(el){el.textContent=msg;el.className='gist-status '+(type||'');}
+}
+
+function setDriveIndicator(state){
+  const el=document.getElementById('drive-sync-indicator');
+  if(!el)return;
+  el.className='sync-indicator'+(state==='ok'?' synced':state==='err'?' error':'');
+}
+
+function driveGetClientIdFromInput(){
+  const input=document.getElementById('drive-client-id-input');
+  const id=(input&&input.value.trim())||localStorage.getItem(DRIVE_CLIENT_ID_KEY)||'';
+  if(id)localStorage.setItem(DRIVE_CLIENT_ID_KEY,id);
+  return id;
+}
+
+function driveClearClientId(){
+  localStorage.removeItem(DRIVE_CLIENT_ID_KEY);
+  driveAccessToken=null;driveTokenClient=null;
+  const input=document.getElementById('drive-client-id-input');
+  if(input)input.value='';
+  setDriveIndicator('');
+  setDriveStatus('Client ID 삭제됨. access token도 세션에서 비웠어.','ok');
+}
+
+function ensureDriveTokenClient(clientId, callback, errorCallback){
+  if(!window.google||!google.accounts||!google.accounts.oauth2){
+    const err=new Error('Google Identity Services 스크립트가 아직 로드되지 않았어.');
+    if(errorCallback)errorCallback(err);
+    return null;
+  }
+  driveTokenClient=google.accounts.oauth2.initTokenClient({
+    client_id:clientId,
+    scope:DRIVE_SCOPE,
+    callback:(resp)=>{
+      if(resp&&resp.access_token){
+        driveAccessToken=resp.access_token;
+        setDriveIndicator('ok');
+        if(callback)callback(resp);
+      }else{
+        setDriveIndicator('err');
+        if(errorCallback)errorCallback(new Error((resp&&resp.error)||'토큰 발급 실패'));
+      }
+    },
+    error_callback:(err)=>{
+      setDriveIndicator('err');
+      if(errorCallback)errorCallback(err instanceof Error?err:new Error((err&&err.message)||'Google OAuth 오류'));
+    }
+  });
+  return driveTokenClient;
+}
+
+function driveRequestToken(promptMode, onOk, onErr){
+  const clientId=driveGetClientIdFromInput();
+  if(!clientId){
+    const err=new Error('Google OAuth Client ID를 먼저 입력해줘.');
+    if(onErr)onErr(err);
+    else setDriveStatus(err.message,'err');
+    return;
+  }
+  const tokenClient=ensureDriveTokenClient(clientId,onOk,onErr);
+  if(!tokenClient)return;
+  try{tokenClient.requestAccessToken({prompt:promptMode});}
+  catch(e){if(onErr)onErr(e);else setDriveStatus('OAuth 요청 실패: '+e.message,'err');}
+}
+
+function driveConnectManual(){
+  setDriveStatus('Google 연결 창 여는 중...','loading');
+  driveRequestToken('consent',
+    ()=>setDriveStatus('Drive 연결됨. 이제 슬롯 저장/불러오기를 누르면 돼.','ok'),
+    (e)=>setDriveStatus('Drive 연결 실패: '+e.message,'err')
+  );
+}
+
+function driveEnsureToken(){
+  return new Promise((resolve,reject)=>{
+    if(driveAccessToken){resolve(driveAccessToken);return;}
+    driveRequestToken('consent',()=>resolve(driveAccessToken),reject);
+  });
+}
+
+async function driveApi(path, options={}){
+  const token=await driveEnsureToken();
+  const res=await fetch('https://www.googleapis.com/drive/v3'+path,{
+    ...options,
+    headers:{'Authorization':'Bearer '+token,...(options.headers||{})}
+  });
+  if(!res.ok){
+    let msg=res.status+' '+res.statusText;
+    try{const err=await res.json();msg=(err.error&&err.error.message)||msg;}catch(e){}
+    throw new Error(msg);
+  }
+  return res;
+}
+
+async function driveUploadApi(path, options={}){
+  const token=await driveEnsureToken();
+  const res=await fetch('https://www.googleapis.com/upload/drive/v3'+path,{
+    ...options,
+    headers:{'Authorization':'Bearer '+token,...(options.headers||{})}
+  });
+  if(!res.ok){
+    let msg=res.status+' '+res.statusText;
+    try{const err=await res.json();msg=(err.error&&err.error.message)||msg;}catch(e){}
+    throw new Error(msg);
+  }
+  return res;
+}
+
+async function driveFindFile(){
+  const q=encodeURIComponent(`name='${DRIVE_FILE_NAME}' and trashed=false`);
+  const res=await driveApi(`/files?spaces=appDataFolder&q=${q}&fields=files(id,name,modifiedTime,size)`);
+  const data=await res.json();
+  return (data.files&&data.files[0])||null;
+}
+
+async function driveReadPayload(){
+  const file=await driveFindFile();
+  if(!file)return {file:null,payload:{version:1,kind:'drive-full',slots:[]}};
+  const res=await driveApi(`/files/${file.id}?alt=media`,{headers:{'Accept':'application/json'}});
+  const payload=await res.json();
+  return {file,payload};
+}
+
+async function driveWritePayload(fileId, payload){
+  const boundary='lf_drive_boundary_'+Date.now();
+  const metadata={name:DRIVE_FILE_NAME,mimeType:'application/json'};
+  if(!fileId)metadata.parents=['appDataFolder'];
+  const body=[
+    '--'+boundary,
+    'Content-Type: application/json; charset=UTF-8',
+    '',
+    JSON.stringify(metadata),
+    '--'+boundary,
+    'Content-Type: application/json; charset=UTF-8',
+    '',
+    JSON.stringify(payload,null,2),
+    '--'+boundary+'--'
+  ].join('\r\n');
+  const path=fileId?`/files/${fileId}?uploadType=multipart`:'/files?uploadType=multipart';
+  const method=fileId?'PATCH':'POST';
+  const res=await driveUploadApi(path,{method,headers:{'Content-Type':'multipart/related; boundary='+boundary},body});
+  return await res.json();
+}
+
+async function driveUploadSlot(){
+  try{
+    setDriveStatus('Drive 슬롯 저장 중...','loading');
+    const {file,payload}=await driveReadPayload();
+    let slots=Array.isArray(payload.slots)?payload.slots:[];
+    const fullState=getStateForDrive();
+    slots.unshift({savedAt:new Date().toISOString(),device:'수동',...fullState});
+    if(slots.length>5)slots=slots.slice(0,5);
+    const nextPayload={version:2,kind:'drive-full',savedAt:new Date().toISOString(),slots};
+    await driveWritePayload(file&&file.id,nextPayload);
+    setDriveStatus('Drive 저장 완료! appDataFolder의 app_drive.json 슬롯에 넣었어.','ok');
+    setDriveIndicator('ok');
+    showToast('🟣 Drive 슬롯 저장 완료!');
+  }catch(e){
+    console.error('[LoreForge] Drive 저장 실패:',e);
+    setDriveStatus('Drive 저장 실패: '+e.message,'err');
+    setDriveIndicator('err');
+  }
+}
+
+async function driveDownloadSlots(){
+  try{
+    setDriveStatus('Drive 슬롯 읽는 중...','loading');
+    const {payload}=await driveReadPayload();
+    const slots=Array.isArray(payload.slots)?payload.slots:[];
+    if(!slots.length){setDriveStatus('Drive에 저장된 슬롯이 없어.','err');return;}
+    setDriveStatus('','');
+    showDriveSlotPicker(slots);
+  }catch(e){
+    console.error('[LoreForge] Drive 불러오기 실패:',e);
+    setDriveStatus('Drive 불러오기 실패: '+e.message,'err');
+    setDriveIndicator('err');
+  }
+}
+
+function showDriveSlotPicker(slots){
+  const existing=document.getElementById('drive-slot-picker-overlay');
+  if(existing)existing.remove();
+  const overlay=document.createElement('div');
+  overlay.id='drive-slot-picker-overlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:2000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
+  const box=document.createElement('div');
+  box.style.cssText='background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px;width:380px;max-width:calc(100vw - 32px);max-height:calc(100vh - 60px);overflow-y:auto;display:flex;flex-direction:column;gap:12px;';
+  box.innerHTML='<div style="font-family:Bebas Neue,sans-serif;font-size:18px;letter-spacing:3px;color:var(--accent);">DRIVE 슬롯 선택</div><div style="font-size:11px;color:var(--muted);">Drive는 큰 데이터까지 포함한 전체 슬롯이야. 불러오면 현재 데이터는 덮어씌워져.</div>';
+  slots.forEach((slot,i)=>{
+    const t=slot.savedAt?new Date(slot.savedAt).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'알 수 없음';
+    const projCount=slot.projects?Object.keys(slot.projects).length:0;
+    const btn=document.createElement('button');
+    btn.style.cssText='padding:11px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);cursor:pointer;text-align:left;font-family:Noto Sans KR,sans-serif;font-size:12px;transition:all 0.15s;display:flex;justify-content:space-between;align-items:center;';
+    btn.innerHTML=`<div><div style="font-weight:700;color:var(--accent);margin-bottom:3px;">${i===0?'🟣 최신':'📁 슬롯 '+(i+1)}</div><div style="color:var(--muted);font-size:10px;">${t} · ${slot.device||'알 수 없음'} · 프로젝트 ${projCount}개</div></div><span style="color:var(--muted);font-size:16px;">›</span>`;
+    btn.onmouseover=()=>btn.style.borderColor='var(--accent)';
+    btn.onmouseout=()=>btn.style.borderColor='var(--border)';
+    btn.onclick=async()=>{
+      if(!(await showConfirm(`Drive 슬롯 #${i+1}을 불러올까?\n현재 로컬 데이터는 덮어씌워져.`,{danger:true,title:'⚠️ Drive 슬롯 불러오기'})))return;
+      safetyBackup('Drive 불러오기 직전');
+      applyStateFromSync(slot);
+      overlay.remove();closeDriveModal();
+      setDriveIndicator('ok');
+      showToast('✅ Drive 데이터 불러옴!');
+    };
+    box.appendChild(btn);
+  });
+  const cancel=document.createElement('button');
+  cancel.textContent='취소';
+  cancel.className='btn btn-ghost';
+  cancel.onclick=()=>overlay.remove();
+  box.appendChild(cancel);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+}
+
+function driveTrySilentReconnect(){
+  if(driveSilentTried)return;
+  driveSilentTried=true;
+  const clientId=localStorage.getItem(DRIVE_CLIENT_ID_KEY)||'';
+  if(!clientId)return;
+  const tryOnce=()=>{
+    if(!window.google||!google.accounts||!google.accounts.oauth2){
+      setTimeout(tryOnce,300);
+      return;
+    }
+    driveRequestToken('',
+      ()=>{setDriveIndicator('ok');console.log('[LoreForge] Drive 조용한 자동 재연결 성공');},
+      ()=>{setDriveIndicator('');console.log('[LoreForge] Drive 조용한 자동 재연결 실패 — 수동 연결 필요');}
+    );
+  };
+  tryOnce();
+}
+
+
+// ===== GIST 자동저장 =====
+let gistAutoSaveTimer = null;
+const GIST_AUTO_INTERVAL = 10 * 60 * 1000; // 10분
+
+async function gistAutoSave(){
+  const token = localStorage.getItem('loreforge_gist_token');
+  const gistId = localStorage.getItem('loreforge_gist_id');
+  if(!token || !gistId) return;
+  saveAll();
+  await pushSlot(token, gistId, '자동');
+  showAutoSaveToast();
+}
+
+function showAutoSaveToast(){
+  const now = new Date();
+  const time = now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
+  const t = document.createElement('div');
+  t.textContent = '☁️ 자동저장 완료 '+time;
+  t.style.cssText = 'position:fixed;bottom:70px;right:16px;background:var(--surface2);border:1px solid rgba(106,200,176,0.4);color:#6AC8B0;padding:7px 13px;border-radius:8px;font-size:11px;z-index:9999;font-family:JetBrains Mono,monospace;opacity:0;transition:opacity 0.3s;';
+  document.body.appendChild(t);
+  setTimeout(()=>t.style.opacity='1', 50);
+  setTimeout(()=>{t.style.opacity='0'; setTimeout(()=>t.remove(),300);}, 2500);
+}
+
+function startAutoSave(){
+  if(gistAutoSaveTimer) clearInterval(gistAutoSaveTimer);
+  gistAutoSaveTimer = setInterval(gistAutoSave, GIST_AUTO_INTERVAL);
+}
+
+function init(){
+  loadCustomChips();
+  const loaded=loadAll();
+  if(!loaded){
+    // 데이터가 정말 비어 있는지 / 손상된 건지 구분 (덮어쓰기 사고 방지)
+    if(window.__lfLoadStatus==='corrupt'){
+      // 손상! 자동 백업에서 복구 시도
+      console.error('[LoreForge] ⚠️ 데이터 손상 감지. 백업 복구 시도 중...');
+      const recovered=tryAutoRecoverFromBackup();
+      if(recovered){
+        showToast('⚠️ 데이터 손상 감지 → 백업에서 자동 복구함');
+      }else{
+        // 백업도 없으면 사용자에게 명확히 알림 (새 프로젝트 자동 생성 금지)
+        alert('⚠️ 데이터가 손상됐는데 백업도 없어!\n\n빈 프로젝트로 시작하기 전에 F12 콘솔에서 아래 명령어로 원본을 확인해봐:\n\nloreForgeDebug.exportAllRaw()\n\n또는 Gist 동기화에서 복구할 수 있으면 그쪽이 안전해.');
+      }
+    }
+    if(Object.keys(projects).length===0){
+      const proj=newProjectData('기본 프로젝트');projects[proj.id]=proj;currentProjectId=proj.id;saveAll();
+    }
+  }else{
+    // 정상 로드 시 페이지 진입 백업 (세션당 1회)
+    if(!sessionStorage.getItem('lf_session_backup')){
+      safetyBackup('페이지 진입');
+      sessionStorage.setItem('lf_session_backup','1');
+    }
+  }
+  renderProjectDropdown();loadProjectUI();
+  startAutoSave();
+  driveTrySilentReconnect();
+  console.log('[LoreForge] 데이터 손실 시 F12 콘솔에서 loreForgeDebug.listBackups() 입력으로 백업 확인 가능');
+}
+
+// 손상 시 자동 복구 시도
+function tryAutoRecoverFromBackup(){
+  try{
+    const raw=localStorage.getItem(LF_BACKUP_KEY);
+    if(!raw)return false;
+    const slots=JSON.parse(raw);
+    if(!Array.isArray(slots)||!slots.length)return false;
+    // 가장 최신 백업 시도
+    for(const slot of slots){
+      try{
+        const d=JSON.parse(slot.data);
+        if(d.projects&&Object.keys(d.projects).length){
+          projects=d.projects;
+          currentProjectId=d.currentProjectId||Object.keys(d.projects)[0];
+          if(d.customChips)customChips=d.customChips;
+          console.log('[LoreForge] ✅ 백업에서 복구 완료:',slot.savedAt,slot.reason);
+          // 복구한 내용으로 다시 저장
+          try{localStorage.setItem('loreforge_v3',slot.data);}catch(e){}
+          return true;
+        }
+      }catch(e){continue;}
+    }
+    return false;
+  }catch(e){console.error('[LoreForge] 복구 실패:',e);return false;}
+}
+
+
+// ── 탭 복사 & 모바일 더보기 ──────────────────────────────
+let currentCopyTab=null;
+
+function toggleMobMore(){
+  const sheet=document.getElementById('mob-more-sheet');
+  const overlay=document.getElementById('mob-more-overlay');
+  if(sheet.style.display!=='none'){closeMobMore();}
+  else{sheet.style.display='block';overlay.style.display='block';}
+}
+function closeMobMore(){
+  document.getElementById('mob-more-sheet').style.display='none';
+  document.getElementById('mob-more-overlay').style.display='none';
+}
+function openCopyTabModal(){
+  saveAll();
+  const proj=getProject();if(!proj)return;
+  const tabNames={world:'세계관',output:'출력지침',rules:'행동 규칙',lorebook:'로어북'};
+  const label=tabNames[currentCopyTab]||currentCopyTab;
+  document.getElementById('copy-tab-modal-title').textContent=label+'을(를) 다른 프로젝트로 복사';
+  const list=document.getElementById('copy-tab-project-list');
+  list.innerHTML='';
+  const others=Object.values(projects).filter(p=>p.id!==currentProjectId);
+  if(!others.length){
+    list.innerHTML='<div style="color:var(--muted);font-size:12px;text-align:center;padding:16px;">다른 프로젝트가 없어!</div>';
+  }else{
+    others.forEach(p=>{
+      const btn=document.createElement('button');
+      btn.className='btn btn-ghost';
+      btn.style.cssText='text-align:left;justify-content:flex-start;gap:8px;width:100%;';
+      btn.textContent='📁 '+p.name;
+      btn.onclick=()=>executeCopyTab(p.id);
+      list.appendChild(btn);
+    });
+  }
+  document.getElementById('copy-tab-modal-overlay').style.display='flex';
+}
+function closeCopyTabModal(){
+  document.getElementById('copy-tab-modal-overlay').style.display='none';
+}
+function executeCopyTab(targetId){
+  const src=getProject();if(!src)return;
+  const tgt=projects[targetId];if(!tgt)return;
+  if(currentCopyTab==='world'){
+    tgt.world=JSON.parse(JSON.stringify(src.world));
+    tgt.globalTagData=tgt.globalTagData||{};
+    ['world-rule','atmo','place'].forEach(k=>{tgt.globalTagData[k]=JSON.parse(JSON.stringify(src.globalTagData[k]||[]));});
+  }else if(currentCopyTab==='output'){
+    tgt.output=JSON.parse(JSON.stringify(src.output));
+  }else if(currentCopyTab==='rules'){
+    tgt.rules=JSON.parse(JSON.stringify(src.rules));
+    tgt.globalTagData=tgt.globalTagData||{};
+    ['must','never'].forEach(k=>{tgt.globalTagData[k]=JSON.parse(JSON.stringify(src.globalTagData[k]||[]));});
+  }else if(currentCopyTab==='lorebook'){
+    tgt.lorebook=JSON.parse(JSON.stringify(src.lorebook||[]));
+  }
+  saveAll();
+  closeCopyTabModal();
+  showToast('✅ '+projects[targetId].name+'에 복사됐어!');
+}
+
+
+// ── 캐릭터 복사 ──────────────────────────────────────────
+function openCopyCharModal(){
+  const char=getCurrentChar(); if(!char)return;
+  document.getElementById('copy-char-modal-title').textContent='「'+( char.data.name||'이름 없음')+'」를 복사';
+  const list=document.getElementById('copy-char-project-list');
+  list.innerHTML='';
+  const others=Object.values(projects).filter(p=>p.id!==currentProjectId);
+  if(!others.length){
+    list.innerHTML='<div style="color:var(--muted);font-size:12px;text-align:center;padding:16px;">다른 프로젝트가 없어!</div>';
+  }else{
+    others.forEach(p=>{
+      const btn=document.createElement('button');
+      btn.className='btn btn-ghost';
+      btn.style.cssText='text-align:left;justify-content:flex-start;gap:8px;width:100%;';
+      btn.textContent='📁 '+p.name;
+      btn.onclick=()=>executeCopyChar(p.id);
+      list.appendChild(btn);
+    });
+  }
+  document.getElementById('copy-char-modal-overlay').style.display='flex';
+}
+function closeCopyCharModal(){
+  document.getElementById('copy-char-modal-overlay').style.display='none';
+}
+function executeCopyChar(targetId){
+  const char=getCurrentChar(); if(!char)return;
+  const tgt=projects[targetId]; if(!tgt)return;
+  const copy=JSON.parse(JSON.stringify(char));
+  copy.id='char_'+Date.now();
+  copy.colorIdx=tgt.characters.length % 8;
+  tgt.characters.push(copy);
+  saveAll();
+  closeCopyCharModal();
+  showToast('✅ '+projects[targetId].name+'에 복사됐어!');
+}
+
+// ── Textarea Auto-Grow (포커스 시 1회만 크기 결정. input 중에는 변경 X → 페이지 점프 방지) ─────────
+function setupTextareaAutoGrow(){
+  // viewport 비율 cap 계산 (모바일 키보드 올라오면 visualViewport.height가 줄어듦)
+  const getMaxH=()=>{
+    const vv=window.visualViewport;
+    const viewportH=vv?vv.height:window.innerHeight;
+    return Math.max(300,Math.floor(viewportH*0.65));
+  };
+  // focus 직후 한 번만 호출. 글 양에 맞춰 height 결정 (min 300px, max viewport*0.65)
+  // input 중에는 호출 안 함 → textarea가 자라지 않음 → 페이지 자동 스크롤 발생 X
+  const setInitialHeight=(ta)=>{
+    if(!ta||ta.tagName!=='TEXTAREA')return;
+    ta.style.height='auto';
+    const minH=300;
+    const maxH=getMaxH();
+    const targetH=Math.max(minH,ta.scrollHeight+2);
+    const newH=Math.min(maxH,targetH);
+    ta.style.height=newH+'px';
+  };
+  // 포커스 직후 textarea를 viewport 안으로 끌어오기 (한 번만)
+  const scrollIntoViewOnce=(ta)=>{
+    if(!ta||ta.tagName!=='TEXTAREA')return;
+    if(document.activeElement!==ta)return;
+    const vv=window.visualViewport;
+    const viewportH=vv?vv.height:window.innerHeight;
+    const viewportTop=vv?vv.offsetTop:0;
+    const rect=ta.getBoundingClientRect();
+    if(rect.bottom>viewportTop+viewportH||rect.top<viewportTop){
+      try{ta.scrollIntoView({block:'center',behavior:'instant'});}
+      catch(_){ta.scrollIntoView({block:'center'});}
+    }
+  };
+  document.addEventListener('focusin',(e)=>{
+    if(e.target.tagName==='TEXTAREA'){
+      setInitialHeight(e.target);
+      // 포커스 직후 키보드/레이아웃 안정화 대기 후 한 번만 스크롤
+      setTimeout(()=>scrollIntoViewOnce(e.target),150);
+    }
+  });
+  // input 이벤트 핸들러 의도적으로 제거: textarea 자체 height 변경 X
+  // → 글이 textarea를 넘어가면 textarea 내부 스크롤로 자동 처리 (브라우저가 커서 따라감)
+  document.addEventListener('focusout',(e)=>{
+    if(e.target.tagName==='TEXTAREA'){
+      // 포커스 빠지면 inline height 제거 → CSS의 min-height(72px)로 복귀
+      e.target.style.height='';
+    }
+  });
+  // viewport 변경 시 (키보드 토글/회전) active textarea height max 다시 적용 (초과 시 줄이기만)
+  const handleResize=()=>{
+    const ta=document.activeElement;
+    if(ta&&ta.tagName==='TEXTAREA'){
+      const maxH=getMaxH();
+      const cur=parseFloat(ta.style.height)||0;
+      if(cur>maxH)ta.style.height=maxH+'px';
+    }
+  };
+  if(window.visualViewport){
+    window.visualViewport.addEventListener('resize',handleResize);
+  }
+  window.addEventListener('resize',handleResize);
+}
+
+init();
+setupTextareaAutoGrow();
+</script>
+
+<!-- 탭 복사 모달 -->
+<div class="modal-overlay" id="copy-tab-modal-overlay" style="display:none;" onclick="closeCopyTabModal()">
+  <div class="modal" style="max-width:380px;" onclick="event.stopPropagation()">
+    <div class="modal-title" id="copy-tab-modal-title">복사</div>
+    <div style="margin-bottom:12px;font-size:12px;color:var(--muted);">복사할 프로젝트를 선택해. 기존 내용은 덮어써져.</div>
+    <div id="copy-tab-project-list" style="display:flex;flex-direction:column;gap:6px;max-height:260px;overflow-y:auto;margin-bottom:16px;"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-ghost" onclick="closeCopyTabModal()">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- 캐릭터 복사 모달 -->
+<div class="modal-overlay" id="copy-char-modal-overlay" style="display:none;" onclick="closeCopyCharModal()">
+  <div class="modal" style="max-width:380px;" onclick="event.stopPropagation()">
+    <div class="modal-title" id="copy-char-modal-title">캐릭터 복사</div>
+    <div style="margin-bottom:12px;font-size:12px;color:var(--muted);">어느 프로젝트로 복사할까? 같은 이름 캐릭터가 있어도 새로 추가돼.</div>
+    <div id="copy-char-project-list" style="display:flex;flex-direction:column;gap:6px;max-height:260px;overflow-y:auto;margin-bottom:16px;"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-ghost" onclick="closeCopyCharModal()">취소</button>
+    </div>
+  </div>
 </div>
 </body>
 </html>
