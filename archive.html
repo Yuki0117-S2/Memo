@@ -127,6 +127,19 @@
   .slot-cancel-btn{padding:7px;background:none;border:0.5px solid var(--border2);border-radius:var(--radius-sm);color:var(--text3);cursor:pointer;font-family:inherit;font-size:12px}
   @media(max-width:1050px){.split{grid-template-columns:220px 1fr}.detail-panel{grid-column:1/-1}}
   @media(max-width:720px){#app{padding:.75rem .8rem 2rem}.split{grid-template-columns:1fr}.toolbar{width:100%}.btn{padding:7px 10px}#list{grid-template-columns:1fr}.panel-body{padding:10px}.logo{width:100%;margin-bottom:2px}}
+/* 커스텀 confirm/alert 모달 — 네이티브 confirm 대체 (포커스 먹통 해결) */
+#confirm-overlay{position:fixed;inset:0;z-index:10002;background:rgba(0,0,0,0.55);display:none;align-items:center;justify-content:center;padding:20px}
+#confirm-overlay.open{display:flex}
+.confirm-modal{background:var(--bg);border:.5px solid var(--border2);border-radius:var(--radius);padding:22px;width:340px;max-width:100%;display:flex;flex-direction:column;gap:18px;box-shadow:0 12px 40px rgba(0,0,0,0.3)}
+.confirm-message{font-size:14px;color:var(--text);line-height:1.6;white-space:pre-wrap;word-break:keep-all}
+.confirm-btn-row{display:flex;gap:8px;justify-content:flex-end}
+.cm-btn{border:0;border-radius:var(--radius-sm);padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+.cm-btn:hover{opacity:.88}
+.cm-accent{background:var(--accent);color:#fff}
+.cm-danger{background:var(--danger);color:#fff}
+.cm-ghost{background:var(--bg2);color:var(--text2);border:.5px solid var(--border)}
+.cm-ghost:hover{background:var(--bg3);opacity:1}
+.cm-btn:focus-visible{outline:2px solid var(--accent2);outline-offset:2px}
 </style>
 </head>
 <body>
@@ -261,6 +274,15 @@
   </div>
 </div>
 <div id="ctx-menu" role="menu"></div>
+<div id="confirm-overlay">
+  <div class="confirm-modal">
+    <div class="confirm-message" id="confirm-message"></div>
+    <div class="confirm-btn-row">
+      <button class="cm-btn cm-ghost" id="confirm-cancel">취소</button>
+      <button class="cm-btn cm-accent" id="confirm-ok">확인</button>
+    </div>
+  </div>
+</div>
 <script>
 const STORE_KEY='archive_v1';
 const PREVIEW_LIMIT=3000;
@@ -274,6 +296,9 @@ function bytes(n){if(!n)return '0KB'; if(n<1024)return n+'B'; if(n<1024*1024)ret
 function utf8Bytes(s){try{return new Blob([s]).size}catch(e){return new TextEncoder().encode(s).length}}
 function estimateGistPayloadBytes(){try{return utf8Bytes(JSON.stringify({version:1,slots:[{savedAt:new Date().toISOString(),device:'예상',state:JSON.parse(JSON.stringify(state))}]},null,2))}catch(e){return 0}}
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),1700)}
+function showModal({message,danger,confirmText,cancelText,alert}){return new Promise(resolve=>{const ov=$('#confirm-overlay'),msgEl=$('#confirm-message'),okBtn=$('#confirm-ok'),cancelBtn=$('#confirm-cancel');msgEl.textContent=message;okBtn.textContent=confirmText||'확인';okBtn.className='cm-btn '+(danger?'cm-danger':'cm-accent');cancelBtn.textContent=cancelText||'취소';cancelBtn.style.display=alert?'none':'';ov.classList.add('open');okBtn.focus();function done(val){ov.classList.remove('open');okBtn.onclick=null;cancelBtn.onclick=null;ov.onclick=null;document.removeEventListener('keydown',onKey,true);resolve(val)}function onKey(e){if(e.key==='Enter'){e.preventDefault();e.stopPropagation();done(true)}else if(e.key==='Escape'){e.preventDefault();e.stopPropagation();done(alert?true:false)}}okBtn.onclick=()=>done(true);cancelBtn.onclick=()=>done(false);ov.onclick=e=>{if(e.target===ov)done(alert?true:false)};document.addEventListener('keydown',onKey,true)})}
+function showConfirm(message,opts={}){return showModal({message,danger:opts.danger,confirmText:opts.confirmText,cancelText:opts.cancelText})}
+function showAlert(message,opts={}){return showModal({message,alert:true,confirmText:opts.confirmText||'확인'})}
 function save(){try{localStorage.setItem(STORE_KEY,JSON.stringify(state))}catch(e){toast('저장 실패: 항목이 너무 무거울 수 있어')}}
 function load(){try{const s=localStorage.getItem(STORE_KEY);if(s){state=JSON.parse(s)}}catch(e){}}
 function extOf(name){const m=String(name||'').match(/\.([^.]+)$/);return m?m[1].toLowerCase():'txt'}
@@ -414,7 +439,7 @@ $('#save-detail-btn').onclick=saveDetail; ['#d-title','#d-category','#d-tags','#
 $('#copy-preview-btn').onclick=()=>{const it=current();if(!it)return;navigator.clipboard.writeText(it.preview||'');toast('미리보기 복사했어')};
 $('#copy-raw-btn').onclick=()=>{const it=current();if(!it)return;if(!it.hasRaw){toast('원문 저장 안 된 항목이야');return}navigator.clipboard.writeText(it.raw||'');toast('원문 복사했어')};
 $('#toggle-fav-btn').onclick=()=>{const it=current();if(!it)return;it.fav=!it.fav;save();render()};
-$('#delete-btn').onclick=()=>{const it=current();if(!it)return;if(!confirm('이 항목을 삭제할까? 원본 파일은 삭제되지 않아.'))return;state.items=state.items.filter(x=>x.id!==it.id);state.selectedId=state.items[0]?.id||null;save();render();toast('삭제했어')};
+$('#delete-btn').onclick=async()=>{const it=current();if(!it)return;if(!await showConfirm('이 항목을 삭제할까? 원본 파일은 삭제되지 않아.',{danger:true}))return;state.items=state.items.filter(x=>x.id!==it.id);state.selectedId=state.items[0]?.id||null;save();render();toast('삭제했어')};
 const dz=$('#drop-zone'); ['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('dragover')})); ['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('dragover')})); dz.addEventListener('drop',e=>addFiles(e.dataTransfer.files)); dz.addEventListener('click',()=>$('#file-input').click()); dz.style.cursor='pointer';
 window.addEventListener('keydown',e=>{const mod=e.ctrlKey||e.metaKey;if(mod&&e.key.toLowerCase()==='f'){e.preventDefault();$('#search').focus()} if(mod&&e.key.toLowerCase()==='s'){e.preventDefault();saveDetail()}});
 
@@ -567,8 +592,8 @@ function copyItemRaw(it){
 }
 function toggleItemFav(it){it.fav=!it.fav;save();render();}
 function setItemCategory(it,cat){if(it.category===cat)return;it.category=cat;it.updatedAt=Date.now();save();render();toast('분류 → '+cat);}
-function deleteItem(it){
-  if(!confirm('이 자료를 삭제할까? 원본 파일은 삭제되지 않아.'))return;
+async function deleteItem(it){
+  if(!await showConfirm('이 자료를 삭제할까? 원본 파일은 삭제되지 않아.',{danger:true}))return;
   state.items=state.items.filter(x=>x.id!==it.id);
   if(state.selectedId===it.id) state.selectedId=state.items[0]?.id||null;
   save(); render(); toast('삭제했어');
@@ -638,10 +663,10 @@ $('#select-all-btn').addEventListener('click',()=>{
   document.querySelectorAll('#list .card').forEach(c=>{selectedIds.add(c.dataset.id);c.classList.add('selected');});
   updateSelectCount();
 });
-$('#select-delete-btn').addEventListener('click',()=>{
+$('#select-delete-btn').addEventListener('click',async()=>{
   const n=selectedIds.size;
   if(n===0){toast('선택된 게 없어');return;}
-  if(!confirm('선택한 '+n+'개 자료를 삭제할까?'))return;
+  if(!await showConfirm('선택한 '+n+'개 자료를 삭제할까?',{danger:true}))return;
   state.items=state.items.filter(x=>!selectedIds.has(x.id));
   if(state.selectedId&&selectedIds.has(state.selectedId)) state.selectedId=state.items[0]?.id||null;
   save(); exitSelectMode(); render(); toast(n+'개 삭제됨');

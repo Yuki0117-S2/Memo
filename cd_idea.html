@@ -761,6 +761,19 @@
     color: var(--text3); cursor: pointer;
     font-family: inherit; font-size: 12px;
   }
+/* 커스텀 confirm/alert 모달 — 네이티브 confirm 대체 (포커스 먹통 해결) */
+#confirm-overlay{position:fixed;inset:0;z-index:10002;background:rgba(0,0,0,0.55);display:none;align-items:center;justify-content:center;padding:20px}
+#confirm-overlay.open{display:flex}
+.confirm-modal{background:var(--bg);border:.5px solid var(--border2);border-radius:var(--radius-lg);padding:22px;width:340px;max-width:100%;display:flex;flex-direction:column;gap:18px;box-shadow:0 12px 40px rgba(0,0,0,0.3)}
+.confirm-message{font-size:14px;color:var(--text);line-height:1.6;white-space:pre-wrap;word-break:keep-all}
+.confirm-btn-row{display:flex;gap:8px;justify-content:flex-end}
+.cm-btn{border:0;border-radius:var(--radius-md);padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+.cm-btn:hover{opacity:.88}
+.cm-accent{background:var(--accent);color:#fff}
+.cm-danger{background:var(--accent2);color:#fff}
+.cm-ghost{background:var(--bg2);color:var(--text2);border:.5px solid var(--border)}
+.cm-ghost:hover{background:var(--bg3);opacity:1}
+.cm-btn:focus-visible{outline:2px solid var(--accent3);outline-offset:2px}
 </style>
 </head>
 <body>
@@ -854,6 +867,16 @@
   <button class="lb-nav lb-prev" title="이전">‹</button>
   <img id="lb-img" alt="">
   <button class="lb-nav lb-next" title="다음">›</button>
+</div>
+
+<div id="confirm-overlay">
+  <div class="confirm-modal">
+    <div class="confirm-message" id="confirm-message"></div>
+    <div class="confirm-btn-row">
+      <button class="cm-btn cm-ghost" id="confirm-cancel">취소</button>
+      <button class="cm-btn cm-accent" id="confirm-ok">확인</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -1192,9 +1215,9 @@ function addTab(){
   },50);
 }
 
-function deleteTab(id){
+async function deleteTab(id){
   if(state.tabs.length<=1)return;
-  if(!confirm('이 탭을 삭제할까? 카드도 전부 사라져.'))return;
+  if(!await showConfirm('이 탭을 삭제할까? 카드도 전부 사라져.',{danger:true}))return;
   pushHistory();
   state.tabs=state.tabs.filter(t=>t.id!==id);
   if(state.activeTabId===id)state.activeTabId=state.tabs[0].id;
@@ -1519,8 +1542,8 @@ function makeCard(data,tab){
 
   sel.addEventListener('change',()=>{pushHistory();data.stage=sel.value;dot.style.background=STAGE_COLORS[data.stage]||SC;save();applyFilter();});
   delbtn.addEventListener('mousedown',e=>e.stopPropagation());
-  delbtn.addEventListener('click',()=>{
-    if(!confirm('이 카드를 삭제할까?'))return;
+  delbtn.addEventListener('click',async()=>{
+    if(!await showConfirm('이 카드를 삭제할까?',{danger:true}))return;
     pushHistory();
     tab.cards=tab.cards.filter(c=>c.id!==data.id);
     el.remove();
@@ -2182,8 +2205,8 @@ function setCardStage(data,stage,cardEl){
   save(); applyFilter();
 }
 
-function deleteCard(data,tab,cardEl){
-  if(!confirm('이 카드를 삭제할까?'))return;
+async function deleteCard(data,tab,cardEl){
+  if(!await showConfirm('이 카드를 삭제할까?',{danger:true}))return;
   pushHistory();
   tab.cards=tab.cards.filter(c=>c.id!==data.id);
   if(cardEl)cardEl.remove();
@@ -2237,9 +2260,9 @@ document.getElementById('select-all-btn').addEventListener('click',()=>{
   });
   updateSelectCount();
 });
-document.getElementById('select-delete-btn').addEventListener('click',()=>{
+document.getElementById('select-delete-btn').addEventListener('click',async()=>{
   if(selectedIds.size===0)return;
-  if(!confirm(`선택한 ${selectedIds.size}개 카드를 삭제할까?`))return;
+  if(!await showConfirm(`선택한 ${selectedIds.size}개 카드를 삭제할까?`,{danger:true}))return;
   pushHistory();
   const tab=activeTab();
   tab.cards=tab.cards.filter(c=>!selectedIds.has(c.id));
@@ -2269,11 +2292,11 @@ function importJSON(){ document.getElementById('json-import-input').click(); }
 document.getElementById('json-import-input').addEventListener('change',e=>{
   const f=e.target.files[0]; if(!f)return;
   const reader=new FileReader();
-  reader.onload=()=>{
+  reader.onload=async()=>{
     try{
       const obj=JSON.parse(reader.result);
       if(obj.scope==='tab'&&obj.tab){
-        if(!confirm(`"${obj.tab.name}" 탭을 새로 추가할까?`))return;
+        if(!await showConfirm(`"${obj.tab.name}" 탭을 새로 추가할까?`))return;
         pushHistory();
         obj.tab.id=uid();
         if(!obj.tab.color) obj.tab.color=TAB_COLORS[state.tabs.length%TAB_COLORS.length];
@@ -2281,21 +2304,21 @@ document.getElementById('json-import-input').addEventListener('change',e=>{
         state.tabs.push(obj.tab);
         state.activeTabId=obj.tab.id;
       } else if(obj.scope==='all'&&obj.state){
-        if(!confirm('전체 데이터를 덮어쓸까? 현재 데이터는 사라져.'))return;
+        if(!await showConfirm('전체 데이터를 덮어쓸까? 현재 데이터는 사라져.',{danger:true}))return;
         pushHistory();
         state=obj.state;
         if(!state.activeTabId&&state.tabs[0])state.activeTabId=state.tabs[0].id;
-      } else { alert('지원하지 않는 JSON 형식이야.'); return; }
+      } else { showAlert('지원하지 않는 JSON 형식이야.'); return; }
       save(); renderAll();
       toast('불러왔어');
-    } catch(err){ alert('JSON 파싱 실패: '+err.message); }
+    } catch(err){ showAlert('JSON 파싱 실패: '+err.message); }
   };
   reader.readAsText(f);
   e.target.value='';
 });
 
-function clearTab(tab){
-  if(!confirm(`"${tab.name}" 탭의 카드 ${tab.cards.length}개를 모두 삭제할까?`))return;
+async function clearTab(tab){
+  if(!await showConfirm(`"${tab.name}" 탭의 카드 ${tab.cards.length}개를 모두 삭제할까?`,{danger:true}))return;
   pushHistory();
   tab.cards=[]; save(); renderAll();
 }
@@ -2313,6 +2336,9 @@ function toast(msg){
   if(toastTimer)clearTimeout(toastTimer);
   toastTimer=setTimeout(()=>{ t.style.opacity='0'; },1500);
 }
+function showModal({message,danger,confirmText,cancelText,alert}){return new Promise(resolve=>{const ov=document.getElementById('confirm-overlay'),msgEl=document.getElementById('confirm-message'),okBtn=document.getElementById('confirm-ok'),cancelBtn=document.getElementById('confirm-cancel');msgEl.textContent=message;okBtn.textContent=confirmText||'확인';okBtn.className='cm-btn '+(danger?'cm-danger':'cm-accent');cancelBtn.textContent=cancelText||'취소';cancelBtn.style.display=alert?'none':'';ov.classList.add('open');okBtn.focus();function done(val){ov.classList.remove('open');okBtn.onclick=null;cancelBtn.onclick=null;ov.onclick=null;document.removeEventListener('keydown',onKey,true);resolve(val)}function onKey(e){if(e.key==='Enter'){e.preventDefault();e.stopPropagation();done(true)}else if(e.key==='Escape'){e.preventDefault();e.stopPropagation();done(alert?true:false)}}okBtn.onclick=()=>done(true);cancelBtn.onclick=()=>done(false);ov.onclick=e=>{if(e.target===ov)done(alert?true:false)};document.addEventListener('keydown',onKey,true)})}
+function showConfirm(message,opts={}){return showModal({message,danger:opts.danger,confirmText:opts.confirmText,cancelText:opts.cancelText})}
+function showAlert(message,opts={}){return showModal({message,alert:true,confirmText:opts.confirmText||'확인'})}
 
 // === 우클릭 + 더블탭 트리거 ===
 document.addEventListener('contextmenu',e=>{
