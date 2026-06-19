@@ -1054,7 +1054,16 @@ function renderDetail(){
 <div class="section-title">학습 세팅</div><div class="row">${inp('baseModel','base model')}${inp('datasetCount','dataset 수')}${inp('resolution','resolution')}</div><div class="row">${inp('captionMethod','caption 방식')}${inp('triggerWord','trigger word')}</div><div class="row">${inp('repeat','repeat')}${inp('epoch','epoch')}${inp('totalSteps','total steps')}${inp('batchSize','batch size')}</div><div class="row">${inp('learningRate','learning rate')}${inp('textEncoderLR','text encoder LR')}${inp('unetLR','unet LR')}</div><div class="row">${inp('optimizer','optimizer')}${inp('scheduler','scheduler')}</div><div class="row">${inp('networkType','network type')}${inp('rankDim','rank/dim')}${inp('alpha','alpha')}${inp('weightDecay','weight decay')}</div>
 <div class="section-title">테스트 / 평가</div>${area('testPrompt','테스트 프롬프트')}${area('resultReview','결과 평가')}${inp('recommendedWeight','권장 weight')}${area('nextExperiment','다음 실험 메모')}${area('notes','기타 메모')}
 <div class="actions"><button class="btn outline" id="fav-current">${c.fav?'즐겨찾기 해제':'즐겨찾기'}</button><button class="btn" id="dup-current">복제</button><button class="btn danger" id="del-current">삭제</button><button class="btn outline" id="copy-meta">메타 복사</button></div><div class="section-title">raw metadata</div><div class="codebox">${escapeHtml(JSON.stringify(c.rawMetadata||{},null,2))}</div></div>`;
-  body.querySelectorAll('[data-key]').forEach(el=>{el.oninput=()=>updateCard(c.id,{[el.dataset.key]:el.value})});
+  body.querySelectorAll('[data-key]').forEach(el=>{
+    el.oninput=()=>{
+      const card=state.cards.find(x=>x.id===c.id);
+      if(!card)return;
+      card[el.dataset.key]=el.value;
+      card.updatedAt=now();
+      save();
+    };
+    el.onchange=()=>render();
+  });
   body.querySelectorAll('[data-img-act]').forEach(btn=>{btn.onclick=e=>{e.stopPropagation();const imgId=btn.dataset.imgId;if(btn.dataset.imgAct==='cover')setCoverImage(c,imgId);if(btn.dataset.imgAct==='remove')removeCardImage(c,imgId)}});
   body.querySelectorAll('.rep-tile').forEach(tile=>{tile.onclick=e=>{if(e.target.dataset.imgAct)return;setCoverImage(c,tile.dataset.imgId)}});
   const pickRep=$('pick-rep-current');if(pickRep)pickRep.onclick=()=>{const input=document.createElement('input');input.type='file';input.accept='image/*';input.multiple=true;input.onchange=async e=>{const files=[...(e.target.files||[])];for(const f of files){const thumb=await imageToThumb(f,1024,.82);if(thumb)addImageToCard(c,f.name,thumb)}save();render();toast(`이미지 ${files.length}장 추가 완료`)};input.click()};
