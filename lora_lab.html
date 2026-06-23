@@ -794,12 +794,11 @@ async function imageToThumb(file,max=1024,quality=.82){
 function getCardImages(c){
   if(!c)return[];
   if(!Array.isArray(c.images)) c.images=[];
-  if(c.representativeImage && !c.images.some(img=>img.dataUrl===c.representativeImage)){
-    const id=c.coverImageId||uid();
-    c.images.unshift({id,name:c.representativeImageName||'대표이미지',dataUrl:c.representativeImage,addedAt:c.imageMatchedAt||now()});
-    c.coverImageId=id;
-  }
+  // representativeImage는 과거 버전 호환용 레거시 필드다.
+  // normalizeCard()에서만 images[]로 1회 흡수하고, 이후 런타임에서는 다시 주입하지 않는다.
+  // 삭제 후 syncLegacyImageFields()가 호출될 때 예전 representativeImage가 되살아나는 문제를 막기 위함.
   c.images=c.images.filter(img=>img&&img.dataUrl);
+  if(c.coverImageId&&!c.images.some(img=>img.id===c.coverImageId)) c.coverImageId=c.images[0]?.id||'';
   if(!c.coverImageId&&c.images[0]) c.coverImageId=c.images[0].id;
   return c.images;
 }
