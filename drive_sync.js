@@ -66,8 +66,8 @@
   function getDriveSlotMax(){
     // LoRA Lab은 이미지 dataUrl이 커서 슬롯을 많이 누적하면
     // 같은 데이터라도 재저장 때 Invalid string length가 날 수 있다.
-    // 그래서 Drive는 최신 백업 3개까지만 보존한다.
-    return isLoRALabApp()?3:SLOT_MAX;
+    // 그래서 Drive는 최신 백업 2개까지만 보존한다.
+    return isLoRALabApp()?2:SLOT_MAX;
   }
 
   function getStateForDrive(){
@@ -392,7 +392,7 @@
 
       const payload={version:1,kind:'workshop-drive-slots',appFile:GIST_FILE_NAME||appFileName(),updatedAt:nowIso(),slots};
       const approx=byteSizeOfJson(payload);
-      setStatus(`Drive 업로드 준비 중...\n예상 저장 크기: ${formatBytes(approx)}\n슬롯: ${slots.length}개${isLoRALabApp()?' · LoRA Lab은 용량 보호를 위해 최신 3슬롯만 보존':''}`,'loading');
+      setStatus(`Drive 업로드 준비 중...\n예상 저장 크기: ${formatBytes(approx)}\n슬롯: ${slots.length}개${isLoRALabApp()?' · LoRA Lab은 용량 보호를 위해 최신 2슬롯만 보존':''}`,'loading');
 
       const written=await writeDriveFile(file?.id,payload);
       setStatus(`Drive 저장 완료!\n파일: ${written.name}\n슬롯: ${slots.length}개\n저장 크기: ${formatBytes(approx)}`, 'ok');
