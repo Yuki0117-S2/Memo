@@ -65,6 +65,7 @@ button.act.purple{border-color:var(--purple);color:var(--purple)}
 .cat-add{font-size:11px;font-weight:700;border:.5px solid var(--accent);background:transparent;color:var(--accent);border-radius:6px;padding:5px 9px;cursor:pointer;flex:none;white-space:nowrap}
 .cat-add:hover{background:var(--accent);color:#fff}
 .cat-body.collapsed{display:none}
+.cat-body.catdrop{outline:2px dashed var(--accent);outline-offset:-3px;border-radius:8px}
 
 /* 항목 슬롯 */
 .slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
@@ -166,6 +167,7 @@ button.act.purple{border-color:var(--purple);color:var(--purple)}
   .grip{display:none}
 }
 @media(max-width:460px){
+  #app{padding-bottom:7rem}
   .slots{grid-template-columns:1fr}
   .controls{flex-direction:column;align-items:stretch}
   .field{flex:0 0 auto}
@@ -173,6 +175,9 @@ button.act.purple{border-color:var(--purple);color:var(--purple)}
   .controls button.act{width:100%}
   .toggle{justify-content:space-between}
   .cat-add{padding:5px 7px}
+  .addrow{flex-direction:column}
+  .addrow input{min-width:0;width:100%}
+  .addrow .act{width:100%}
   .btn-dl{width:100%}
 }
 </style>
@@ -283,6 +288,7 @@ let state={categories:defaultCategories(),char:'',situation:'인간폼',suffix:'
 /* images: 항목이름 -> [{id,file,url}]  (메모리 전용, 저장/동기화 안 됨) */
 let images={};
 let uid=0;
+let dragCi=null,dragPi=null;
 const GIST_FILE_NAME='emotion_namer_data.json';
 
 /* ---------- state 정규화 (구버전 presets[] → categories[] 자동 이사) ---------- */
@@ -452,16 +458,20 @@ function bindEvents(){
     state.categories[ci].presets.splice(pi,1);save();render();
   }));
 
-  // 드롭존 클릭/드롭
+  // 드롭존 클릭/파일드롭 (슬롯 드래그 중이면 비켜서 슬롯/카테고리로 버블)
   root.querySelectorAll('.dz').forEach(dz=>{
     dz.addEventListener('click',()=>{
       const p=decodeURIComponent(dz.dataset.p);
       const inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.multiple=true;
       inp.onchange=e=>addImages(p,e.target.files);inp.click();
     });
-    ['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();dz.closest('.slot').classList.add('dragover');}));
-    dz.addEventListener('dragleave',()=>dz.closest('.slot').classList.remove('dragover'));
+    ['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{
+      if(dragPi!==null)return; // 항목 드래그 중 → 슬롯이 처리하게 둠
+      e.preventDefault();e.stopPropagation();dz.closest('.slot').classList.add('dragover');
+    }));
+    dz.addEventListener('dragleave',()=>{if(dragPi===null)dz.closest('.slot').classList.remove('dragover');});
     dz.addEventListener('drop',e=>{
+      if(dragPi!==null)return; // 항목 드래그 드롭 → 슬롯이 처리
       e.preventDefault();e.stopPropagation();dz.closest('.slot').classList.remove('dragover');
       const p=decodeURIComponent(dz.dataset.p);
       if(e.dataTransfer.files&&e.dataTransfer.files.length)addImages(p,e.dataTransfer.files);
@@ -475,19 +485,23 @@ function bindEvents(){
     images[p]=arr.filter(x=>x.id!==id);render();
   }));
 
-  // 항목 드래그 재정렬 (같은 카테고리 내)
-  let dragCi=null,dragPi=null;
+  // 항목 드래그 재정렬 (카테고리 횡단 허용)
   root.querySelectorAll('.slot').forEach(slot=>{
-    slot.addEventListener('dragstart',e=>{dragCi=+slot.dataset.ci;dragPi=+slot.dataset.pi;slot.classList.add('drag-ghost');e.dataTransfer.effectAllowed='move';});
-    slot.addEventListener('dragend',()=>{dragCi=dragPi=null;slot.classList.remove('drag-ghost');});
+    slot.addEventListener('dragstart',e=>{dragCi=+slot.dataset.ci;dragPi=+slot.dataset.pi;slot.classList.add('drag-ghost');e.dataTransfer.effectAllowed='move';try{e.dataTransfer.setData('text/plain','slot');}catch(_){}});
+    slot.addEventListener('dragend',()=>{dragCi=dragPi=null;slot.classList.remove('drag-ghost');root.querySelectorAll('.catdrop').forEach(x=>x.classList.remove('catdrop'));});
     slot.addEventListener('dragover',e=>{if(dragPi===null)return;e.preventDefault();});
     slot.addEventListener('drop',e=>{
-      if(dragPi===null)return;e.preventDefault();
-      const toCi=+slot.dataset.ci,toPi=+slot.dataset.pi;
-      if(toCi!==dragCi){toast('항목은 같은 카테고리 안에서만 드래그 이동돼');return;}
-      if(toPi===dragPi)return;
-      const arr=state.categories[dragCi].presets;
-      const[m]=arr.splice(dragPi,1);arr.splice(toPi,0,m);save();render();
+      if(dragPi===null)return;e.preventDefault();e.stopPropagation();
+      applyMove(+slot.dataset.ci,+slot.dataset.pi);
+    });
+  });
+  // 카테고리 빈 영역에 떨구면 그 카테고리 끝으로 (빈 카테고리 포함)
+  root.querySelectorAll('.cat-body').forEach(body=>{
+    body.addEventListener('dragover',e=>{if(dragPi===null)return;e.preventDefault();body.classList.add('catdrop');});
+    body.addEventListener('dragleave',e=>{if(!body.contains(e.relatedTarget))body.classList.remove('catdrop');});
+    body.addEventListener('drop',e=>{
+      if(dragPi===null)return;e.preventDefault();body.classList.remove('catdrop');
+      applyMove(+body.closest('.cat').dataset.ci,null);
     });
   });
 }
@@ -500,6 +514,21 @@ function movePreset(ci,pi,dir){
   const arr=state.categories[ci].presets,to=pi+dir;
   if(to<0||to>=arr.length)return;
   const[m]=arr.splice(pi,1);arr.splice(to,0,m);save();render();
+}
+function applyMove(toCi,toPi){
+  if(dragCi===null||dragPi===null)return;
+  const src=state.categories[dragCi]?.presets;
+  if(!src||dragPi<0||dragPi>=src.length)return;
+  const moved=src[dragPi];
+  src.splice(dragPi,1);                 // 원본에서 먼저 분리
+  const dst=state.categories[toCi]?.presets;
+  if(!dst){src.splice(dragPi,0,moved);return;} // 안전장치: 원위치
+  let idx=(toPi==null)?dst.length:toPi;
+  if(toCi===dragCi&&dragPi<idx)idx--;    // 같은 배열이면 분리로 인덱스 한 칸 밀림 보정
+  if(idx<0)idx=0;if(idx>dst.length)idx=dst.length;
+  dst.splice(idx,0,moved);
+  dragCi=dragPi=null;
+  save();render();
 }
 function addImages(preset,fileList){
   const arr=imgsOf(preset);
