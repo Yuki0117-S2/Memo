@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>✦ Emotion Namer</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+:root{--bg:#ffffff;--bg2:#f7f6f3;--bg3:#eeeeee;--text:#1a1a1a;--text2:#555;--text3:#999;--border:rgba(0,0,0,.10);--border2:rgba(0,0,0,.20);--accent:#8888CC;--accent2:#DDAACC;--accent3:#CCAA88;--danger:#BB6688;--purple:#884499;--ok:#6AC8B0;--radius:12px;--radius-sm:8px;--mono:'JetBrains Mono',Consolas,Menlo,monospace}
+@media(prefers-color-scheme:dark){:root{--bg:#1e1e1e;--bg2:#272727;--bg3:#313131;--text:#f0f0f0;--text2:#aaa;--text3:#666;--border:rgba(255,255,255,.10);--border2:rgba(255,255,255,.22)}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+button,input,textarea,select{font-family:inherit}
+#app{width:100%;max-width:1040px;margin:0 auto;padding:1rem 1.25rem 6rem}
+header{display:flex;align-items:center;gap:10px;border-bottom:.5px solid var(--border);padding-bottom:.75rem;margin-bottom:.85rem;flex-wrap:wrap}
+.back{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;color:var(--text3);text-decoration:none;border-radius:var(--radius-sm);font-size:18px;flex:0 0 auto}
+.back:hover{background:var(--bg2);color:var(--accent)}
+.logo{font-size:15px;font-weight:700;color:var(--accent);letter-spacing:-.2px;margin-right:8px;display:flex;align-items:center;gap:8px}
+.logo-dot{width:8px;height:8px;border-radius:999px;background:var(--accent);box-shadow:0 0 10px rgba(136,136,204,.6);animation:pulse 2.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.42}}
+.toolbar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;flex:1}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;border:0;background:var(--accent);color:#fff;border-radius:var(--radius-sm);padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:inherit}
+.btn:hover{opacity:.86}
+.btn.outline{background:transparent;color:var(--accent);border:.5px solid var(--accent)}
+.btn.outline:hover{background:var(--accent);color:#fff;opacity:1}
+.sync-indicator{width:7px;height:7px;border-radius:50%;background:var(--text3);display:inline-block;vertical-align:middle;transition:background .3s}
+.sync-indicator.synced{background:var(--ok)}
+.sync-indicator.error{background:var(--danger)}
+
+.hero{background:var(--bg);border:.5px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:14px}
+.hero-head{padding:14px 15px;border-bottom:.5px solid var(--border);background:var(--bg2)}
+.hero-title{font-size:13px;font-weight:800;color:var(--text);margin-bottom:3px}
+.hero-desc{font-size:12px;color:var(--text3);line-height:1.55}
+.hero-desc code{font-family:var(--mono);color:var(--accent3)}
+
+.controls{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;padding:14px 15px}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:11px;color:var(--text3);font-weight:700;letter-spacing:.3px}
+.field input[type=text]{background:var(--bg2);border:.5px solid var(--border2);color:var(--text);border-radius:var(--radius-sm);padding:8px 10px;font-family:var(--mono);font-size:13px;min-width:140px}
+.field input:focus{outline:none;border-color:var(--accent)}
+.toggle{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;font-size:12px;color:var(--text2);font-weight:600}
+.toggle input{width:0;height:0;opacity:0;position:absolute}
+.switch{width:40px;height:22px;background:var(--bg3);border:.5px solid var(--border2);border-radius:999px;position:relative;transition:.18s;flex:none}
+.switch::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--text3);transition:.18s}
+.toggle input:checked + .switch{background:var(--accent);border-color:var(--accent)}
+.toggle input:checked + .switch::after{transform:translateX(18px);background:#fff}
+.spacer{flex:1;min-width:0}
+button.act{font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;border:.5px solid var(--border2);background:var(--bg2);color:var(--text2);border-radius:var(--radius-sm);padding:9px 13px;transition:.15s}
+button.act:hover{border-color:var(--accent);color:var(--accent)}
+button.act:disabled{opacity:.4;cursor:not-allowed}
+button.act.purple{border-color:var(--purple);color:var(--purple)}
+
+.livename{font-family:var(--mono);font-size:12px;color:var(--text3);padding:0 15px 14px;line-height:1.5}
+.livename b{color:var(--accent3)}
+
+/* preset slots */
+.slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+.slot{background:var(--bg);border:.5px solid var(--border);border-radius:var(--radius);overflow:hidden;display:flex;flex-direction:column;transition:border-color .15s,box-shadow .15s}
+.slot.has{border-color:var(--accent)}
+.slot.empty{border-style:dashed;border-color:var(--border2)}
+.slot.dragover{border-color:var(--accent);box-shadow:0 0 0 3px rgba(136,136,204,.18)}
+.slot.drag-ghost{opacity:.4}
+.slot-head{display:flex;align-items:center;gap:6px;padding:9px 10px;border-bottom:.5px solid var(--border);background:var(--bg2)}
+.grip{cursor:grab;color:var(--text3);font-size:14px;line-height:1;flex:none;user-select:none;padding:0 2px}
+.grip:active{cursor:grabbing}
+.slot-name{flex:1;min-width:0;border:none;background:transparent;color:var(--text);font-weight:700;font-size:13.5px;font-family:var(--mono);padding:2px 3px;border-radius:5px}
+.slot-name:focus{outline:none;background:var(--bg);box-shadow:0 0 0 1px var(--accent2)}
+.badge{font-size:10.5px;font-weight:800;border-radius:999px;padding:2px 7px;flex:none}
+.badge.zero{background:var(--bg3);color:var(--text3)}
+.badge.some{background:var(--accent);color:#fff}
+.mini{width:22px;height:22px;border:none;background:transparent;color:var(--text3);border-radius:6px;font-size:12px;cursor:pointer;flex:none;line-height:1;padding:0}
+.mini:hover{background:var(--bg3);color:var(--accent)}
+.mini.del:hover{background:var(--danger);color:#fff}
+
+.slot-body{padding:10px;display:flex;flex-direction:column;gap:9px;flex:1}
+.dz{border:1px dashed var(--border2);border-radius:var(--radius-sm);padding:14px 8px;text-align:center;cursor:pointer;color:var(--text3);font-size:11.5px;line-height:1.5;transition:.15s;background:var(--bg2)}
+.dz:hover{border-color:var(--accent);color:var(--accent);background:rgba(136,136,204,.07)}
+.dz span{color:var(--accent)}
+.thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(58px,1fr));gap:6px}
+.thumb{position:relative;aspect-ratio:1/1;border-radius:6px;background:var(--bg2) center/cover no-repeat;border:.5px solid var(--border)}
+.thumb .tx{position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:5px;background:rgba(0,0,0,.6);border:none;color:#fff;font-size:10px;line-height:1;cursor:pointer;padding:0}
+.thumb .tx:hover{background:var(--danger)}
+.thumb .num{position:absolute;left:2px;bottom:2px;font-size:9px;font-weight:800;font-family:var(--mono);background:rgba(0,0,0,.6);color:#fff;border-radius:4px;padding:0 4px}
+.namepv{font-family:var(--mono);font-size:10.5px;color:var(--accent3);word-break:break-all;line-height:1.45;background:var(--bg2);border:.5px solid var(--border);border-radius:6px;padding:5px 7px}
+.namepv .d{color:var(--text3)}
+
+.addrow{margin-top:14px;display:flex;gap:8px;flex-wrap:wrap}
+.addrow input{flex:1;min-width:140px;background:var(--bg2);border:.5px solid var(--border2);color:var(--text);border-radius:var(--radius-sm);padding:9px 11px;font-family:var(--mono);font-size:13px}
+.addrow input:focus{outline:none;border-color:var(--accent)}
+
+/* Gist 동기화 모달 */
+#gist-overlay{position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:20px}
+#gist-overlay.open{display:flex}
+.gist-modal{background:var(--bg);border:.5px solid var(--border2);border-radius:var(--radius);padding:22px;width:420px;max-width:100%;display:flex;flex-direction:column;gap:14px;box-shadow:0 12px 40px rgba(0,0,0,.3);max-height:88vh;overflow:auto}
+.gist-modal-title{font-size:16px;font-weight:700;color:var(--accent);display:flex;align-items:center;gap:6px}
+.gist-section{display:flex;flex-direction:column;gap:5px}
+.gist-label{font-size:11px;color:var(--text3);letter-spacing:.5px}
+.gist-input{width:100%;background:var(--bg2);border:.5px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 10px;outline:none;transition:border-color .15s}
+.gist-input:focus{border-color:var(--accent)}
+.gist-input::placeholder{color:var(--text3);opacity:.7}
+.gist-hint{font-size:11px;color:var(--text3);line-height:1.5}
+.gist-hint a{color:var(--accent);text-decoration:none}.gist-hint a:hover{text-decoration:underline}
+.gist-id-row{display:flex;gap:5px;align-items:center}.gist-id-row .gist-input{flex:1}
+.gist-copy-btn{padding:6px 9px;background:var(--bg2);border:.5px solid var(--border2);border-radius:var(--radius-sm);color:var(--text2);cursor:pointer;font-size:12px;white-space:nowrap;font-family:inherit}
+.gist-copy-btn:hover{border-color:var(--accent);color:var(--accent)}
+.gist-status{font-size:11px;padding:7px 10px;border-radius:var(--radius-sm);font-family:var(--mono);display:none}
+.gist-status.ok{background:rgba(106,200,176,.1);color:var(--ok);display:block}
+.gist-status.err{background:rgba(187,102,136,.1);color:var(--danger);display:block}
+.gist-status.loading{background:rgba(136,136,204,.1);color:var(--accent);display:block}
+.gist-btn-row{display:flex;gap:6px}
+.gist-btn{flex:1;padding:8px 10px;border-radius:var(--radius-sm);border:none;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:4px}
+.gist-btn-upload{background:var(--accent);color:#fff}.gist-btn-upload:hover{opacity:.88}
+.gist-btn-download{background:var(--bg2);border:.5px solid var(--accent);color:var(--accent)}.gist-btn-download:hover{background:var(--accent);color:#fff}
+.gist-btn-cancel{background:transparent;border:.5px solid var(--border2);color:var(--text2)}.gist-btn-cancel:hover{border-color:var(--danger);color:var(--danger)}
+#slot-picker-overlay{position:fixed;inset:0;z-index:10002;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:20px}
+.slot-picker-box{background:var(--bg);border:.5px solid var(--border2);border-radius:var(--radius);padding:20px;width:380px;max-width:100%;max-height:calc(100vh - 60px);overflow-y:auto;display:flex;flex-direction:column;gap:10px}
+.slot-picker-title{font-size:14px;color:var(--accent);font-weight:700}
+.slot-picker-sub{font-size:11px;color:var(--text3);line-height:1.5}
+.slot-btn{padding:10px 12px;background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);cursor:pointer;text-align:left;font-family:inherit;font-size:12px;display:flex;justify-content:space-between;align-items:center;transition:border-color .15s}
+.slot-btn:hover{border-color:var(--accent)}
+.slot-btn .slot-title{font-weight:700;color:var(--accent);margin-bottom:2px}
+.slot-btn .slot-meta{color:var(--text3);font-size:10px}
+.slot-btn .slot-arrow{color:var(--text3);font-size:16px}
+.slot-cancel-btn{padding:9px;background:transparent;border:.5px solid var(--border2);border-radius:var(--radius-sm);color:var(--text2);cursor:pointer;font-family:inherit;font-size:12px}
+.slot-cancel-btn:hover{border-color:var(--danger);color:var(--danger)}
+
+.barwrap{position:fixed;left:0;right:0;bottom:0;background:var(--bg);border-top:.5px solid var(--border2);padding:12px 20px}
+.bar{max-width:1040px;margin:0 auto;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.stat{font-size:13px;color:var(--text3)}
+.stat b{color:var(--text)}
+.stat .warn{color:var(--danger)}
+.btn-dl{background:var(--accent);border:.5px solid var(--accent);color:#fff;padding:11px 22px;font-size:14px;font-weight:700;border-radius:var(--radius-sm);cursor:pointer}
+.btn-dl:hover{filter:brightness(1.07)}
+.btn-dl:disabled{opacity:.4;cursor:not-allowed}
+
+.toast{position:fixed;left:50%;bottom:78px;transform:translateX(-50%);background:var(--text);color:var(--bg);font-size:12.5px;font-weight:600;padding:9px 16px;border-radius:999px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:9999}
+.toast.show{opacity:.95}
+
+@media(max-width:720px){
+  #app{padding:.75rem .8rem 6rem}
+  header{display:grid;grid-template-columns:auto 1fr;grid-template-areas:"back logo" "tools tools";align-items:center;gap:8px}
+  .back{grid-area:back}.logo{grid-area:logo;margin-right:0}.toolbar{grid-area:tools;width:100%;font-size:11px}
+  .controls{padding:12px;gap:10px}
+  .field{flex:1 1 130px}.field input[type=text]{min-width:0;width:100%}
+  .slots{grid-template-columns:1fr 1fr;gap:10px}
+  .grip{display:none}
+}
+@media(max-width:460px){
+  .slots{grid-template-columns:1fr}
+  .controls{flex-direction:column;align-items:stretch}
+  .spacer{display:none}
+  .controls button.act{width:100%}
+  .toggle{justify-content:space-between}
+  .btn-dl{width:100%}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <a class="back" href="index.html" title="작업실로">‹</a>
+    <div class="logo"><span class="logo-dot"></span>✦ Emotion Namer</div>
+    <div class="toolbar">
+      <button class="btn outline" id="sync-btn" title="Gist 동기화"><span style="display:inline-flex;align-items:center;gap:4px">☁ 동기화 <span class="sync-indicator" id="sync-indicator"></span></span></button>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="hero-head">
+      <div class="hero-title">감정 에셋 네이머</div>
+      <div class="hero-desc">감정 칸마다 이미지를 끌어다 놓으면 <code>캐릭터_상황_감정.확장자</code> 평면 파일명으로 묶어 zip으로 내보내. 빈 칸이 보여서 어떤 감정이 모자란지 한눈에. <b style="color:var(--danger)">이미지는 저장·동기화되지 않음</b> — 감정 프리셋(종류·순서)만 기기 사이에서 유지돼.</div>
+    </div>
+
+    <div class="controls">
+      <div class="field">
+        <label>캐릭터 (이름)</label>
+        <input type="text" id="char" placeholder="예: 레온">
+      </div>
+      <div class="field">
+        <label>상황</label>
+        <input type="text" id="situation" placeholder="예: 인간폼">
+      </div>
+      <div class="field">
+        <label>접미사 (선택)</label>
+        <input type="text" id="suffix" placeholder="예: v2" style="min-width:110px">
+      </div>
+      <label class="toggle"><input type="checkbox" id="webp"><span class="switch"></span><span>webp 변환</span></label>
+      <div class="spacer"></div>
+      <button class="act" id="resetPresets">프리셋 17개 복원</button>
+      <button class="act purple" id="clearImgs">이미지 비우기</button>
+    </div>
+
+    <div class="livename" id="livename"></div>
+  </section>
+
+  <div class="slots" id="slots"></div>
+
+  <div class="addrow">
+    <input type="text" id="newPreset" placeholder="새 감정 추가 (예: 미소짓기) — Enter">
+    <button class="act" id="addPreset">+ 감정 추가</button>
+  </div>
+</div>
+
+<div id="gist-overlay">
+  <div class="gist-modal">
+    <div class="gist-modal-title">☁ Gist 동기화</div>
+    <div class="gist-section">
+      <div class="gist-label">GitHub Personal Access Token</div>
+      <input class="gist-input" type="password" id="gist-token-input" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+      <div class="gist-hint">⚠️ 토큰은 이 기기 localStorage에만 저장돼. 절대 공유 X. <a href="https://github.com/settings/tokens/new?scopes=gist&description=Emotion%20Namer" target="_blank">토큰 만들기 →</a> (scope: gist만)</div>
+    </div>
+    <div class="gist-section">
+      <div class="gist-label">Gist ID <span style="color:var(--text3);font-size:10px">(처음엔 비워둬 — 업로드하면 자동 생성)</span></div>
+      <div class="gist-id-row">
+        <input class="gist-input" type="text" id="gist-id-input" placeholder="처음엔 비워두기">
+        <button class="gist-copy-btn" id="gist-copy-btn" title="Gist ID 복사">📋</button>
+      </div>
+      <div class="gist-hint">💡 작업실의 다른 도구(갤러리 / Archive 등)랑 <b>같은 Gist</b>를 공유해. 여기서 올라가는 건 <b>감정 프리셋(종류·순서) 텍스트뿐</b> — 이미지는 절대 안 올라가.</div>
+    </div>
+    <div class="gist-status" id="gist-status"></div>
+    <div class="gist-btn-row">
+      <button class="gist-btn gist-btn-upload" id="gist-upload-btn">⬆ 업로드</button>
+      <button class="gist-btn gist-btn-download" id="gist-download-btn">⬇ 불러오기</button>
+    </div>
+    <div class="gist-hint" id="gist-autosave-hint" style="text-align:center"></div>
+    <div class="gist-btn-row">
+      <button class="gist-btn gist-btn-cancel" id="gist-close-btn">닫기</button>
+    </div>
+  </div>
+</div>
+
+<div class="barwrap">
+  <div class="bar">
+    <span class="stat" id="stat">이미지 0장</span>
+    <div class="spacer" style="flex:1"></div>
+    <button class="btn-dl" id="download" disabled>ZIP 다운로드</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $=s=>document.querySelector(s);
+const LS_KEY='emotion_namer_state';
+const DEFAULT_PRESETS=['기본','경멸','능글','당황','도발','멜랑꼴리','무표정','부끄러움','분노화남','비웃음','여유있는미소','음흉한미소','졸림나른','지침_피로','집착얀데레','황홀','눈물'];
+
+/* state = 동기화/저장 대상 (텍스트만). 이미지는 절대 포함 안 함 */
+let state={presets:[...DEFAULT_PRESETS],char:'',situation:'인간폼',suffix:''};
+/* images: presetName -> [{id,file,url}]  (메모리 전용, 저장 안 됨) */
+let images={};
+let uid=0;
+const GIST_FILE_NAME='emotion_namer_data.json';
+
+/* ---------- 저장/불러오기 (drive_sync.js가 save/render/state/GIST_FILE_NAME를 재사용) ---------- */
+function save(){
+  try{localStorage.setItem(LS_KEY,JSON.stringify(state));}catch(e){}
+}
+function load(){
+  try{
+    const raw=localStorage.getItem(LS_KEY);
+    if(raw){
+      const o=JSON.parse(raw);
+      if(o&&Array.isArray(o.presets)){
+        state.presets=o.presets.slice();
+        state.char=o.char||'';
+        state.situation=o.situation!=null?o.situation:'인간폼';
+        state.suffix=o.suffix||'';
+      }
+    }
+  }catch(e){}
+}
+
+function toast(msg){
+  const t=$('#toast');t.textContent=msg;t.classList.add('show');
+  clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),1600);
+}
+
+function ext(name){const i=name.lastIndexOf('.');return i<0?'':name.slice(i+1).toLowerCase();}
+function imgsOf(p){return images[p]||(images[p]=[]);}
+
+/* 파일명 한 줄 미리보기 */
+function previewName(presetSample){
+  const parts=[state.char.trim(),state.situation.trim(),(presetSample||'감정')].filter(Boolean);
+  if(state.suffix.trim())parts.push(state.suffix.trim());
+  const e=$('#webp').checked?'webp':'png';
+  return {body:parts.join('_'),e};
+}
+function buildName(presetName,nth){
+  const parts=[state.char.trim(),state.situation.trim(),presetName.trim()].filter(Boolean);
+  if(state.suffix.trim())parts.push(state.suffix.trim());
+  let body=parts.join('_');
+  if(nth>1)body+='_'+nth;
+  return body;
+}
+
+/* ---------- 렌더 ---------- */
+function render(){
+  // 상단 입력 동기화
+  $('#char').value=state.char;
+  $('#situation').value=state.situation;
+  $('#suffix').value=state.suffix;
+
+  const pv=previewName('경멸');
+  $('#livename').innerHTML=`예시 파일명 → <b>${pv.body||'(캐릭터/상황 입력)'}<span class="d">.${pv.e}</span></b>`;
+
+  const wrap=$('#slots');
+  wrap.innerHTML='';
+  state.presets.forEach((p,idx)=>{
+    const list=imgsOf(p);
+    const slot=document.createElement('div');
+    slot.className='slot '+(list.length?'has':'empty');
+    slot.dataset.idx=idx;
+    slot.draggable=true;
+
+    const thumbs=list.map((im,i)=>`
+      <div class="thumb" style="background-image:url('${im.url}')">
+        <span class="num">${i+1}</span>
+        <button class="tx" data-p="${encodeURIComponent(p)}" data-id="${im.id}">✕</button>
+      </div>`).join('');
+
+    const sample=buildName(p,list.length>1?2:1);
+    slot.innerHTML=`
+      <div class="slot-head">
+        <span class="grip" title="드래그로 순서 이동">⠿</span>
+        <input class="slot-name" value="${p.replace(/"/g,'&quot;')}" data-idx="${idx}" spellcheck="false">
+        <span class="badge ${list.length?'some':'zero'}">${list.length}</span>
+        <button class="mini up" data-idx="${idx}" title="위로">▲</button>
+        <button class="mini down" data-idx="${idx}" title="아래로">▼</button>
+        <button class="mini del" data-idx="${idx}" title="감정 삭제">✕</button>
+      </div>
+      <div class="slot-body">
+        <div class="dz" data-p="${encodeURIComponent(p)}"><span>이미지 넣기</span> · 드롭/클릭</div>
+        ${list.length?`<div class="thumbs">${thumbs}</div>`:''}
+        ${list.length?`<div class="namepv">${buildName(p,1)}<span class="d">.${pv.e}</span>${list.length>1?` &nbsp;…&nbsp; ${sample}.${pv.e}`:''}</div>`:''}
+      </div>`;
+    wrap.appendChild(slot);
+  });
+
+  bindSlotEvents();
+  updateStat();
+}
+
+function bindSlotEvents(){
+  const wrap=$('#slots');
+
+  // 이름 변경
+  wrap.querySelectorAll('.slot-name').forEach(inp=>{
+    inp.addEventListener('change',e=>{
+      const idx=+e.target.dataset.idx;
+      const old=state.presets[idx];
+      let val=e.target.value.trim();
+      if(!val){e.target.value=old;return;}
+      if(state.presets.some((x,i)=>i!==idx&&x===val)){toast('이미 있는 감정이야');e.target.value=old;return;}
+      if(images[old]){images[val]=images[old];delete images[old];}
+      state.presets[idx]=val;save();render();
+    });
+  });
+
+  // 드롭존 클릭 → 파일선택
+  wrap.querySelectorAll('.dz').forEach(dz=>{
+    dz.addEventListener('click',()=>{
+      const p=decodeURIComponent(dz.dataset.p);
+      const inp=document.createElement('input');
+      inp.type='file';inp.accept='image/*';inp.multiple=true;
+      inp.onchange=e=>{addImages(p,e.target.files);};
+      inp.click();
+    });
+    ['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();dz.closest('.slot').classList.add('dragover');}));
+    ['dragleave'].forEach(ev=>dz.addEventListener(ev,e=>{dz.closest('.slot').classList.remove('dragover');}));
+    dz.addEventListener('drop',e=>{
+      e.preventDefault();e.stopPropagation();
+      dz.closest('.slot').classList.remove('dragover');
+      const p=decodeURIComponent(dz.dataset.p);
+      if(e.dataTransfer.files&&e.dataTransfer.files.length)addImages(p,e.dataTransfer.files);
+    });
+  });
+
+  // 썸네일 삭제
+  wrap.querySelectorAll('.tx').forEach(b=>b.addEventListener('click',e=>{
+    e.stopPropagation();
+    const p=decodeURIComponent(e.target.dataset.p),id=+e.target.dataset.id;
+    const arr=imgsOf(p);const it=arr.find(x=>x.id===id);
+    if(it)URL.revokeObjectURL(it.url);
+    images[p]=arr.filter(x=>x.id!==id);
+    render();
+  }));
+
+  // 순서 ▲▼ / 삭제
+  wrap.querySelectorAll('.mini.up').forEach(b=>b.addEventListener('click',e=>movePreset(+e.target.dataset.idx,-1)));
+  wrap.querySelectorAll('.mini.down').forEach(b=>b.addEventListener('click',e=>movePreset(+e.target.dataset.idx,1)));
+  wrap.querySelectorAll('.mini.del').forEach(b=>b.addEventListener('click',e=>{
+    const idx=+e.target.dataset.idx,p=state.presets[idx];
+    const cnt=imgsOf(p).length;
+    if(cnt&&!confirm(`'${p}' 감정에 이미지 ${cnt}장이 들어있어. 칸을 지울까? (이미지도 같이 빠짐)`))return;
+    imgsOf(p).forEach(im=>URL.revokeObjectURL(im.url));
+    delete images[p];
+    state.presets.splice(idx,1);save();render();
+  }));
+
+  // 데스크탑 드래그 재정렬
+  let dragIdx=null;
+  wrap.querySelectorAll('.slot').forEach(slot=>{
+    slot.addEventListener('dragstart',e=>{dragIdx=+slot.dataset.idx;slot.classList.add('drag-ghost');e.dataTransfer.effectAllowed='move';});
+    slot.addEventListener('dragend',()=>{dragIdx=null;slot.classList.remove('drag-ghost');});
+    slot.addEventListener('dragover',e=>{
+      if(dragIdx===null)return; // 이미지 드롭이면 무시
+      e.preventDefault();
+    });
+    slot.addEventListener('drop',e=>{
+      if(dragIdx===null)return;
+      e.preventDefault();
+      const to=+slot.dataset.idx;
+      if(to===dragIdx)return;
+      const[m]=state.presets.splice(dragIdx,1);
+      state.presets.splice(to,0,m);
+      save();render();
+    });
+  });
+}
+
+function movePreset(idx,dir){
+  const to=idx+dir;
+  if(to<0||to>=state.presets.length)return;
+  const[m]=state.presets.splice(idx,1);
+  state.presets.splice(to,0,m);
+  save();render();
+}
+
+function addImages(preset,fileList){
+  const arr=imgsOf(preset);
+  [...fileList].filter(f=>f.type.startsWith('image/')).forEach(f=>{
+    arr.push({id:++uid,file:f,url:URL.createObjectURL(f)});
+  });
+  render();
+}
+
+function updateStat(){
+  let total=0,filled=0;
+  state.presets.forEach(p=>{const n=imgsOf(p).length;total+=n;if(n)filled++;});
+  const empty=state.presets.length-filled;
+  let txt=`이미지 <b>${total}장</b> · 채운 감정 <b>${filled}/${state.presets.length}</b>`;
+  if(empty>0)txt+=` · <span class="warn">빈 감정 ${empty}</span>`;
+  $('#stat').innerHTML=txt;
+  $('#download').disabled=total===0;
+}
+
+/* ---------- 상단 입력 바인딩 ---------- */
+$('#char').addEventListener('input',e=>{state.char=e.target.value;save();render();reFocus('#char');});
+$('#situation').addEventListener('input',e=>{state.situation=e.target.value;save();render();reFocus('#situation');});
+$('#suffix').addEventListener('input',e=>{state.suffix=e.target.value;save();render();reFocus('#suffix');});
+$('#webp').addEventListener('change',render);
+function reFocus(sel){const el=$(sel);el.focus();el.setSelectionRange(el.value.length,el.value.length);}
+
+$('#resetPresets').addEventListener('click',()=>{
+  if(!confirm('감정 프리셋을 기본 17개로 되돌릴까? (직접 추가/정렬한 게 사라져. 이미지는 그대로)'))return;
+  state.presets=[...DEFAULT_PRESETS];save();render();toast('프리셋 17개 복원됨');
+});
+$('#clearImgs').addEventListener('click',()=>{
+  if(!confirm('넣은 이미지를 전부 비울까? (프리셋은 유지)'))return;
+  Object.values(images).flat().forEach(im=>URL.revokeObjectURL(im.url));
+  images={};render();toast('이미지 비움');
+});
+function doAddPreset(){
+  const inp=$('#newPreset');let v=inp.value.trim();
+  if(!v)return;
+  if(state.presets.includes(v)){toast('이미 있는 감정이야');return;}
+  state.presets.push(v);inp.value='';save();render();
+}
+$('#addPreset').addEventListener('click',doAddPreset);
+$('#newPreset').addEventListener('keydown',e=>{if(e.key==='Enter')doAddPreset();});
+
+/* ---------- webp 변환 ---------- */
+function toWebp(file){
+  return new Promise((res,rej)=>{
+    const img=new Image();
+    img.onload=()=>{
+      const cv=document.createElement('canvas');
+      cv.width=img.naturalWidth;cv.height=img.naturalHeight;
+      cv.getContext('2d').drawImage(img,0,0);
+      cv.toBlob(b=>b?res(b):rej(new Error('webp 변환 실패')),'image/webp',0.92);
+    };
+    img.onerror=()=>rej(new Error('이미지 로드 실패'));
+    img.src=URL.createObjectURL(file);
+  });
+}
+
+/* ---------- ZIP 다운로드 ---------- */
+$('#download').addEventListener('click',async()=>{
+  const btn=$('#download');
+  const useWebp=$('#webp').checked;
+  // (감정, nth, file) 평탄화
+  const jobs=[];
+  state.presets.forEach(p=>{
+    imgsOf(p).forEach((im,i)=>{
+      const e=useWebp?'webp':(ext(im.file.name)||'png');
+      jobs.push({name:buildName(p,i+1),ext:e,file:im.file});
+    });
+  });
+  if(!jobs.length)return;
+
+  // 파일명 충돌 방어
+  const used={};
+  jobs.forEach(j=>{
+    let base=j.name,fn=base+'.'+j.ext,k=2;
+    while(used[fn]){fn=base+'_'+k+'.'+j.ext;k++;}
+    used[fn]=1;j.fn=fn;
+  });
+
+  btn.disabled=true;const orig=btn.textContent;
+  const zip=new JSZip();
+  try{
+    for(let i=0;i<jobs.length;i++){
+      btn.textContent=`처리 중 ${i+1}/${jobs.length}`;
+      const blob=useWebp?await toWebp(jobs[i].file):jobs[i].file;
+      zip.file(jobs[i].fn,blob);
+    }
+    btn.textContent='압축 중...';
+    const out=await zip.generateAsync({type:'blob'},m=>{btn.textContent=`압축 중 ${Math.round(m.percent)}%`;});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(out);
+    const tag=(state.char.trim()||'assets');
+    a.download=`${tag}_emotions.zip`;a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+    toast(`${jobs.length}장 묶어서 내보냈어`);
+  }catch(err){
+    alert('오류: '+err.message);
+  }finally{
+    btn.textContent=orig;btn.disabled=false;updateStat();
+  }
+});
+
+/* ---------- Gist 동기화 (작업실 공용 Gist 공유 · 프리셋 텍스트만) ---------- */
+const GIST_TOKEN_KEY='workshop_gist_token';
+const GIST_ID_KEY='workshop_gist_id';
+const GIST_AUTO_INTERVAL=10*60*1000;
+let gistAutoSaveTimer=null;
+
+function stripStateForSync(s){return JSON.parse(JSON.stringify(s));} // 텍스트뿐이라 그대로 (이미지 없음)
+
+function openGistModal(){
+  $('#gist-token-input').value=localStorage.getItem(GIST_TOKEN_KEY)||'';
+  $('#gist-id-input').value=localStorage.getItem(GIST_ID_KEY)||'';
+  setGistStatus('','');
+  const hint=$('#gist-autosave-hint');
+  const has=localStorage.getItem(GIST_TOKEN_KEY)&&localStorage.getItem(GIST_ID_KEY);
+  if(hint){hint.textContent=has?'⏱ 10분마다 자동저장 중':'💡 토큰+ID 설정 후 자동저장이 켜져';hint.style.color=has?'var(--ok)':'var(--text3)';}
+  $('#gist-overlay').classList.add('open');
+}
+function closeGistModal(){$('#gist-overlay').classList.remove('open');}
+function setGistStatus(msg,type){const el=$('#gist-status');if(!el)return;el.textContent=msg||'';el.className='gist-status'+(type?' '+type:'');}
+function setSyncIndicator(s){const el=$('#sync-indicator');if(!el)return;el.className='sync-indicator'+(s==='ok'?' synced':s==='err'?' error':'');}
+function copyGistId(){
+  const id=$('#gist-id-input').value.trim();
+  if(!id){setGistStatus('Gist ID가 없어. 먼저 업로드해봐!','err');return;}
+  navigator.clipboard.writeText(id).then(()=>setGistStatus('Gist ID 복사됨! 다른 기기에서 붙여넣어봐.','ok'),()=>setGistStatus('복사 실패. 직접 복사해줘.','err'));
+}
+async function readGistFileContent(file){
+  if(!file)return '';
+  if(file.raw_url&&(!file.content||file.truncated)){
+    const res=await fetch(file.raw_url,{cache:'no-store'});
+    if(!res.ok)throw new Error('Gist raw 읽기 실패: '+res.status);
+    return await res.text();
+  }
+  return file.content||'';
+}
+async function readGistSlotsFromData(data){
+  const file=data.files&&data.files[GIST_FILE_NAME];
+  if(!file)return null;
+  const fc=await readGistFileContent(file);
+  if(!fc)return null;
+  return JSON.parse(fc).slots||[];
+}
+async function gistUpload(){
+  const token=$('#gist-token-input').value.trim();
+  const gistId=$('#gist-id-input').value.trim();
+  if(!token){setGistStatus('토큰을 입력해줘!','err');return;}
+  setGistStatus('업로드 중...','loading');save();
+  await pushSlot(token,gistId,'수동');
+}
+async function pushSlot(token,gistId,deviceLabel){
+  let slots=[];
+  if(gistId){
+    try{
+      const r=await fetch('https://api.github.com/gists/'+gistId,{headers:{'Authorization':'token '+token,'Accept':'application/vnd.github.v3+json'}});
+      if(r.ok){const d=await r.json();const rs=await readGistSlotsFromData(d);if(rs)slots=rs;}
+    }catch(e){}
+  }
+  slots.unshift({savedAt:new Date().toISOString(),device:deviceLabel,state:stripStateForSync(state)});
+  if(slots.length>5)slots=slots.slice(0,5);
+  const body={description:'Workshop — 작업실 통합 데이터',public:false,files:{[GIST_FILE_NAME]:{content:JSON.stringify({version:1,slots},null,2)}}};
+  try{
+    let url='https://api.github.com/gists',method='POST';
+    if(gistId){url='https://api.github.com/gists/'+gistId;method='PATCH';}
+    const res=await fetch(url,{method,headers:{'Authorization':'token '+token,'Content-Type':'application/json','Accept':'application/vnd.github.v3+json'},body:JSON.stringify(body)});
+    if(!res.ok){const err=await res.json().catch(()=>({}));setGistStatus('오류: '+(err.message||res.status),'err');setSyncIndicator('err');return;}
+    const data=await res.json();
+    localStorage.setItem(GIST_TOKEN_KEY,token);
+    localStorage.setItem(GIST_ID_KEY,data.id);
+    $('#gist-id-input').value=data.id;
+    setGistStatus('업로드 완료! Gist ID를 복사해서 다른 기기에서 써봐.','ok');
+    setSyncIndicator('ok');toast('☁ Gist 업로드 완료');startAutoSave();
+  }catch(e){setGistStatus('네트워크 오류: '+e.message,'err');setSyncIndicator('err');}
+}
+async function gistDownload(){
+  const token=$('#gist-token-input').value.trim();
+  const gistId=$('#gist-id-input').value.trim();
+  if(!token){setGistStatus('토큰을 입력해줘!','err');return;}
+  if(!gistId){setGistStatus('Gist ID를 입력해줘!','err');return;}
+  setGistStatus('슬롯 목록 가져오는 중...','loading');
+  try{
+    const res=await fetch('https://api.github.com/gists/'+gistId,{headers:{'Authorization':'token '+token,'Accept':'application/vnd.github.v3+json'}});
+    if(!res.ok){const err=await res.json().catch(()=>({}));setGistStatus('오류: '+(err.message||res.status),'err');setSyncIndicator('err');return;}
+    const data=await res.json();
+    const slots=await readGistSlotsFromData(data);
+    if(!slots){setGistStatus(GIST_FILE_NAME+' 파일을 못 찾았어. 다른 도구만 들어있는 Gist인지 확인해봐.','err');setSyncIndicator('err');return;}
+    if(!slots.length){setGistStatus('불러올 데이터가 없어.','err');return;}
+    setGistStatus('','');
+    showSlotPicker(slots,token,gistId);
+  }catch(e){setGistStatus('오류: '+e.message,'err');setSyncIndicator('err');}
+}
+function showSlotPicker(slots,token,gistId){
+  const ex=document.getElementById('slot-picker-overlay');if(ex)ex.remove();
+  const overlay=document.createElement('div');overlay.id='slot-picker-overlay';
+  const box=document.createElement('div');box.className='slot-picker-box';
+  box.innerHTML='<div class="slot-picker-title">버전 선택</div><div class="slot-picker-sub">불러올 버전을 골라. 현재 프리셋(종류·순서)은 덮어씌워져! (넣어둔 이미지는 영향 없음)</div>';
+  slots.forEach((slot,i)=>{
+    const t=slot.savedAt?new Date(slot.savedAt).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'알 수 없음';
+    const pc=slot.state?.presets?.length||0;
+    const ch=slot.state?.char?` · ${slot.state.char}`:'';
+    const btn=document.createElement('button');btn.className='slot-btn';
+    btn.innerHTML=`<div><div class="slot-title">${i===0?'🟢 최신':'📁 슬롯 '+(i+1)}</div><div class="slot-meta">${t} · ${slot.device||'알 수 없음'} · 감정 ${pc}개${ch}</div></div><span class="slot-arrow">›</span>`;
+    btn.onclick=()=>{
+      overlay.remove();
+      const inc=slot.state||{};
+      state.presets=Array.isArray(inc.presets)?inc.presets.slice():[...DEFAULT_PRESETS];
+      state.char=inc.char||'';
+      state.situation=inc.situation!=null?inc.situation:'인간폼';
+      state.suffix=inc.suffix||'';
+      save();render();
+      localStorage.setItem(GIST_TOKEN_KEY,token);
+      localStorage.setItem(GIST_ID_KEY,gistId);
+      setGistStatus('불러오기 완료!','ok');setSyncIndicator('ok');
+      toast('☁ Gist 불러오기 완료');startAutoSave();
+    };
+    box.appendChild(btn);
+  });
+  const c=document.createElement('button');c.className='slot-cancel-btn';c.textContent='취소';c.onclick=()=>overlay.remove();
+  box.appendChild(c);overlay.appendChild(box);
+  overlay.onclick=e=>{if(e.target===overlay)overlay.remove();};
+  document.body.appendChild(overlay);
+}
+async function gistAutoSave(){
+  const token=localStorage.getItem(GIST_TOKEN_KEY),gistId=localStorage.getItem(GIST_ID_KEY);
+  if(!token||!gistId)return;save();
+  await pushSlot(token,gistId,'자동');
+}
+function startAutoSave(){
+  if(gistAutoSaveTimer)clearInterval(gistAutoSaveTimer);
+  const token=localStorage.getItem(GIST_TOKEN_KEY),gistId=localStorage.getItem(GIST_ID_KEY);
+  if(token&&gistId){gistAutoSaveTimer=setInterval(gistAutoSave,GIST_AUTO_INTERVAL);setSyncIndicator('ok');}
+}
+
+/* ---------- 부팅 ---------- */
+load();
+render();
+window.save=save;window.render=render; // drive_sync.js 호환
+
+// Gist 핸들러 바인딩
+(function(){
+  $('#sync-btn').addEventListener('click',openGistModal);
+  $('#gist-upload-btn').addEventListener('click',gistUpload);
+  $('#gist-download-btn').addEventListener('click',gistDownload);
+  $('#gist-copy-btn').addEventListener('click',copyGistId);
+  $('#gist-close-btn').addEventListener('click',closeGistModal);
+  $('#gist-overlay').addEventListener('click',e=>{if(e.target.id==='gist-overlay')closeGistModal();});
+  startAutoSave(); // 토큰+ID 있으면 자동저장 + 인디케이터 점등
+})();
+</script>
+<script src="drive_sync.js"></script>
+</body>
+</html>
