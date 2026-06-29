@@ -140,6 +140,30 @@
 .cm-ghost{background:var(--bg2);color:var(--text2);border:.5px solid var(--border)}
 .cm-ghost:hover{background:var(--bg3);opacity:1}
 .cm-btn:focus-visible{outline:2px solid var(--accent2);outline-offset:2px}
+
+  /* 중복 처리 모달 */
+  #dup-overlay{position:fixed;inset:0;z-index:10003;background:rgba(0,0,0,0.55);display:none;align-items:center;justify-content:center;padding:20px}
+  #dup-overlay.open{display:flex}
+  .dup-modal{background:var(--bg);border:.5px solid var(--border2);border-radius:var(--radius);padding:22px;width:380px;max-width:100%;display:flex;flex-direction:column;gap:14px;box-shadow:0 12px 40px rgba(0,0,0,0.3)}
+  .dup-title{font-size:15px;font-weight:700;color:var(--accent);letter-spacing:-.2px}
+  .dup-desc{font-size:12px;color:var(--text3);line-height:1.55}
+  .dup-info{display:flex;flex-direction:column;gap:6px;background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px}
+  .dup-row{display:flex;align-items:center;gap:10px;font-size:12px}
+  .dup-row b{flex-shrink:0;width:58px;color:var(--text3);font-weight:700;font-size:10px;letter-spacing:.5px;text-transform:uppercase}
+  .dup-row span{flex:1;min-width:0;color:var(--text);word-break:break-all}
+  .dup-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;align-self:flex-start}
+  .dup-badge.same{background:rgba(136,136,204,.12);color:var(--accent);border:.5px solid rgba(136,136,204,.3)}
+  .dup-badge.diff{background:rgba(187,102,136,.12);color:var(--danger);border:.5px solid rgba(187,102,136,.3)}
+  .dup-actions{display:flex;flex-direction:column;gap:7px;margin-top:2px}
+  .dup-action{border:0;border-radius:var(--radius-sm);padding:10px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;text-align:left;transition:opacity .12s,background .12s}
+  .dup-action:hover{opacity:.88}
+  .dup-action.update{background:var(--accent);color:#fff}
+  .dup-action.new{background:var(--bg2);color:var(--text);border:.5px solid var(--border)}
+  .dup-action.new:hover{background:var(--bg3);opacity:1}
+  .dup-action.cancel{background:transparent;color:var(--text3);padding:7px 14px;text-align:center}
+  .dup-action.cancel:hover{color:var(--danger)}
+  .dup-action:focus-visible{outline:2px solid var(--accent2);outline-offset:2px}
+  .dup-action .dup-sub{display:block;font-size:10px;font-weight:500;color:inherit;opacity:.75;margin-top:2px}
 </style>
 </head>
 <body>
@@ -283,6 +307,23 @@
     </div>
   </div>
 </div>
+
+<div id="dup-overlay">
+  <div class="dup-modal" role="dialog" aria-modal="true" aria-labelledby="dup-title">
+    <div class="dup-title" id="dup-title">같은 이름의 자료가 이미 있어</div>
+    <div class="dup-desc">즐겨찾기·카테고리·태그·위치는 그대로 두고 내용만 새 파일로 갱신할 수 있어.</div>
+    <div class="dup-info">
+      <div class="dup-row"><b>새 파일</b><span id="dup-new-name">-</span></div>
+      <div class="dup-row"><b>기존 자료</b><span id="dup-old-name">-</span></div>
+      <span class="dup-badge same" id="dup-badge">내용 동일</span>
+    </div>
+    <div class="dup-actions">
+      <button class="dup-action update" type="button" data-dup-action="update">기존 자료 업데이트<span class="dup-sub">내용만 갱신, 손댄 설정은 보존</span></button>
+      <button class="dup-action new" type="button" data-dup-action="new">새 자료로 추가<span class="dup-sub">별개 항목으로 따로 보관</span></button>
+      <button class="dup-action cancel" type="button" data-dup-action="cancel">건너뛰기</button>
+    </div>
+  </div>
+</div>
 <script>
 const STORE_KEY='archive_v1';
 const PREVIEW_LIMIT=3000;
@@ -357,11 +398,87 @@ async function readFile(file){
   const item={id:uid(),title:file.name,ext,size:file.size,category:g.category,tags:g.tags,summary:makeSummary(text,g.category,file.name),location:'',preview:text.slice(0,PREVIEW_LIMIT),raw:keepRaw?text:'',hasRaw:keepRaw,createdAt:Date.now(),updatedAt:Date.now(),fav:false};
   return item;
 }
+// ===== 중복 처리 (로라랩과 동일한 하이브리드 방식: 이름 기준 탐지 + 내용 비교 + update/new/cancel 모달) =====
+function normName(v){return String(v||'').toLowerCase().replace(/\.[a-z0-9]+$/i,'').replace(/[\[\](){}]/g,' ').replace(/[_\-]+/g,' ').replace(/\s+/g,' ').trim()}
+function findDuplicateItem(title){
+  const key=normName(title);
+  if(!key)return null;
+  return state.items.find(it=>it&&normName(it.title)===key)||null;
+}
+// 내용 동일 여부: raw 둘 다 있으면 raw 비교, 아니면 preview 비교
+function itemContentEquals(a,b){
+  if(a.hasRaw&&b.hasRaw)return a.raw===b.raw;
+  return (a.preview||'')===(b.preview||'');
+}
+// 업데이트 시 내용 계열만 갱신, 사용자가 손댄 설정(fav/category/tags/location/createdAt/title)은 보존
+const ITEM_UPDATE_FIELDS=['ext','size','summary','preview','raw','hasRaw'];
+function applyItemUpdate(existing,incoming){
+  if(!existing||!incoming)return;
+  ITEM_UPDATE_FIELDS.forEach(k=>{if(k in incoming)existing[k]=incoming[k];});
+  existing.updatedAt=Date.now();
+}
+let dupResolver=null;
+function askDuplicateAction(existing,newTitle,sameContent){
+  return new Promise(resolve=>{
+    const overlay=$('#dup-overlay');
+    if(!overlay){resolve('new');return;}
+    $('#dup-new-name').textContent=newTitle||'이름 없음';
+    $('#dup-old-name').textContent=existing?.title||'기존 자료';
+    const badge=$('#dup-badge');
+    badge.textContent=sameContent?'내용 동일':'내용 변경됨';
+    badge.className='dup-badge '+(sameContent?'same':'diff');
+    dupResolver=resolve;
+    overlay.classList.add('open');
+    const first=overlay.querySelector('[data-dup-action="update"]');
+    setTimeout(()=>first&&first.focus(),0);
+  });
+}
+function closeDuplicateModal(action){
+  const overlay=$('#dup-overlay');
+  if(overlay)overlay.classList.remove('open');
+  const r=dupResolver;dupResolver=null;
+  if(r)r(action||'cancel');
+}
+(function bindDuplicateModal(){
+  const overlay=$('#dup-overlay');
+  if(!overlay)return;
+  overlay.querySelectorAll('[data-dup-action]').forEach(btn=>{
+    btn.onclick=()=>closeDuplicateModal(btn.dataset.dupAction);
+  });
+  overlay.addEventListener('click',e=>{if(e.target===overlay)closeDuplicateModal('cancel');});
+  document.addEventListener('keydown',e=>{
+    if(!overlay.classList.contains('open'))return;
+    if(e.key==='Escape'){e.preventDefault();e.stopPropagation();closeDuplicateModal('cancel');}
+    else if(e.key==='Enter'){e.preventDefault();e.stopPropagation();closeDuplicateModal('update');}
+  },true);
+})();
+function dupResultToast(c){
+  const parts=[];
+  if(c.added)parts.push(c.added+'개 추가');
+  if(c.updated)parts.push(c.updated+'개 갱신');
+  if(c.skipped)parts.push(c.skipped+'개 건너뜀');
+  if(c.fail)parts.push(c.fail+'개 실패');
+  toast(parts.join(' · ')||'변경된 항목 없어');
+}
+
 async function addFiles(files){
   const arr=[...files].filter(f=>f && (f.type.startsWith('text')||/\.(json|txt|md|csv|toml|ya?ml|log|js|html|css|py)$/i.test(f.name)));
   if(!arr.length){toast('읽을 수 있는 텍스트/json 파일이 없어');return}
-  for(const f of arr){try{state.items.unshift(await readFile(f))}catch(e){console.error(e);toast(f.name+' 읽기 실패')}}
-  state.selectedId=state.items[0]?.id||null; save(); render(); toast(arr.length+'개 추가했어'); setDetailOpen(true);
+  const c={added:0,updated:0,skipped:0,fail:0};
+  for(const f of arr){
+    try{
+      const item=await readFile(f);
+      const dup=findDuplicateItem(item.title);
+      if(dup){
+        const action=await askDuplicateAction(dup,item.title,itemContentEquals(dup,item));
+        if(action==='cancel'){c.skipped++;continue;}
+        if(action==='update'){applyItemUpdate(dup,item);state.selectedId=dup.id;c.updated++;continue;}
+      }
+      state.items.unshift(item);state.selectedId=item.id;c.added++;
+    }catch(e){console.error(e);c.fail++;}
+  }
+  save();render();dupResultToast(c);
+  if(c.added||c.updated)setDetailOpen(true);
 }
 function filtered(){
   let q=state.query.trim().toLowerCase();
@@ -429,7 +546,7 @@ function current(){return state.items.find(i=>i.id===state.selectedId)}
 function saveDetail(){const it=current();if(!it)return; it.title=$('#d-title').value.trim()||'제목 없음'; it.category=$('#d-category').value; it.tags=uniq($('#d-tags').value.split(',')); it.summary=$('#d-summary').value.trim(); it.location=$('#d-location').value.trim(); it.updatedAt=Date.now(); save(); render(); toast('저장했어')}
 function manualAdd(){const item={id:uid(),title:'새 자료',ext:'txt',size:0,category:'기타',tags:[],summary:'',location:'',preview:'',raw:'',hasRaw:false,createdAt:Date.now(),updatedAt:Date.now(),fav:false}; state.items.unshift(item); state.selectedId=item.id; save(); render(); setDetailOpen(true); setTimeout(()=>$('#d-title').focus(),0)}
 function exportData(){const blob=new Blob([JSON.stringify({version:1,exportedAt:new Date().toISOString(),items:state.items},null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='archive_export_'+new Date().toISOString().slice(0,10)+'.json'; a.click(); URL.revokeObjectURL(a.href)}
-function importData(file){const r=new FileReader(); r.onload=()=>{try{const data=JSON.parse(r.result); const items=Array.isArray(data)?data:data.items; if(!Array.isArray(items))throw Error('bad'); state.items=[...items,...state.items]; state.selectedId=state.items[0]?.id||null; save(); render(); toast(items.length+'개 불러왔어')}catch(e){toast('불러오기 실패: JSON 형식 확인')}}; r.readAsText(file)}
+function importData(file){const r=new FileReader(); r.onload=async()=>{try{const data=JSON.parse(r.result); const items=Array.isArray(data)?data:data.items; if(!Array.isArray(items))throw Error('bad'); const c={added:0,updated:0,skipped:0,fail:0}; for(const raw of items){ if(!raw||typeof raw!=='object'){c.fail++;continue;} const it=Object.assign({},raw); if(!it.id)it.id=uid(); if(typeof it.title!=='string')it.title=it.title?String(it.title):'제목 없음'; const dup=findDuplicateItem(it.title); if(dup){ const action=await askDuplicateAction(dup,it.title,itemContentEquals(dup,it)); if(action==='cancel'){c.skipped++;continue;} if(action==='update'){applyItemUpdate(dup,it);c.updated++;continue;} } state.items.unshift(it); c.added++; } state.selectedId=state.items[0]?.id||null; save(); render(); dupResultToast(c)}catch(e){console.error(e);toast('불러오기 실패: JSON 형식 확인')}}; r.readAsText(file)}
 $('#pick-btn').onclick=()=>$('#file-input').click(); $('#file-input').onchange=e=>addFiles(e.target.files);
 $('#manual-btn').onclick=manualAdd; $('#export-btn').onclick=exportData; $('#import-btn').onclick=()=>$('#import-input').click(); $('#import-input').onchange=e=>{if(e.target.files[0])importData(e.target.files[0])};
 $('#clear-filter-btn').onclick=()=>{state.activeCategory='전체';state.query='';state.rawFilter='all';state.favOnly=false;save();render()};
