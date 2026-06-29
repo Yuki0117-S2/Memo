@@ -412,8 +412,10 @@ body.lb-open{overflow:hidden}
 .dup-action.new{background:var(--bg2);color:var(--accent);border:.5px solid var(--accent)}
 .dup-action.cancel{background:transparent;color:var(--text3);border:.5px solid var(--border2)}
 .dup-action:hover{opacity:.88}
+.dup-applyall{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text2);cursor:pointer;user-select:none;padding:1px}
+.dup-applyall input{width:15px;height:15px;accent-color:var(--accent);cursor:pointer;flex-shrink:0}
 @media(min-width:560px){.dup-actions{grid-template-columns:1fr 1fr}.dup-action.cancel{grid-column:1/-1}}
-@media(max-width:760px){#duplicate-lora-overlay{padding:12px}.dup-modal{padding:17px;border-radius:14px}.dup-action{min-height:44px;font-size:13px}}
+@media(max-width:760px){#duplicate-lora-overlay{padding:12px}.dup-modal{padding:17px;border-radius:14px;max-height:calc(100vh - 24px);overflow-y:auto}.dup-action{min-height:44px;font-size:13px}.dup-applyall{min-height:36px}.dup-applyall input{width:18px;height:18px}}
 
 </style>
 </head>
@@ -484,6 +486,7 @@ body.lb-open{overflow:hidden}
       <div class="dup-row"><b>새 파일</b><span id="dup-file-name">-</span></div>
       <div class="dup-row"><b>기존 카드</b><span id="dup-card-name">-</span></div>
     </div>
+    <label class="dup-applyall"><input type="checkbox" id="dup-apply-all"> 남은 파일에도 이 선택 적용</label>
     <div class="dup-actions">
       <button class="dup-action update" type="button" data-dup-action="update">기존 카드 업데이트</button>
       <button class="dup-action new" type="button" data-dup-action="new">새 카드로 추가</button>
@@ -728,9 +731,10 @@ let duplicateLoraResolver=null;
 function askDuplicateLoraAction(existing,file){
   return new Promise(resolve=>{
     const overlay=$('duplicate-lora-overlay');
-    if(!overlay){resolve('cancel');return;}
+    if(!overlay){resolve({action:'cancel',applyAll:false});return;}
     $('dup-file-name').textContent=file?.name||'이름 없음';
     $('dup-card-name').textContent=existing?.title||existing?.fileName||'기존 카드';
+    const chk=$('dup-apply-all');if(chk)chk.checked=false;
     duplicateLoraResolver=resolve;
     overlay.classList.add('open');
     overlay.setAttribute('aria-hidden','false');
@@ -739,16 +743,17 @@ function askDuplicateLoraAction(existing,file){
     setTimeout(()=>first&&first.focus&&first.focus(),0);
   });
 }
-function closeDuplicateLoraModal(action='cancel'){
+function closeDuplicateLoraModal(action='cancel',useApplyAll){
   const overlay=$('duplicate-lora-overlay');
   if(overlay){
     overlay.classList.remove('open');
     overlay.setAttribute('aria-hidden','true');
   }
   document.body.classList.remove('lb-open');
+  const applyAll = useApplyAll!==false && (($('dup-apply-all')?.checked)||false);
   const resolver=duplicateLoraResolver;
   duplicateLoraResolver=null;
-  if(resolver)resolver(action);
+  if(resolver)resolver({action,applyAll});
 }
 function bindDuplicateLoraModal(){
   const overlay=$('duplicate-lora-overlay');
@@ -756,10 +761,10 @@ function bindDuplicateLoraModal(){
   overlay.querySelectorAll('[data-dup-action]').forEach(btn=>{
     btn.onclick=()=>closeDuplicateLoraModal(btn.dataset.dupAction||'cancel');
   });
-  overlay.addEventListener('click',e=>{if(e.target===overlay)closeDuplicateLoraModal('cancel')});
+  overlay.addEventListener('click',e=>{if(e.target===overlay)closeDuplicateLoraModal('cancel',false)});
   document.addEventListener('keydown',e=>{
     if(!overlay.classList.contains('open'))return;
-    if(e.key==='Escape'){e.preventDefault();closeDuplicateLoraModal('cancel')}
+    if(e.key==='Escape'){e.preventDefault();closeDuplicateLoraModal('cancel',false)}
     if(e.key==='Enter'){e.preventDefault();closeDuplicateLoraModal('update')}
   });
 }
@@ -886,6 +891,7 @@ async function handleFiles(files){
   const imageFiles=all.filter(f=>/^image\//i.test(f.type)||/\.(png|jpe?g|webp|gif)$/i.test(f.name));
   const loraFiles=all.filter(f=>!imageFiles.includes(f));
   let added=0,updated=0,canceled=0,fail=0;
+  let autoAction=null;
   for(const file of loraFiles){
     let c=blankCard({title:file.name.replace(/\.(safetensors|ckpt|pt|bin|json)$/i,''),fileName:file.name,fileSize:file.size,uploadedAt:now()});
     if(/\.safetensors$/i.test(file.name)){
@@ -896,7 +902,12 @@ async function handleFiles(files){
     if(!file.name)continue;
     const duplicate=findDuplicateLoraCard(file);
     if(duplicate){
-      const action=await askDuplicateLoraAction(duplicate,file);
+      let action=autoAction;
+      if(!action){
+        const res=await askDuplicateLoraAction(duplicate,file);
+        action=res.action;
+        if(res.applyAll)autoAction=action;
+      }
       if(action==='update'){
         applyLoraFileUpdate(duplicate,c);
         state.selectedId=duplicate.id;
