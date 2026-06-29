@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>✦ Tag Prep</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#ffffff;--bg2:#f7f6f3;--bg3:#eeeeee;--text:#1a1a1a;--text2:#555;--text3:#999;--border:rgba(0,0,0,.10);--border2:rgba(0,0,0,.20);--accent:#8888CC;--accent2:#DDAACC;--accent3:#CCAA88;--danger:#BB6688;--purple:#884499;--ok:#6AC8B0;--radius:12px;--radius-sm:8px;--mono:'JetBrains Mono',Consolas,Menlo,monospace}
+@media(prefers-color-scheme:dark){:root{--bg:#1e1e1e;--bg2:#272727;--bg3:#313131;--text:#f0f0f0;--text2:#aaa;--text3:#666;--border:rgba(255,255,255,.10);--border2:rgba(255,255,255,.22)}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+button,input,textarea,select{font-family:inherit}
+#app{width:100%;max-width:920px;margin:0 auto;padding:1rem 1.25rem 3rem}
+header{display:flex;align-items:center;gap:10px;border-bottom:.5px solid var(--border);padding-bottom:.75rem;margin-bottom:.85rem;flex-wrap:wrap}
+.back{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;color:var(--text3);text-decoration:none;border-radius:var(--radius-sm);font-size:18px;flex:0 0 auto}.back:hover{background:var(--bg2);color:var(--accent)}
+.logo{font-size:15px;font-weight:700;color:var(--accent);letter-spacing:-.2px;margin-right:8px;display:flex;align-items:center;gap:8px}.logo-dot{width:8px;height:8px;border-radius:999px;background:var(--accent);box-shadow:0 0 10px rgba(136,136,204,.6);animation:pulse 2.4s ease-in-out infinite}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.42}}
+.toolbar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;flex:1;color:var(--text3);font-size:12px;line-height:1.55}.toolbar strong{color:var(--text2);font-weight:600}
+
+.hero{background:var(--bg);border:.5px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:12px}
+.hero-head{padding:14px 15px;border-bottom:.5px solid var(--border);background:var(--bg2)}
+.hero-title{font-size:13px;font-weight:800;color:var(--text);margin-bottom:3px}
+.hero-desc{font-size:12px;color:var(--text3);line-height:1.55}
+.hero-desc b{color:var(--accent3);font-weight:700}
+
+.panel{background:var(--bg);border:.5px solid var(--border);border-radius:var(--radius);margin-bottom:12px;overflow:hidden}
+.panel-head{padding:11px 14px;border-bottom:.5px solid var(--border);background:var(--bg2);display:flex;align-items:center;justify-content:space-between;gap:10px}
+.panel-title{font-size:12px;font-weight:800;color:var(--text2);letter-spacing:.2px}
+.panel-body{padding:13px 14px}
+
+textarea.io{width:100%;border:.5px solid var(--border);border-radius:var(--radius-sm);background:var(--bg2);color:var(--text);font-family:var(--mono);font-size:12.5px;line-height:1.6;padding:11px 12px;resize:vertical;min-height:120px;outline:none;transition:border-color .15s}
+textarea.io:focus{border-color:var(--accent)}
+textarea.io[readonly]{background:var(--bg3);cursor:default}
+
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:14px 18px}
+.opt-block{display:flex;flex-direction:column;gap:7px}
+.opt-label{font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.3px;text-transform:uppercase}
+.seg{display:flex;background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:3px;gap:3px}
+.seg button{flex:1;border:none;background:transparent;color:var(--text2);font-size:11.5px;font-weight:600;padding:7px 6px;border-radius:6px;cursor:pointer;transition:background .14s,color .14s;white-space:nowrap}
+.seg button:hover{color:var(--text)}
+.seg button.active{background:var(--accent);color:#fff;box-shadow:0 1px 4px rgba(136,136,204,.35)}
+.checks{display:flex;flex-direction:column;gap:9px}
+.chk{display:flex;align-items:center;gap:9px;cursor:pointer;font-size:12.5px;color:var(--text);user-select:none}
+.chk input{appearance:none;width:17px;height:17px;border:1.5px solid var(--border2);border-radius:5px;cursor:pointer;flex-shrink:0;position:relative;transition:background .14s,border-color .14s}
+.chk input:checked{background:var(--accent);border-color:var(--accent)}
+.chk input:checked::after{content:'';position:absolute;left:5px;top:1.5px;width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.chk .sub{font-size:11px;color:var(--text3)}
+
+.result-head{display:flex;align-items:center;gap:8px}
+.stat{font-size:11px;color:var(--text3);font-family:var(--mono)}
+.stat b{color:var(--accent);font-weight:700}
+.stat .warn{color:var(--danger);font-weight:700}
+.btn{display:inline-flex;align-items:center;gap:6px;border:.5px solid var(--accent);background:transparent;color:var(--accent);font-size:11.5px;font-weight:700;padding:6px 13px;border-radius:var(--radius-sm);cursor:pointer;transition:background .13s,color .13s}
+.btn:hover{background:var(--accent);color:#fff}
+.btn.ghost{border-color:var(--border2);color:var(--text2)}
+.btn.ghost:hover{background:var(--bg2);color:var(--text);border-color:var(--text3)}
+.btn.copied{border-color:var(--ok);color:var(--ok)}
+.btn.copied:hover{background:var(--ok);color:#fff}
+
+.preset-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.preset-chip{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;font-weight:600;padding:5px 6px 5px 11px;border-radius:999px;background:rgba(204,170,136,.12);border:.5px solid rgba(204,170,136,.34);color:var(--accent3);cursor:pointer;transition:background .13s}
+.preset-chip:hover{background:rgba(204,170,136,.22)}
+.preset-chip .del{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:999px;color:var(--text3);font-size:13px;line-height:1}
+.preset-chip .del:hover{background:var(--danger);color:#fff}
+.preset-empty{font-size:11.5px;color:var(--text3)}
+
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:50;padding:20px}
+.overlay.show{display:flex}
+.modal{background:var(--bg);border:.5px solid var(--border2);border-radius:var(--radius);width:100%;max-width:360px;padding:20px;box-shadow:0 18px 50px rgba(0,0,0,.3)}
+.modal-title{font-size:14px;font-weight:800;color:var(--text);margin-bottom:6px}
+.modal-sub{font-size:12px;color:var(--text3);margin-bottom:14px;line-height:1.5}
+.modal input{width:100%;border:.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--bg2);color:var(--text);font-size:13px;padding:10px 12px;outline:none;margin-bottom:16px}
+.modal input:focus{border-color:var(--accent)}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end}
+
+.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:var(--text);color:var(--bg);font-size:12.5px;font-weight:600;padding:10px 18px;border-radius:999px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:60}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+.cheat summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.cheat summary::-webkit-details-marker{display:none}
+.cheat:not([open]) summary{border-bottom:none}
+.cheat-hint{font-size:10.5px;font-weight:500;color:var(--text3);margin-left:7px}
+.cheat-arrow{color:var(--text3);font-size:11px;transition:transform .2s;flex-shrink:0}
+.cheat[open] .cheat-arrow{transform:rotate(180deg)}
+.cheat-body{font-size:12px;line-height:1.65;color:var(--text2)}
+.cheat-sec{margin-bottom:14px}
+.cheat-sec:last-child{margin-bottom:0}
+.cheat-h{font-size:10.5px;font-weight:800;color:var(--accent);letter-spacing:.4px;margin-bottom:5px;text-transform:uppercase}
+.cheat .tg{font-family:var(--mono);font-size:11px;background:var(--bg2);border:.5px solid var(--border);border-radius:5px;padding:1px 6px;color:var(--text);white-space:nowrap}
+.cheat .hl{color:var(--accent3);font-weight:700}
+.cheat .dg{color:var(--danger);font-weight:700}
+.copy-snip{display:block;font-family:var(--mono);font-size:11px;background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:8px 11px;color:var(--text);cursor:pointer;margin-top:5px;transition:border-color .13s,background .13s;word-break:break-word;position:relative}
+.copy-snip:hover{border-color:var(--accent);background:rgba(136,136,204,.08)}
+.copy-snip .lbl{color:var(--text3);font-size:9.5px;float:right;margin-left:8px}
+.cheat-order{font-family:var(--mono);font-size:11px;line-height:2;background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:9px 11px}
+.cheat-order .arr{color:var(--text3);padding:0 3px}
+.cheat-link{color:var(--accent);text-decoration:none;font-size:11px;font-weight:600}
+.cheat-link:hover{text-decoration:underline}
+
+@media(max-width:720px){
+  #app{padding:.75rem .8rem 2rem}
+  header{display:grid;grid-template-columns:auto 1fr;grid-template-areas:"back logo" "tools tools";align-items:center;gap:8px;padding-bottom:.85rem}
+  .back{grid-area:back}.logo{grid-area:logo;margin-right:0}.toolbar{grid-area:tools;width:100%;font-size:11px}
+  .opts{grid-template-columns:1fr;gap:14px}
+  .panel-head{flex-wrap:wrap}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <a class="back" href="index.html" title="작업실로">‹</a>
+    <div class="logo"><span class="logo-dot"></span>✦ Tag Prep</div>
+    <div class="toolbar"><strong>danbooru 태그 전처리</strong> 언더스코어 ↔ 공백, 콤마 정리, 괄호 이스케이프를 한 번에</div>
+  </header>
+
+  <section class="hero">
+    <div class="hero-head">
+      <div class="hero-title">Tag Preprocessor</div>
+      <div class="hero-desc">태그를 붙여넣으면 실시간으로 변환돼. 콤마 기준으로 쪼갠 뒤 <b>양끝 공백 · 빈 태그 · 끝 콤마 · 콤마 앞 공백</b>은 항상 자동 정리됨. NAI용/로컬용 옵션 조합은 프리셋으로 저장해 둬.</div>
+    </div>
+  </section>
+
+  <!-- 입력 -->
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">▸ 입력</div>
+      <button class="btn ghost" id="btn-clear">비우기</button>
+    </div>
+    <div class="panel-body">
+      <textarea class="io" id="input" placeholder="solo, long_hair, looking_at_viewer, smile, 1boy, hatsune_miku_(vocaloid) ..."></textarea>
+    </div>
+  </div>
+
+  <!-- 옵션 -->
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">▸ 옵션</div></div>
+    <div class="panel-body">
+      <div class="opts">
+        <div class="opt-block">
+          <div class="opt-label">변환 방향</div>
+          <div class="seg" id="seg-dir">
+            <button data-v="none" class="active">변환 안 함</button>
+            <button data-v="u2s">_ → 공백</button>
+            <button data-v="s2u">공백 → _</button>
+          </div>
+          <label class="chk" style="margin-top:3px"><input type="checkbox" id="chk-score" checked><span>score 태그 보호 <span class="sub">_→공백 시 score_7 유지 (Anima)</span></span></label>
+        </div>
+        <div class="opt-block">
+          <div class="opt-label">괄호 이스케이프 \(  \)</div>
+          <div class="seg" id="seg-esc">
+            <button data-v="none" class="active">안 함</button>
+            <button data-v="on">걸기 \(</button>
+            <button data-v="off">풀기 (</button>
+          </div>
+        </div>
+        <div class="opt-block">
+          <div class="opt-label">정리 / 정렬</div>
+          <div class="checks">
+            <label class="chk"><input type="checkbox" id="chk-lower"><span>대문자 → 소문자 <span class="sub">자연어 이름 섞으면 주의</span></span></label>
+            <label class="chk"><input type="checkbox" id="chk-dedup"><span>중복 태그 제거 <span class="sub">대소문자 무시</span></span></label>
+            <label class="chk"><input type="checkbox" id="chk-sort"><span>abc 순으로 정렬</span></label>
+          </div>
+        </div>
+        <div class="opt-block">
+          <div class="opt-label">출력 형태</div>
+          <div class="checks">
+            <label class="chk"><input type="checkbox" id="chk-space" checked><span>콤마 뒤 띄어쓰기 <span class="sub">a, b, c</span></span></label>
+            <label class="chk"><input type="checkbox" id="chk-newline"><span>한 줄에 하나씩 <span class="sub">줄바꿈 출력</span></span></label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 결과 -->
+  <div class="panel">
+    <div class="panel-head">
+      <div class="result-head"><div class="panel-title">▸ 결과</div><span class="stat" id="stat"></span></div>
+      <button class="btn" id="btn-copy">복사</button>
+    </div>
+    <div class="panel-body">
+      <textarea class="io" id="output" readonly placeholder="여기에 변환된 결과가 나와"></textarea>
+    </div>
+  </div>
+
+  <!-- 프리셋 -->
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">▸ 프리셋</div>
+      <button class="btn ghost" id="btn-save">현재 옵션 저장</button>
+    </div>
+    <div class="panel-body">
+      <div class="preset-bar" id="preset-bar"></div>
+    </div>
+  </div>
+
+  <!-- Anima 프롬프트 치트시트 -->
+  <details class="panel cheat">
+    <summary class="panel-head">
+      <div class="panel-title">▸ Anima 프롬프트 규칙 <span class="cheat-hint">클릭해서 펼치기</span></div>
+      <span class="cheat-arrow">▾</span>
+    </summary>
+    <div class="panel-body cheat-body">
+
+      <div class="cheat-sec">
+        <div class="cheat-h">핵심 규칙</div>
+        태그는 <span class="hl">소문자</span> + 언더스코어 대신 <span class="hl">공백</span> — 단 <span class="tg">score_7</span> 같은 <span class="dg">score 태그만 _ 유지</span>.<br>
+        danbooru / gelbooru 표기가 다르면 <span class="hl">gelbooru</span> 쪽을 씀.<br>
+        아티스트 태그는 앞에 <span class="dg">@</span> 필수 — <span class="tg">@artist name</span> (안 붙이면 효과 거의 없음).
+      </div>
+
+      <div class="cheat-sec">
+        <div class="cheat-h">태그 순서</div>
+        <div class="cheat-order">quality·meta·year·safety <span class="arr">→</span> 1girl/1boy <span class="arr">→</span> character <span class="arr">→</span> series <span class="arr">→</span> @artist <span class="arr">→</span> general</div>
+      </div>
+
+      <div class="cheat-sec">
+        <div class="cheat-h">추천 prefix (클릭 복사)</div>
+        <div class="copy-snip" data-copy="masterpiece, best quality, score_7, safe, ">masterpiece, best quality, score_7, safe, <span class="lbl">⧉ 복사</span></div>
+      </div>
+
+      <div class="cheat-sec">
+        <div class="cheat-h">추천 negative (클릭 복사)</div>
+        <div class="copy-snip" data-copy="worst quality, low quality, score_1, score_2, score_3, artist name">worst quality, low quality, score_1, score_2, score_3, artist name <span class="lbl">⧉ 복사</span></div>
+      </div>
+
+      <div class="cheat-sec">
+        <div class="cheat-h">카테고리별 태그</div>
+        <b>품질</b> — masterpiece · best quality · good/normal/low/worst quality · score_9 ~ score_1<br>
+        <b>시기</b> — year 2025 ... · newest · recent · mid · early · old<br>
+        <b>메타</b> — highres · absurdres · anime screenshot · jpeg artifacts · official art<br>
+        <b>세이프티</b> — safe · sensitive · nsfw · explicit
+      </div>
+
+      <div class="cheat-sec">
+        <div class="cheat-h">생성 세팅</div>
+        ~1MP 해상도 (1024×1024, 896×1152 등) · 30–50 steps · CFG 4–5 · 샘플러 er_sde 기본
+      </div>
+
+      <div class="cheat-sec">
+        <a class="cheat-link" href="https://huggingface.co/circlestone-labs/Anima" target="_blank" rel="noopener">↗ 원본 모델카드 (circlestone-labs/Anima)</a>
+      </div>
+
+    </div>
+  </details>
+</div>
+
+<!-- 프리셋 이름 입력 모달 (Electron prompt 차단 대응) -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-title">프리셋 저장</div>
+    <div class="modal-sub">현재 옵션 조합을 이름 붙여서 저장해. (예: NAI, 로컬, 이스케이프용)</div>
+    <input type="text" id="preset-name" placeholder="프리셋 이름" maxlength="24">
+    <div class="modal-actions">
+      <button class="btn ghost" id="modal-cancel">취소</button>
+      <button class="btn" id="modal-ok">저장</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $=s=>document.querySelector(s);
+const PRESET_KEY='tagprep_presets_v1';
+
+/* ---------- 변환 로직 ---------- */
+function underscoreToSpace(t,protectScore){if(protectScore&&/^score_\d+$/i.test(t))return t;return t.replace(/_+/g,' ');}
+function spaceToUnderscore(t){return t.replace(/\s+/g,'_');}
+// 이미 \( 로 이스케이프된 건 건드리지 않음
+function escapeParen(t){return t.replace(/(?<!\\)\(/g,'\\(').replace(/(?<!\\)\)/g,'\\)');}
+function unescapeParen(t){return t.replace(/\\([()])/g,'$1');}
+
+function processTags(raw,o){
+  // 콤마 + 줄바꿈 기준 분리 → 양끝 공백/빈 태그 자동 정리
+  let tokens=raw.split(/[,\n]/).map(t=>t.trim()).filter(t=>t.length>0);
+  const inputCount=tokens.length;
+
+  if(o.lower)tokens=tokens.map(t=>t.toLowerCase());
+
+  if(o.dir==='u2s')tokens=tokens.map(t=>underscoreToSpace(t,o.score));
+  else if(o.dir==='s2u')tokens=tokens.map(spaceToUnderscore);
+
+  if(o.esc==='on')tokens=tokens.map(escapeParen);
+  else if(o.esc==='off')tokens=tokens.map(unescapeParen);
+
+  let removed=0;
+  if(o.dedup){
+    const seen=new Set(),out=[];
+    for(const t of tokens){const k=t.toLowerCase();if(seen.has(k)){removed++;continue;}seen.add(k);out.push(t);}
+    tokens=out;
+  }
+  if(o.sort)tokens=[...tokens].sort((a,b)=>a.localeCompare(b));
+
+  let text;
+  if(o.newline)text=tokens.join(',\n');
+  else text=tokens.join(o.space?', ':',');
+
+  return {text,inputCount,outputCount:tokens.length,removed};
+}
+
+/* ---------- 옵션 상태 ---------- */
+function getOpts(){
+  return {
+    dir:$('#seg-dir .active').dataset.v,
+    esc:$('#seg-esc .active').dataset.v,
+    lower:$('#chk-lower').checked,
+    score:$('#chk-score').checked,
+    dedup:$('#chk-dedup').checked,
+    sort:$('#chk-sort').checked,
+    space:$('#chk-space').checked,
+    newline:$('#chk-newline').checked,
+  };
+}
+function applyOpts(o){
+  setSeg('seg-dir',o.dir||'none');
+  setSeg('seg-esc',o.esc||'none');
+  $('#chk-lower').checked=!!o.lower;
+  $('#chk-score').checked=o.score!==false;
+  $('#chk-dedup').checked=!!o.dedup;
+  $('#chk-sort').checked=!!o.sort;
+  $('#chk-space').checked=o.space!==false;
+  $('#chk-newline').checked=!!o.newline;
+  render();
+}
+function setSeg(id,v){
+  document.querySelectorAll('#'+id+' button').forEach(b=>b.classList.toggle('active',b.dataset.v===v));
+}
+
+/* ---------- 렌더 ---------- */
+function render(){
+  const o=getOpts();
+  const r=processTags($('#input').value,o);
+  $('#output').value=r.text;
+  let s=`입력 <b>${r.inputCount}</b> → 출력 <b>${r.outputCount}</b>`;
+  if(r.removed>0)s+=` · 중복 <span class="warn">${r.removed}</span> 제거`;
+  $('#stat').innerHTML=$('#input').value.trim()?s:'';
+}
+
+/* ---------- 세그먼트 클릭 ---------- */
+['seg-dir','seg-esc'].forEach(id=>{
+  document.querySelectorAll('#'+id+' button').forEach(b=>{
+    b.addEventListener('click',()=>{setSeg(id,b.dataset.v);render();});
+  });
+});
+['input','chk-lower','chk-score','chk-dedup','chk-sort','chk-space','chk-newline'].forEach(id=>{
+  $('#'+id).addEventListener('input',render);
+});
+$('#btn-clear').addEventListener('click',()=>{$('#input').value='';render();$('#input').focus();});
+
+/* ---------- 복사 ---------- */
+$('#btn-copy').addEventListener('click',async()=>{
+  const v=$('#output').value;
+  if(!v){toast('복사할 게 없어');return;}
+  try{await navigator.clipboard.writeText(v);}
+  catch(e){const t=$('#output');t.removeAttribute('readonly');t.select();document.execCommand('copy');t.setAttribute('readonly','');}
+  const btn=$('#btn-copy');btn.textContent='복사됨!';btn.classList.add('copied');
+  setTimeout(()=>{btn.textContent='복사';btn.classList.remove('copied');},1300);
+});
+
+/* ---------- 프리셋 ---------- */
+function loadPresets(){try{return JSON.parse(localStorage.getItem(PRESET_KEY))||[];}catch(e){return [];}}
+function savePresets(arr){localStorage.setItem(PRESET_KEY,JSON.stringify(arr));}
+function renderPresets(){
+  const bar=$('#preset-bar'),arr=loadPresets();
+  bar.innerHTML='';
+  if(!arr.length){bar.innerHTML='<span class="preset-empty">저장된 프리셋이 없어. 옵션 맞춰놓고 \'현재 옵션 저장\' 눌러봐.</span>';return;}
+  arr.forEach((p,i)=>{
+    const chip=document.createElement('span');
+    chip.className='preset-chip';
+    const name=document.createElement('span');name.textContent=p.name;
+    name.addEventListener('click',()=>{applyOpts(p.opts);toast('"'+p.name+'" 적용');});
+    const del=document.createElement('span');del.className='del';del.textContent='×';del.title='삭제';
+    del.addEventListener('click',e=>{e.stopPropagation();const a=loadPresets();a.splice(i,1);savePresets(a);renderPresets();});
+    chip.appendChild(name);chip.appendChild(del);bar.appendChild(chip);
+  });
+}
+
+/* ---------- 프리셋 이름 모달 ---------- */
+const overlay=$('#overlay'),nameInput=$('#preset-name');
+function openModal(){nameInput.value='';overlay.classList.add('show');setTimeout(()=>nameInput.focus(),50);}
+function closeModal(){overlay.classList.remove('show');}
+$('#btn-save').addEventListener('click',openModal);
+$('#modal-cancel').addEventListener('click',closeModal);
+overlay.addEventListener('click',e=>{if(e.target===overlay)closeModal();});
+nameInput.addEventListener('keydown',e=>{if(e.key==='Enter')confirmSave();if(e.key==='Escape')closeModal();});
+$('#modal-ok').addEventListener('click',confirmSave);
+function confirmSave(){
+  const name=nameInput.value.trim();
+  if(!name){toast('이름을 적어줘');return;}
+  const arr=loadPresets();
+  const idx=arr.findIndex(p=>p.name===name);
+  const entry={name,opts:getOpts()};
+  if(idx>=0)arr[idx]=entry;else arr.push(entry);
+  savePresets(arr);renderPresets();closeModal();
+  toast('"'+name+'" 저장됨');
+}
+
+/* ---------- 토스트 ---------- */
+let toastT;
+function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),1600);}
+
+/* ---------- 치트시트 클릭 복사 ---------- */
+document.querySelectorAll('.copy-snip').forEach(el=>{
+  el.addEventListener('click',async()=>{
+    const txt=el.dataset.copy||'';
+    try{await navigator.clipboard.writeText(txt);}
+    catch(e){const ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();}
+    toast('복사됨');
+  });
+});
+
+/* ---------- 초기화 ---------- */
+renderPresets();render();
+</script>
+</body>
+</html>
