@@ -164,6 +164,16 @@
   .dup-action.cancel:hover{color:var(--danger)}
   .dup-action:focus-visible{outline:2px solid var(--accent2);outline-offset:2px}
   .dup-action .dup-sub{display:block;font-size:10px;font-weight:500;color:inherit;opacity:.75;margin-top:2px}
+  .dup-applyall{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text2);cursor:pointer;user-select:none;padding:2px 1px}
+  .dup-applyall input{width:15px;height:15px;accent-color:var(--accent);cursor:pointer;flex-shrink:0}
+  @media(max-width:760px){
+    #dup-overlay{padding:12px}
+    .dup-modal{padding:17px;border-radius:14px;max-height:calc(100vh - 24px);overflow-y:auto}
+    .dup-action{min-height:44px;padding:11px 14px}
+    .dup-action.cancel{min-height:40px}
+    .dup-applyall{min-height:36px}
+    .dup-applyall input{width:18px;height:18px}
+  }
 </style>
 </head>
 <body>
@@ -317,6 +327,7 @@
       <div class="dup-row"><b>기존 자료</b><span id="dup-old-name">-</span></div>
       <span class="dup-badge same" id="dup-badge">내용 동일</span>
     </div>
+    <label class="dup-applyall"><input type="checkbox" id="dup-apply-all"> 남은 항목에도 이 선택 적용</label>
     <div class="dup-actions">
       <button class="dup-action update" type="button" data-dup-action="update">기존 자료 업데이트<span class="dup-sub">내용만 갱신, 손댄 설정은 보존</span></button>
       <button class="dup-action new" type="button" data-dup-action="new">새 자료로 추가<span class="dup-sub">별개 항목으로 따로 보관</span></button>
@@ -421,23 +432,25 @@ let dupResolver=null;
 function askDuplicateAction(existing,newTitle,sameContent){
   return new Promise(resolve=>{
     const overlay=$('#dup-overlay');
-    if(!overlay){resolve('new');return;}
+    if(!overlay){resolve({action:'new',applyAll:false});return;}
     $('#dup-new-name').textContent=newTitle||'이름 없음';
     $('#dup-old-name').textContent=existing?.title||'기존 자료';
     const badge=$('#dup-badge');
     badge.textContent=sameContent?'내용 동일':'내용 변경됨';
     badge.className='dup-badge '+(sameContent?'same':'diff');
+    const chk=$('#dup-apply-all');if(chk)chk.checked=false;
     dupResolver=resolve;
     overlay.classList.add('open');
     const first=overlay.querySelector('[data-dup-action="update"]');
     setTimeout(()=>first&&first.focus(),0);
   });
 }
-function closeDuplicateModal(action){
+function closeDuplicateModal(action,useApplyAll){
   const overlay=$('#dup-overlay');
   if(overlay)overlay.classList.remove('open');
+  const applyAll = useApplyAll!==false && (($('#dup-apply-all')?.checked)||false);
   const r=dupResolver;dupResolver=null;
-  if(r)r(action||'cancel');
+  if(r)r({action:action||'cancel',applyAll});
 }
 (function bindDuplicateModal(){
   const overlay=$('#dup-overlay');
@@ -445,10 +458,10 @@ function closeDuplicateModal(action){
   overlay.querySelectorAll('[data-dup-action]').forEach(btn=>{
     btn.onclick=()=>closeDuplicateModal(btn.dataset.dupAction);
   });
-  overlay.addEventListener('click',e=>{if(e.target===overlay)closeDuplicateModal('cancel');});
+  overlay.addEventListener('click',e=>{if(e.target===overlay)closeDuplicateModal('cancel',false);});
   document.addEventListener('keydown',e=>{
     if(!overlay.classList.contains('open'))return;
-    if(e.key==='Escape'){e.preventDefault();e.stopPropagation();closeDuplicateModal('cancel');}
+    if(e.key==='Escape'){e.preventDefault();e.stopPropagation();closeDuplicateModal('cancel',false);}
     else if(e.key==='Enter'){e.preventDefault();e.stopPropagation();closeDuplicateModal('update');}
   },true);
 })();
@@ -465,12 +478,18 @@ async function addFiles(files){
   const arr=[...files].filter(f=>f && (f.type.startsWith('text')||/\.(json|txt|md|csv|toml|ya?ml|log|js|html|css|py)$/i.test(f.name)));
   if(!arr.length){toast('읽을 수 있는 텍스트/json 파일이 없어');return}
   const c={added:0,updated:0,skipped:0,fail:0};
+  let autoAction=null;
   for(const f of arr){
     try{
       const item=await readFile(f);
       const dup=findDuplicateItem(item.title);
       if(dup){
-        const action=await askDuplicateAction(dup,item.title,itemContentEquals(dup,item));
+        let action=autoAction;
+        if(!action){
+          const res=await askDuplicateAction(dup,item.title,itemContentEquals(dup,item));
+          action=res.action;
+          if(res.applyAll)autoAction=action;
+        }
         if(action==='cancel'){c.skipped++;continue;}
         if(action==='update'){applyItemUpdate(dup,item);state.selectedId=dup.id;c.updated++;continue;}
       }
@@ -546,7 +565,7 @@ function current(){return state.items.find(i=>i.id===state.selectedId)}
 function saveDetail(){const it=current();if(!it)return; it.title=$('#d-title').value.trim()||'제목 없음'; it.category=$('#d-category').value; it.tags=uniq($('#d-tags').value.split(',')); it.summary=$('#d-summary').value.trim(); it.location=$('#d-location').value.trim(); it.updatedAt=Date.now(); save(); render(); toast('저장했어')}
 function manualAdd(){const item={id:uid(),title:'새 자료',ext:'txt',size:0,category:'기타',tags:[],summary:'',location:'',preview:'',raw:'',hasRaw:false,createdAt:Date.now(),updatedAt:Date.now(),fav:false}; state.items.unshift(item); state.selectedId=item.id; save(); render(); setDetailOpen(true); setTimeout(()=>$('#d-title').focus(),0)}
 function exportData(){const blob=new Blob([JSON.stringify({version:1,exportedAt:new Date().toISOString(),items:state.items},null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='archive_export_'+new Date().toISOString().slice(0,10)+'.json'; a.click(); URL.revokeObjectURL(a.href)}
-function importData(file){const r=new FileReader(); r.onload=async()=>{try{const data=JSON.parse(r.result); const items=Array.isArray(data)?data:data.items; if(!Array.isArray(items))throw Error('bad'); const c={added:0,updated:0,skipped:0,fail:0}; for(const raw of items){ if(!raw||typeof raw!=='object'){c.fail++;continue;} const it=Object.assign({},raw); if(!it.id)it.id=uid(); if(typeof it.title!=='string')it.title=it.title?String(it.title):'제목 없음'; const dup=findDuplicateItem(it.title); if(dup){ const action=await askDuplicateAction(dup,it.title,itemContentEquals(dup,it)); if(action==='cancel'){c.skipped++;continue;} if(action==='update'){applyItemUpdate(dup,it);c.updated++;continue;} } state.items.unshift(it); c.added++; } state.selectedId=state.items[0]?.id||null; save(); render(); dupResultToast(c)}catch(e){console.error(e);toast('불러오기 실패: JSON 형식 확인')}}; r.readAsText(file)}
+function importData(file){const r=new FileReader(); r.onload=async()=>{try{const data=JSON.parse(r.result); const items=Array.isArray(data)?data:data.items; if(!Array.isArray(items))throw Error('bad'); const c={added:0,updated:0,skipped:0,fail:0}; let autoAction=null; for(const raw of items){ if(!raw||typeof raw!=='object'){c.fail++;continue;} const it=Object.assign({},raw); if(!it.id)it.id=uid(); if(typeof it.title!=='string')it.title=it.title?String(it.title):'제목 없음'; const dup=findDuplicateItem(it.title); if(dup){ let action=autoAction; if(!action){ const res=await askDuplicateAction(dup,it.title,itemContentEquals(dup,it)); action=res.action; if(res.applyAll)autoAction=action; } if(action==='cancel'){c.skipped++;continue;} if(action==='update'){applyItemUpdate(dup,it);c.updated++;continue;} } state.items.unshift(it); c.added++; } state.selectedId=state.items[0]?.id||null; save(); render(); dupResultToast(c)}catch(e){console.error(e);toast('불러오기 실패: JSON 형식 확인')}}; r.readAsText(file)}
 $('#pick-btn').onclick=()=>$('#file-input').click(); $('#file-input').onchange=e=>addFiles(e.target.files);
 $('#manual-btn').onclick=manualAdd; $('#export-btn').onclick=exportData; $('#import-btn').onclick=()=>$('#import-input').click(); $('#import-input').onchange=e=>{if(e.target.files[0])importData(e.target.files[0])};
 $('#clear-filter-btn').onclick=()=>{state.activeCategory='전체';state.query='';state.rawFilter='all';state.favOnly=false;save();render()};
