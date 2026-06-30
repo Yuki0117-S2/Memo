@@ -31,6 +31,8 @@ header{display:flex;align-items:center;gap:10px;border-bottom:.5px solid var(--b
 textarea.io{width:100%;border:.5px solid var(--border);border-radius:var(--radius-sm);background:var(--bg2);color:var(--text);font-family:var(--mono);font-size:12.5px;line-height:1.6;padding:11px 12px;resize:vertical;min-height:120px;outline:none;transition:border-color .15s}
 textarea.io:focus{border-color:var(--accent)}
 textarea.io[readonly]{background:var(--bg3);cursor:default}
+.mini-label{font-size:11px;font-weight:800;color:var(--text3);letter-spacing:.25px;margin:12px 0 6px;text-transform:uppercase}
+textarea.io.small{min-height:78px}
 
 .opts{display:grid;grid-template-columns:1fr 1fr;gap:14px 18px}
 .opt-block{display:flex;flex-direction:column;gap:7px}
@@ -132,7 +134,7 @@ textarea.io[readonly]{background:var(--bg3);cursor:default}
   <section class="hero">
     <div class="hero-head">
       <div class="hero-title">Tag Preprocessor</div>
-      <div class="hero-desc">태그를 붙여넣으면 실시간으로 변환돼. 콤마 기준으로 쪼갠 뒤 <b>양끝 공백 · 빈 태그 · 끝 콤마 · 콤마 앞 공백</b>은 항상 자동 정리됨. NAI용/로컬용 옵션 조합은 프리셋으로 저장해 둬.</div>
+      <div class="hero-desc">태그를 붙여넣으면 실시간으로 변환돼. 콤마 기준으로 쪼갠 뒤 <b>양끝 공백 · 빈 태그 · 끝 콤마 · 콤마 앞 공백</b>은 항상 자동 정리됨. Anima용 정리와 negative 분리 옵션도 프리셋으로 저장해 둬.</div>
     </div>
   </section>
 
@@ -143,6 +145,8 @@ textarea.io[readonly]{background:var(--bg3);cursor:default}
     </div>
     <div class="panel-body">
       <textarea class="io" id="input" placeholder="solo, long_hair, looking_at_viewer, smile, 1boy, hatsune_miku_(vocaloid) ..."></textarea>
+      <div class="mini-label">Negative 추가 입력 <span style="font-weight:500;text-transform:none;color:var(--text3)">· 선택 사항</span></div>
+      <textarea class="io small" id="neg-input" placeholder="blush, bad hands, low quality ..."></textarea>
     </div>
   </div>
 
@@ -183,6 +187,15 @@ textarea.io[readonly]{background:var(--bg3);cursor:default}
             <label class="chk"><input type="checkbox" id="chk-newline"><span>한 줄에 하나씩 <span class="sub">줄바꿈 출력</span></span></label>
           </div>
         </div>
+        <div class="opt-block">
+          <div class="opt-label">Anima 보정</div>
+          <div class="checks">
+            <label class="chk"><input type="checkbox" id="chk-normspace" checked><span>특수 공백 정리 <span class="sub">NBSP → 일반 공백</span></span></label>
+            <label class="chk"><input type="checkbox" id="chk-strip-nai" checked><span>{ } / [ ] 껍데기 제거 <span class="sub">NAI 강조 제거</span></span></label>
+            <label class="chk"><input type="checkbox" id="chk-split-neg" checked><span>-1::tag:: negative 분리 <span class="sub">positive에서 빼기</span></span></label>
+            <label class="chk"><input type="checkbox" id="chk-protect-weight" checked><span>(tag:1.5) 가중치 보호 <span class="sub">이스케이프 제외</span></span></label>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -194,7 +207,18 @@ textarea.io[readonly]{background:var(--bg3);cursor:default}
       <button class="btn" id="btn-copy">복사</button>
     </div>
     <div class="panel-body">
-      <textarea class="io" id="output" readonly placeholder="여기에 변환된 결과가 나와"></textarea>
+      <textarea class="io" id="output" readonly placeholder="여기에 변환된 positive 결과가 나와"></textarea>
+    </div>
+  </div>
+
+  <!-- Negative 결과 -->
+  <div class="panel">
+    <div class="panel-head">
+      <div class="result-head"><div class="panel-title">▸ Negative 결과</div><span class="stat" id="neg-stat"></span></div>
+      <button class="btn ghost" id="btn-copy-neg">Negative 복사</button>
+    </div>
+    <div class="panel-body">
+      <textarea class="io small" id="neg-output" readonly placeholder="여기에 분리/정리된 negative가 나와"></textarea>
     </div>
   </div>
 
@@ -279,38 +303,95 @@ const $=s=>document.querySelector(s);
 const PRESET_KEY='tagprep_presets_v1';
 
 /* ---------- 변환 로직 ---------- */
+function splitRaw(raw){
+  const tokens=[];
+  let buf='';
+  let inNaiNeg=false;
+  const push=()=>{const v=buf.trim();if(v)tokens.push(v);buf='';};
+  for(let i=0;i<raw.length;i++){
+    const ch=raw[i];
+    if(!inNaiNeg&&(ch===','||ch==='\n')){push();continue;}
+    buf+=ch;
+    const t=buf.trim();
+    if(!inNaiNeg&&/^-\d+(?:\.\d+)?::$/.test(t))inNaiNeg=true;
+    else if(inNaiNeg&&/^-\d+(?:\.\d+)?::[\s\S]+::$/.test(t))inNaiNeg=false;
+  }
+  push();
+  return tokens;
+}
+function normalizeSpaces(t){return t.replace(/[\u00A0\u2000-\u200B\u202F\u205F\u3000]/g,' ').replace(/\s+/g,' ').trim();}
 function underscoreToSpace(t,protectScore){if(protectScore&&/^score_\d+$/i.test(t))return t;return t.replace(/_+/g,' ');}
 function spaceToUnderscore(t){return t.replace(/\s+/g,'_');}
 // 이미 \( 로 이스케이프된 건 건드리지 않음
 function escapeParen(t){return t.replace(/(?<!\\)\(/g,'\\(').replace(/(?<!\\)\)/g,'\\)');}
 function unescapeParen(t){return t.replace(/\\([()])/g,'$1');}
-
-function processTags(raw,o){
-  // 콤마 + 줄바꿈 기준 분리 → 양끝 공백/빈 태그 자동 정리
-  let tokens=raw.split(/[,\n]/).map(t=>t.trim()).filter(t=>t.length>0);
-  const inputCount=tokens.length;
-
-  if(o.lower)tokens=tokens.map(t=>t.toLowerCase());
-
-  if(o.dir==='u2s')tokens=tokens.map(t=>underscoreToSpace(t,o.score));
-  else if(o.dir==='s2u')tokens=tokens.map(spaceToUnderscore);
-
-  if(o.esc==='on')tokens=tokens.map(escapeParen);
-  else if(o.esc==='off')tokens=tokens.map(unescapeParen);
-
-  let removed=0;
-  if(o.dedup){
-    const seen=new Set(),out=[];
-    for(const t of tokens){const k=t.toLowerCase();if(seen.has(k)){removed++;continue;}seen.add(k);out.push(t);}
-    tokens=out;
+function isLocalWeight(t){return /^\([^()]+:[+-]?(?:\d+(?:\.\d+)?|\.\d+)\)$/.test(t.trim());}
+function stripNaiWrap(t){
+  let v=t.trim();
+  let changed=true;
+  while(changed){
+    changed=false;
+    if(/^\{[^{}]+\}$/.test(v)){v=v.slice(1,-1).trim();changed=true;}
+    if(/^\[[^\[\]]+\]$/.test(v)){v=v.slice(1,-1).trim();changed=true;}
   }
-  if(o.sort)tokens=[...tokens].sort((a,b)=>a.localeCompare(b));
+  return v;
+}
+function extractNaiNegative(t){
+  const m=t.trim().match(/^(-\d+(?:\.\d+)?)::(.+?)::$/);
+  return m?m[2].trim():null;
+}
+function transformToken(t,o){
+  let v=o.normspace?normalizeSpaces(t):t.trim();
+  if(o.stripNai)v=stripNaiWrap(v);
+  if(o.lower)v=v.toLowerCase();
+  if(o.dir==='u2s')v=underscoreToSpace(v,o.score);
+  else if(o.dir==='s2u')v=spaceToUnderscore(v);
+  const weighted=o.protectWeight&&isLocalWeight(v);
+  if(o.esc==='on'&&!weighted)v=escapeParen(v);
+  else if(o.esc==='off')v=unescapeParen(v);
+  return v.trim();
+}
+function dedupTokens(tokens){
+  let removed=0;const seen=new Set(),out=[];
+  for(const t of tokens){const k=t.toLowerCase();if(seen.has(k)){removed++;continue;}seen.add(k);out.push(t);}
+  return {tokens:out,removed};
+}
+function joinTokens(tokens,o){return o.newline?tokens.join(',\n'):tokens.join(o.space?', ':',');}
 
-  let text;
-  if(o.newline)text=tokens.join(',\n');
-  else text=tokens.join(o.space?', ':',');
+function processTags(raw,o,negRaw=''){
+  // 콤마 + 줄바꿈 기준 분리 → 양끝 공백/빈 태그 자동 정리
+  const rawTokens=splitRaw(raw);
+  const inputCount=rawTokens.length;
+  let pos=[],neg=[];
 
-  return {text,inputCount,outputCount:tokens.length,removed};
+  for(const rawToken of rawTokens){
+    const negInner=o.splitNeg?extractNaiNegative(rawToken):null;
+    if(negInner){
+      for(const negToken of splitRaw(negInner)){
+        const nt=transformToken(negToken,o);
+        if(nt)neg.push(nt);
+      }
+      continue;
+    }
+    const t=transformToken(rawToken,o);
+    if(t)pos.push(t);
+  }
+  for(const rawToken of splitRaw(negRaw)){
+    const t=transformToken(rawToken,o);
+    if(t)neg.push(t);
+  }
+
+  let removed=0,negRemoved=0;
+  if(o.dedup){
+    const d=dedupTokens(pos);pos=d.tokens;removed=d.removed;
+    const nd=dedupTokens(neg);neg=nd.tokens;negRemoved=nd.removed;
+  }
+  if(o.sort){
+    pos=[...pos].sort((a,b)=>a.localeCompare(b));
+    neg=[...neg].sort((a,b)=>a.localeCompare(b));
+  }
+
+  return {text:joinTokens(pos,o),negText:joinTokens(neg,o),inputCount,outputCount:pos.length,negCount:neg.length,removed,negRemoved};
 }
 
 /* ---------- 옵션 상태 ---------- */
@@ -324,6 +405,10 @@ function getOpts(){
     sort:$('#chk-sort').checked,
     space:$('#chk-space').checked,
     newline:$('#chk-newline').checked,
+    normspace:$('#chk-normspace').checked,
+    stripNai:$('#chk-strip-nai').checked,
+    splitNeg:$('#chk-split-neg').checked,
+    protectWeight:$('#chk-protect-weight').checked,
   };
 }
 function applyOpts(o){
@@ -335,6 +420,10 @@ function applyOpts(o){
   $('#chk-sort').checked=!!o.sort;
   $('#chk-space').checked=o.space!==false;
   $('#chk-newline').checked=!!o.newline;
+  $('#chk-normspace').checked=o.normspace!==false;
+  $('#chk-strip-nai').checked=o.stripNai!==false;
+  $('#chk-split-neg').checked=o.splitNeg!==false;
+  $('#chk-protect-weight').checked=o.protectWeight!==false;
   render();
 }
 function setSeg(id,v){
@@ -344,11 +433,15 @@ function setSeg(id,v){
 /* ---------- 렌더 ---------- */
 function render(){
   const o=getOpts();
-  const r=processTags($('#input').value,o);
+  const r=processTags($('#input').value,o,$('#neg-input').value);
   $('#output').value=r.text;
+  $('#neg-output').value=r.negText;
   let s=`입력 <b>${r.inputCount}</b> → 출력 <b>${r.outputCount}</b>`;
   if(r.removed>0)s+=` · 중복 <span class="warn">${r.removed}</span> 제거`;
   $('#stat').innerHTML=$('#input').value.trim()?s:'';
+  let ns=`negative <b>${r.negCount}</b>`;
+  if(r.negRemoved>0)ns+=` · 중복 <span class="warn">${r.negRemoved}</span> 제거`;
+  $('#neg-stat').innerHTML=(r.negText||$('#neg-input').value.trim())?ns:'';
 }
 
 /* ---------- 세그먼트 클릭 ---------- */
@@ -357,7 +450,7 @@ function render(){
     b.addEventListener('click',()=>{setSeg(id,b.dataset.v);render();});
   });
 });
-['input','chk-lower','chk-score','chk-dedup','chk-sort','chk-space','chk-newline'].forEach(id=>{
+['input','neg-input','chk-lower','chk-score','chk-dedup','chk-sort','chk-space','chk-newline','chk-normspace','chk-strip-nai','chk-split-neg','chk-protect-weight'].forEach(id=>{
   $('#'+id).addEventListener('input',render);
 });
 $('#btn-clear').addEventListener('click',()=>{$('#input').value='';render();$('#input').focus();});
@@ -370,6 +463,14 @@ $('#btn-copy').addEventListener('click',async()=>{
   catch(e){const t=$('#output');t.removeAttribute('readonly');t.select();document.execCommand('copy');t.setAttribute('readonly','');}
   const btn=$('#btn-copy');btn.textContent='복사됨!';btn.classList.add('copied');
   setTimeout(()=>{btn.textContent='복사';btn.classList.remove('copied');},1300);
+});
+$('#btn-copy-neg').addEventListener('click',async()=>{
+  const v=$('#neg-output').value;
+  if(!v){toast('복사할 negative가 없어');return;}
+  try{await navigator.clipboard.writeText(v);}
+  catch(e){const t=$('#neg-output');t.removeAttribute('readonly');t.select();document.execCommand('copy');t.setAttribute('readonly','');}
+  const btn=$('#btn-copy-neg');btn.textContent='복사됨!';btn.classList.add('copied');
+  setTimeout(()=>{btn.textContent='Negative 복사';btn.classList.remove('copied');},1300);
 });
 
 /* ---------- 프리셋 ---------- */
