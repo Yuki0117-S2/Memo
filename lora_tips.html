@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>✦ LoRA Tips</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg2: #f7f6f3;
+    --text: #1a1a1a;
+    --text2: #555;
+    --text3: #999;
+    --border: rgba(0,0,0,0.08);
+    --border2: rgba(0,0,0,0.18);
+    --c1: #8888CC;
+    --c2: #BB6688;
+    --c3: #DDAACC;
+    --c4: #CCAA88;
+    --fact-bg: rgba(136,136,204,0.12);
+    --emp-bg: rgba(204,170,136,0.16);
+    --unc-bg: rgba(187,102,136,0.13);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a1a;
+      --bg2: #232323;
+      --text: #f0f0f0;
+      --text2: #aaa;
+      --text3: #666;
+      --border: rgba(255,255,255,0.08);
+      --border2: rgba(255,255,255,0.18);
+      --fact-bg: rgba(136,136,204,0.18);
+      --emp-bg: rgba(204,170,136,0.16);
+      --unc-bg: rgba(187,102,136,0.18);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 4rem 1.5rem 3rem;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  header { margin-bottom: 2rem; }
+  .back {
+    font-size: 12px;
+    color: var(--text3);
+    text-decoration: none;
+    display: inline-block;
+    margin-bottom: 1.2rem;
+    transition: color 0.18s;
+  }
+  .back:hover { color: var(--c1); }
+  .star { font-size: 32px; color: var(--c2); line-height: 1; letter-spacing: -1px; }
+  h1 {
+    font-size: 26px;
+    font-weight: 500;
+    letter-spacing: -0.3px;
+    margin-top: 6px;
+  }
+  .subtitle {
+    font-size: 13px;
+    color: var(--text3);
+    margin-top: 10px;
+    font-style: italic;
+    line-height: 1.5;
+  }
+  /* 근거 등급 범례 */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 1.4rem;
+  }
+  .badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    padding: 3px 9px;
+    border-radius: 20px;
+    white-space: nowrap;
+    line-height: 1.4;
+  }
+  .b-fact { background: var(--fact-bg); color: #8888CC; }
+  .b-emp  { background: var(--emp-bg);  color: #a8824f; }
+  .b-unc  { background: var(--unc-bg);  color: #BB6688; }
+  @media (prefers-color-scheme: dark) {
+    .b-emp { color: #CCAA88; }
+  }
+  .legend-note {
+    font-size: 11px;
+    color: var(--text3);
+    margin-top: 8px;
+    line-height: 1.6;
+  }
+  .divider { height: 0.5px; background: var(--border); margin: 2rem 0 1.25rem; }
+  .section-label {
+    font-size: 10px;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 1.8px;
+    margin-bottom: 1rem;
+    font-weight: 600;
+  }
+  .section-label .accent { color: var(--c2); }
+
+  /* 항목 행 */
+  .rows {
+    border: 0.5px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 150px 1fr auto;
+    gap: 12px;
+    align-items: start;
+    padding: 13px 16px;
+    border-bottom: 0.5px solid var(--border);
+    background: var(--bg);
+  }
+  .row:last-child { border-bottom: none; }
+  .row:nth-child(even) { background: var(--bg2); }
+  .row-key {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text);
+    font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    letter-spacing: -0.2px;
+    line-height: 1.5;
+    word-break: break-all;
+  }
+  .row-val { font-size: 13px; color: var(--text2); line-height: 1.6; }
+  .row-val strong { color: var(--text); font-weight: 600; }
+  .row-val .sub { display: block; font-size: 11.5px; color: var(--text3); margin-top: 3px; }
+  @media (max-width: 560px) {
+    .row { grid-template-columns: 1fr; gap: 5px; padding: 12px 14px; }
+    .row .badge { justify-self: start; }
+  }
+
+  /* 팁 카드 */
+  .tips { display: grid; gap: 10px; }
+  .tip {
+    border: 0.5px solid var(--border);
+    border-left: 4px solid var(--tip-color, var(--c1));
+    border-radius: 8px;
+    padding: 13px 16px;
+    background: var(--bg);
+  }
+  .tip-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .tip-body { font-size: 12.5px; color: var(--text2); line-height: 1.65; }
+
+  /* 도구 표 */
+  .tools { display: grid; gap: 8px; }
+  .tool {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    font-size: 13px;
+    padding: 10px 14px;
+    border: 0.5px solid var(--border);
+    border-radius: 8px;
+  }
+  .tool-mark { font-size: 12px; font-weight: 700; flex-shrink: 0; }
+  .tool-mark.ok { color: var(--c1); }
+  .tool-mark.no { color: var(--c2); }
+  .tool-name { font-weight: 600; }
+  .tool-note { font-size: 11.5px; color: var(--text3); }
+
+  .callout {
+    margin-top: 1.25rem;
+    padding: 13px 16px;
+    border: 0.5px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg2);
+    font-size: 12.5px;
+    color: var(--text2);
+    line-height: 1.65;
+  }
+  .callout strong { color: var(--c2); }
+
+  footer {
+    margin-top: 3.5rem;
+    font-size: 11px;
+    color: var(--text3);
+    text-align: center;
+    letter-spacing: 0.3px;
+    line-height: 1.8;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="back" href="index.html">← 작업실</a>
+    <div class="star">✦</div>
+    <h1>LoRA Tips</h1>
+    <div class="subtitle">Anima 학습 세팅 치트시트 — 근거 등급과 함께.</div>
+    <div class="legend">
+      <span class="badge b-fact">사실</span>
+      <span class="badge b-emp">경험칙</span>
+      <span class="badge b-unc">불확실</span>
+    </div>
+    <div class="legend-note">
+      사실 = 공식 문서·개발자 발언 · 경험칙 = 커뮤니티 후기(데이터셋 따라 흔들림) · 불확실 = 교차 검증된 합의 없음, 직접 실험 필요
+    </div>
+  </header>
+
+  <div class="divider"></div>
+  <div class="section-label">Anima <span class="accent">구조</span> — 건드리는 값 아님</div>
+  <div class="rows">
+    <div class="row">
+      <div class="row-key">아키텍처</div>
+      <div class="row-val"><strong>MiniTrainDIT</strong> (DiT · 트랜스포머)<span class="sub">U-Net 아님 · Rectified Flow 학습</span></div>
+      <span class="badge b-fact">사실</span>
+    </div>
+    <div class="row">
+      <div class="row-key">텍스트 인코더</div>
+      <div class="row-val"><strong>Qwen3-0.6B</strong> 단일<span class="sub">LLM Adapter로 T5 호환 공간에 브릿지</span></div>
+      <span class="badge b-fact">사실</span>
+    </div>
+    <div class="row">
+      <div class="row-key">VAE</div>
+      <div class="row-val"><strong>Qwen-Image VAE</strong><span class="sub">16채널 · 8× 다운스케일</span></div>
+      <span class="badge b-fact">사실</span>
+    </div>
+    <div class="row">
+      <div class="row-key">clip_skip<br>min_snr_gamma</div>
+      <div class="row-val"><strong>사용 안 함</strong><span class="sub">SD 계열 전용 옵션 · Anima에는 개념 자체가 없음</span></div>
+      <span class="badge b-fact">사실</span>
+    </div>
+    <div class="row">
+      <div class="row-key">timestep_sampling</div>
+      <div class="row-val">FLUX 방식 (sigma / uniform / sigmoid / shift / flux_shift)</div>
+      <span class="badge b-fact">사실</span>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="section-label">스타일 LoRA <span class="accent">권장값</span></div>
+  <div class="rows">
+    <div class="row">
+      <div class="row-key">network_dim</div>
+      <div class="row-val"><strong>32</strong><span class="sub">"SDXL은 16, Anima는 32 필요했다"는 후기 · 단순 컨셉은 8부터</span></div>
+      <span class="badge b-emp">경험칙</span>
+    </div>
+    <div class="row">
+      <div class="row-key">network_alpha</div>
+      <div class="row-val">dim의 절반 ~ 동일<span class="sub">출처 간 합의 약함 · 중간 샘플 보며 조정</span></div>
+      <span class="badge b-unc">불확실</span>
+    </div>
+    <div class="row">
+      <div class="row-key">batch_size</div>
+      <div class="row-val"><strong>4</strong> (개발자 권장 · 1은 학습 불안정)<span class="sub">단, 스타일에서 배치 1이 더 좋았다는 후기도 존재 · VRAM 되면 2~4</span></div>
+      <span class="badge b-fact">사실</span>
+    </div>
+    <div class="row">
+      <div class="row-key">총 스텝</div>
+      <div class="row-val"><strong>1,500 ~ 3,500</strong> 사이 중간 체크포인트 비교<span class="sub">3,500↑은 학습 이미지 그대로 뱉는 과적합 보고 있음</span></div>
+      <span class="badge b-emp">경험칙</span>
+    </div>
+    <div class="row">
+      <div class="row-key">epoch</div>
+      <div class="row-val"><strong>16 이하</strong><span class="sub">그 이상은 데이터셋 암기·완전 과적합 사례 보고</span></div>
+      <span class="badge b-emp">경험칙</span>
+    </div>
+    <div class="row">
+      <div class="row-key">optimizer</div>
+      <div class="row-val"><strong>Prodigy</strong> + LR 1.0 고정<span class="sub">TrainFlow 기본값 · LR 자동 조절이라 고민 최소</span></div>
+      <span class="badge b-fact">사실</span>
+    </div>
+    <div class="row">
+      <div class="row-key">learning_rate<br>(수동)</div>
+      <div class="row-val">AdamW 계열로 바꾸면 직접 설정 필요<span class="sub">Anima 기준 합의된 절대값 확인 불가 · 안 정했으면 Prodigy 유지</span></div>
+      <span class="badge b-unc">불확실</span>
+    </div>
+    <div class="row">
+      <div class="row-key">TE 학습</div>
+      <div class="row-val"><strong>끄기 — DiT만 학습</strong><span class="sub">완전히 새로운 개념/토큰 가르칠 때만 예외 · 스타일은 무조건 DiT만</span></div>
+      <span class="badge b-fact">사실</span>
+    </div>
+    <div class="row">
+      <div class="row-key">caption_dropout</div>
+      <div class="row-val"><strong>0.05</strong><span class="sub">TrainFlow 기본값 (UI 미노출 · 코드에 고정)</span></div>
+      <span class="badge b-fact">사실</span>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="section-label">적은 <span class="accent">데이터셋</span> 전략</div>
+  <div class="tips">
+    <div class="tip" style="--tip-color:#8888CC">
+      <div class="tip-title">repeat로 총 스텝 확보</div>
+      <div class="tip-body">이미지가 적으면 repeat를 올려서 총 스텝(이미지 수 × repeat × epoch ÷ batch)을 목표 구간에 맞춘다. 20~30장이어도 커버 가능. — <b>경험칙</b></div>
+    </div>
+    <div class="tip" style="--tip-color:#DDAACC">
+      <div class="tip-title">장수보다 화풍 일관성</div>
+      <div class="tip-body">화풍이 흔들리는 50장보다 딱 떨어지는 20장이 낫다. 작가 초기작·최근작을 섞으면 흐릿한 평균이 나온다. 고해상도 원본만 추릴 것. — <b>경험칙</b></div>
+    </div>
+    <div class="tip" style="--tip-color:#BB6688">
+      <div class="tip-title">중간 체크포인트 필수</div>
+      <div class="tip-body">데이터가 적을수록 과적합이 빨리 온다. epoch마다 저장하고 프리뷰를 비교해서, 원본을 베끼기 시작하기 직전 체크포인트를 고른다. — <b>경험칙</b></div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="section-label">캡션 <span class="accent">전략</span></div>
+  <div class="tips">
+    <div class="tip" style="--tip-color:#CCAA88">
+      <div class="tip-title">화풍 요소는 태그에서 뺀다</div>
+      <div class="tip-body">색감·선 굵기 같은 화풍 요소는 캡션에 넣지 않고, 내용물(1girl, 배경 등)만 태깅한다. 태그 안 된 요소가 로라에 흡수되는 원리. — <b>불확실</b> (SD 계열 통설 · Anima에서의 검증은 확인 불가)</div>
+    </div>
+    <div class="tip" style="--tip-color:#8888CC">
+      <div class="tip-title">트리거 워드는 한 곳에만</div>
+      <div class="tip-body">TrainFlow 기준, GUI의 Trigger Word 칸 또는 캡션 파일 중 한 곳에만 넣는다. 양쪽에 넣으면 중복되어 품질이 떨어질 수 있다. — <b>사실</b></div>
+    </div>
+    <div class="tip" style="--tip-color:#DDAACC">
+      <div class="tip-title">shuffle_caption + keep_tokens</div>
+      <div class="tip-body">태그 순서를 섞어 특정 태그 의존을 줄인다. 트리거 워드를 쓴다면 keep_tokens=1로 맨 앞 고정. — <b>경험칙</b> (SD 계열 통설)</div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="section-label">도구 <span class="accent">지원 현황</span></div>
+  <div class="tools">
+    <div class="tool"><span class="tool-mark ok">O</span><span class="tool-name">sd-scripts</span><span class="tool-note">anima_train_network.py · 공식 지원, GUI 없음</span></div>
+    <div class="tool"><span class="tool-mark ok">O</span><span class="tool-name">Anima TrainFlow</span><span class="tool-note">Windows GUI · 기본값이 무난한 출발점</span></div>
+    <div class="tool"><span class="tool-mark ok">O</span><span class="tool-name">citron trainer UI</span><span class="tool-note">로컬 웹 UI</span></div>
+    <div class="tool"><span class="tool-mark ok">O</span><span class="tool-name">Civitai 온라인 트레이너</span><span class="tool-note">buzz 소모 · 로컬 불가 시 대안</span></div>
+    <div class="tool"><span class="tool-mark no">X</span><span class="tool-name">Kohya_ss GUI · OneTrainer · AI Toolkit</span><span class="tool-note">현재 Anima 공식 미지원</span></div>
+  </div>
+
+  <div class="callout">
+    <strong>버전 주의</strong> — preview(1~3)로 구운 로라는 Anima 1.0에서 "소프트하게" 먹힌다. 1.0 이후로는 1.0 기준으로 새로 굽는 것을 권장. 향후 2.0, 3.0이 나오면 구버전 로라는 점점 더 어긋난다.
+  </div>
+
+  <footer>✦ 2026-07 기준 · Anima 커뮤니티 경험칙은 아직 어리다 — 수치는 출발점이지 정답이 아님<br>근거: kohya sd-scripts 문서 · circlestone-labs 개발자 발언 · Civitai / TrainFlow 가이드</footer>
+</div>
+</body>
+</html>
