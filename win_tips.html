@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>✦ Win Tips</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#ffffff;--bg2:#f7f6f3;--bg3:#eeeeee;--text:#1a1a1a;--text2:#555;--text3:#999;--border:rgba(0,0,0,.10);--border2:rgba(0,0,0,.20);--accent:#8888CC;--accent2:#DDAACC;--accent3:#CCAA88;--danger:#BB6688;--radius:12px;--radius-sm:8px;--mono:'JetBrains Mono',Consolas,Menlo,monospace}
+@media(prefers-color-scheme:dark){:root{--bg:#1e1e1e;--bg2:#272727;--bg3:#313131;--text:#f0f0f0;--text2:#aaa;--text3:#666;--border:rgba(255,255,255,.10);--border2:rgba(255,255,255,.22)}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+#app{width:100%;max-width:920px;margin:0 auto;padding:1rem 1.25rem 3rem}
+
+header{display:flex;align-items:center;gap:10px;border-bottom:.5px solid var(--border);padding-bottom:.75rem;margin-bottom:.85rem;flex-wrap:wrap}
+.back{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;color:var(--text3);text-decoration:none;border-radius:var(--radius-sm);font-size:18px;flex:0 0 auto}.back:hover{background:var(--bg2);color:var(--accent)}
+.logo{font-size:15px;font-weight:700;color:var(--accent3);letter-spacing:-.2px;margin-right:8px;display:flex;align-items:center;gap:8px}
+.logo-dot{width:8px;height:8px;border-radius:999px;background:var(--accent3);box-shadow:0 0 10px rgba(204,170,136,.6);animation:pulse 2.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.42}}
+.toolbar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;flex:1;color:var(--text3);font-size:12px;line-height:1.55}
+
+.hero{background:var(--bg);border:.5px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:12px}
+.hero-head{padding:14px 15px;background:var(--bg2)}
+.hero-title{font-size:13px;font-weight:800;color:var(--text);margin-bottom:3px}
+.hero-desc{font-size:12px;color:var(--text3);line-height:1.55}
+.hero-desc b{color:var(--accent3);font-weight:700}
+
+.panel{background:var(--bg);border:.5px solid var(--border);border-radius:var(--radius);margin-bottom:12px;overflow:hidden}
+.panel-head{padding:11px 14px;border-bottom:.5px solid var(--border);background:var(--bg2);display:flex;align-items:center;gap:10px}
+.panel-title{font-size:12px;font-weight:800;color:var(--text2);letter-spacing:.2px}
+.panel-body{padding:13px 14px}
+
+.sec{margin-bottom:16px}
+.sec:last-child{margin-bottom:0}
+.sec-h{font-size:10.5px;font-weight:800;letter-spacing:.4px;margin-bottom:6px;text-transform:uppercase;display:flex;align-items:center;gap:6px}
+.sec-h.h1{color:var(--accent)}.sec-h.h2{color:var(--accent2)}.sec-h.h3{color:var(--accent3)}.sec-h.h4{color:var(--danger)}
+
+.shell{display:inline-flex;align-items:center;font-family:var(--mono);font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;letter-spacing:.3px;flex-shrink:0}
+.shell.ps{background:rgba(136,136,204,.14);color:var(--accent);border:.5px solid rgba(136,136,204,.35)}
+.shell.cmd{background:rgba(204,170,136,.14);color:var(--accent3);border:.5px solid rgba(204,170,136,.35)}
+
+.copy-snip{display:block;font-family:var(--mono);font-size:11px;background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:8px 11px;color:var(--text);cursor:pointer;margin-top:5px;transition:border-color .13s,background .13s;word-break:break-all;position:relative;line-height:1.6}
+.copy-snip:hover{border-color:var(--accent);background:rgba(136,136,204,.08)}
+.copy-snip .lbl{color:var(--text3);font-size:9.5px;float:right;margin-left:8px;white-space:nowrap}
+.snip-note{font-size:11.5px;color:var(--text3);line-height:1.6;margin-top:4px;padding-left:2px}
+.snip-note b{color:var(--text2);font-weight:700}
+.snip-note .warn{color:var(--danger);font-weight:700}
+.snip-note .hl{color:var(--accent3);font-weight:700}
+
+.tipbox{background:rgba(187,102,136,.07);border:.5px solid rgba(187,102,136,.3);border-radius:var(--radius-sm);padding:9px 12px;margin-top:10px;font-size:11.5px;line-height:1.6;color:var(--text2)}
+.tipbox b{color:var(--danger);font-weight:800}
+
+.optlist{list-style:none;font-size:12px;line-height:1.75;color:var(--text2)}
+.optlist li{padding-left:2px;margin-bottom:2px}
+.optlist code{font-family:var(--mono);font-size:11px;background:var(--bg2);border:.5px solid var(--border);border-radius:5px;padding:1px 6px;color:var(--text);white-space:nowrap}
+.optlist .warn{color:var(--danger);font-weight:700}
+
+.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:var(--text);color:var(--bg);font-size:12.5px;font-weight:600;padding:10px 18px;border-radius:999px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:60}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@media(max-width:720px){
+  #app{padding:.75rem .8rem 2rem}
+  header{display:grid;grid-template-columns:auto 1fr;grid-template-areas:"back logo" "tools tools";align-items:center;gap:8px;padding-bottom:.85rem}
+  .back{grid-area:back}.logo{grid-area:logo;margin-right:0}.toolbar{grid-area:tools;width:100%;font-size:11px}
+}
+@media(max-width:460px){
+  .panel-head{padding:10px 12px}
+  .panel-body{padding:11px 12px}
+  .copy-snip{font-size:10.5px}.copy-snip .lbl{font-size:9px}
+  .snip-note{font-size:11px}
+  .optlist{font-size:11.5px}
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <a class="back" href="index.html" title="작업실로">‹</a>
+    <div class="logo"><span class="logo-dot"></span>✦ Win Tips</div>
+    <div class="toolbar">Windows 명령어 치트시트 — 명령어를 탭하면 바로 복사됨</div>
+  </header>
+
+  <div class="hero">
+    <div class="hero-head">
+      <div class="hero-title">파일 정리 · 백업 · 시스템 유틸 명령어 모음</div>
+      <div class="hero-desc">전부 Windows 기본 내장 도구. <b>PS</b> 배지는 PowerShell, <b>CMD</b> 배지는 명령 프롬프트에서 실행. PowerShell에서는 CMD 명령도 대부분 그대로 동작한다.</div>
+    </div>
+  </div>
+
+  <!-- ═══════════ RoboCopy ═══════════ -->
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">RoboCopy 백업 치트시트</div><span class="shell cmd">CMD</span></div>
+    <div class="panel-body">
+      <div class="snip-note" style="margin-bottom:10px">Windows 내장 복사 도구. 탐색기보다 안정적이고, 이어받기·미러링·선택 복사까지 지원한다.</div>
+
+      <div class="sec">
+        <div class="sec-h h1">기본 복사</div>
+        <div class="copy-snip" data-copy='robocopy "원본폴더" "목적지폴더" /E /Z /MT:16'>robocopy "원본폴더" "목적지폴더" /E /Z /MT:16 <span class="lbl">⧉ 복사</span></div>
+        <div class="copy-snip" data-copy='robocopy "원본폴더" "목적지폴더" /E /Z /MT:16 /R:3 /W:5'>robocopy "원본폴더" "목적지폴더" /E /Z /MT:16 /R:3 /W:5 <span class="lbl">⧉ 복사</span></div>
+        <div class="snip-note">실패 시 3번 재시도, 5초 간격. 실전에서 권장하는 기본 세트.</div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-h h2">동기화 / 미러링</div>
+        <div class="copy-snip" data-copy='robocopy "원본" "백업" /MIR /Z /MT:16'>robocopy "원본" "백업" /MIR /Z /MT:16 <span class="lbl">⧉ 복사</span></div>
+        <div class="snip-note">원본과 백업을 완전히 동기화. <span class="warn">원본에서 지운 파일은 백업에서도 삭제됨.</span> 주의해서 사용.</div>
+        <div class="copy-snip" data-copy='robocopy "원본" "백업" /E /XO /Z /MT:16'>robocopy "원본" "백업" /E /XO /Z /MT:16 <span class="lbl">⧉ 복사</span></div>
+        <div class="snip-note">새 파일·변경 파일만 복사. 삭제는 따라가지 않아 <span class="hl">LoRA·모델 백업에 안전.</span></div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-h h3">선택적 복사</div>
+        <div class="copy-snip" data-copy='robocopy "원본" "목적지" *.safetensors /S /Z'>robocopy "원본" "목적지" *.safetensors /S /Z <span class="lbl">⧉ 복사</span></div>
+        <div class="snip-note">특정 확장자 파일만 골라서 복사. safetensors, png 등 원하는 확장자로 변경 가능.</div>
+        <div class="copy-snip" data-copy='robocopy "원본" "목적지" /E /XD "제외할폴더명"'>robocopy "원본" "목적지" /E /XD "제외할폴더명" <span class="lbl">⧉ 복사</span></div>
+        <div class="snip-note">특정 폴더는 건너뛰고 복사. 여러 폴더 제외 시 폴더명을 공백으로 나열.</div>
+        <div class="copy-snip" data-copy='robocopy "E:\원본" "D:\목적지" /E /Z /MT:16 /XD "E:\원본\제외폴더"'>robocopy "E:\원본" "D:\목적지" /E /Z /MT:16 /XD "E:\원본\제외폴더" <span class="lbl">⧉ 복사</span></div>
+        <div class="snip-note">전체 경로로 콕 집어 제외. 같은 이름 폴더가 여러 군데 있을 때 특정 하나만 정확히 빼고 싶으면 폴더명 대신 전체 경로를 적는다.</div>
+        <div class="copy-snip" data-copy='robocopy "원본" "목적지" /E /XF "제외할파일명"'>robocopy "원본" "목적지" /E /XF "제외할파일명" <span class="lbl">⧉ 복사</span></div>
+        <div class="snip-note">특정 파일을 건너뛰고 복사. <b>config.json</b>처럼 파일명을 적거나 <b>*.log</b>처럼 와일드카드로 지정 가능.</div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-h h4">로그 저장</div>
+        <div class="copy-snip" data-copy='robocopy "원본" "목적지" /E /Z /MT:16 /LOG:C:\robocopy_log.txt'>robocopy "원본" "목적지" /E /Z /MT:16 /LOG:C:\robocopy_log.txt <span class="lbl">⧉ 복사</span></div>
+        <div class="snip-note">복사 결과(성공·실패·스킵 파일 목록)를 txt 파일로 저장.</div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-h h1">이동 / 미리보기</div>
+        <div class="copy-snip" data-copy='robocopy "원본" "목적지" /E /Z /MT:16 /MOVE'>robocopy "원본" "목적지" /E /Z /MT:16 /MOVE <span class="lbl">⧉ 복사</span></div>
+        <div class="snip-note">복사가 아니라 <span class="warn">진짜 이동.</span> 복사 완료 후 원본을 자동 삭제한다. 드라이브 정리·공간 확보에 유용하나, 원본이 사라지므로 신중히.</div>
+        <div class="copy-snip" data-copy='robocopy "원본" "목적지" /E /Z /MT:16 /L'>robocopy "원본" "목적지" /E /Z /MT:16 /L <span class="lbl">⧉ 복사</span></div>
+        <div class="snip-note">실제 복사는 하지 않고 <b>"이렇게 복사될 예정"</b>이라는 결과만 미리 보여주는 시뮬레이션. 명령어가 맞는지, 어떤 파일이 옮겨질지 사고 전에 확인하는 용도.</div>
+      </div>
+
+      <div class="tipbox"><b>TIP — 목적지 폴더는 미리 안 만들어도 됨.</b> 목적지 경로의 폴더가 없으면 robocopy가 자동으로 만들어준다. <code style="font-family:var(--mono);font-size:10.5px">D:\새폴더</code>가 없어도 그냥 경로만 적으면 폴더부터 생성하고 내용을 채운다.</div>
+
+      <div class="sec" style="margin-top:14px">
+        <div class="sec-h h1">옵션 요약</div>
+        <ul class="optlist">
+          <li><code>/E</code> — 하위 폴더 + 빈 폴더까지 전부 복사</li>
+          <li><code>/Z</code> — 이어받기 모드. 중단된 파일 재시작 지원</li>
+          <li><code>/MT:16</code> — 16스레드 병렬 복사. SSD 환경에서 속도 향상</li>
+          <li><code>/MIR</code> — 완전 미러링. <span class="warn">원본 삭제 = 백업 삭제</span>이므로 주의</li>
+          <li><code>/XO</code> — 원본보다 오래된 파일만 덮어씀 (새 파일·변경 파일만 추가)</li>
+          <li><code>/R:N /W:N</code> — 재시도 횟수 N회, 대기 간격 N초 설정</li>
+          <li><code>/XD "폴더명"</code> — 해당 폴더 제외 (전체 경로로 적으면 특정 하나만 정확히 제외)</li>
+          <li><code>/XF "파일명"</code> — 해당 파일 제외 (<code>*.log</code> 같은 와일드카드 가능)</li>
+          <li><code>/MOVE</code> — 복사 후 원본 삭제 (진짜 이동). <span class="warn">원본이 사라지므로 주의</span></li>
+          <li><code>/L</code> — 미리보기 모드. 실제 복사 없이 결과만 시뮬레이션</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ 타임스탬프 ═══════════ -->
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">파일 타임스탬프 변경</div><span class="shell ps">PS</span></div>
+    <div class="panel-body">
+      <div class="snip-note" style="margin-bottom:10px">탐색기의 "수정한 날짜"는 못 바꾸지만 PowerShell로는 자유자재. 만든 날짜 <b>CreationTime</b> · 수정한 날짜 <b>LastWriteTime</b> · 액세스한 날짜 <b>LastAccessTime</b> 세 가지가 있다.</div>
+
+      <div class="sec">
+        <div class="sec-h h1">파일 하나</div>
+        <div class="copy-snip" data-copy='(Get-Item "C:\경로\파일.png").LastWriteTime = "2026-06-27 02:55"'>(Get-Item "C:\경로\파일.png").LastWriteTime = "2026-06-27 02:55" <span class="lbl">⧉ 복사</span></div>
+        <div class="snip-note">수정한 날짜를 원하는 시각으로 변경. 날짜만 적으면 00:00으로 설정됨.</div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-h h2">폴더 안 전부 같은 시간으로</div>
+        <div class="copy-snip" data-copy='Get-ChildItem "C:\경로" | ForEach-Object { $_.LastWriteTime = "2026-06-27 02:55" }'>Get-ChildItem "C:\경로" | ForEach-Object { $_.LastWriteTime = "2026-06-27 02:55" } <span class="lbl">⧉ 복사</span></div>
+        <div class="snip-note">하위 폴더까지 포함하려면 <b>Get-ChildItem "C:\경로" -Recurse -File</b>로 변경.</div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-h h3">만든 날짜 + 수정한 날짜 세트로</div>
+        <div class="copy-snip" data-copy='$f = Get-Item "C:\경로\파일.png"; $f.CreationTime = "2026-06-27 02:55"; $f.LastWriteTime = "2026-06-27 02:55"'>$f = Get-Item "C:\경로\파일.png"; $f.CreationTime = "2026-06-27 02:55"; $f.LastWriteTime = "2026-06-27 02:55" <span class="lbl">⧉ 복사</span></div>
+        <div class="snip-note">만든 날짜와 수정한 날짜를 한 번에 같은 시각으로 맞춘다.</div>
+      </div>
+
+      <div class="tipbox"><b>실패하는 경우:</b> 읽기 전용 파일, 권한 부족, 일부 클라우드 동기화 폴더(OneDrive 등)에서는 변경이 막힐 수 있다. GUI가 편하면 무료 툴 <b>NewFileTime</b>도 있음 (드래그 앤 드롭 일괄 변경).</div>
+    </div>
+  </div>
+
+  <!-- ═══════════ 리네임 & 정리 ═══════════ -->
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">일괄 리네임 &amp; 폴더 정리</div><span class="shell ps">PS</span></div>
+    <div class="panel-body">
+
+      <div class="sec">
+        <div class="sec-h h1">연번 붙여 일괄 리네임</div>
+        <div class="copy-snip" data-copy='Get-ChildItem *.png | ForEach-Object -Begin {$i=1} -Process { Rename-Item $_ ("bianca_{0:D3}.png" -f $i++) }'>Get-ChildItem *.png | ForEach-Object -Begin {$i=1} -Process { Rename-Item $_ ("bianca_{0:D3}.png" -f $i++) } <span class="lbl">⧉ 복사</span></div>
+        <div class="snip-note">bianca_001.png, bianca_002.png… 순서로 리네임. <b>{0:D3}</b>은 3자리 0채움 — 자릿수 바꾸려면 D3을 D4 등으로. Asset Renamer 열기 귀찮을 때 급하게 쓰는 용도.</div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-h h2">확장자별로 폴더 만들어 자동 분류</div>
+        <div class="copy-snip" data-copy='Get-ChildItem -File | Group-Object Extension | ForEach-Object { $dir = $_.Name.TrimStart("."); mkdir $dir -Force | Out-Null; $_.Group | Move-Item -Destination $dir }'>Get-ChildItem -File | Group-Object Extension | ForEach-Object { $dir = $_.Name.TrimStart("."); mkdir $dir -Force | Out-Null; $_.Group | Move-Item -Destination $dir } <span class="lbl">⧉ 복사</span></div>
+        <div class="snip-note">현재 폴더의 파일을 png / json / txt … 확장자명 폴더로 자동 분류해서 이동. 다운로드 폴더 대청소용.</div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-h h3">폴더 용량 큰 순으로 확인</div>
+        <div class="copy-snip" data-copy='Get-ChildItem -Directory | ForEach-Object { [PSCustomObject]@{Name=$_.Name; MB=[math]::Round((Get-ChildItem $_ -Recurse -File | Measure-Object Length -Sum).Sum/1MB,1)} } | Sort-Object MB -Descending'>Get-ChildItem -Directory | ForEach-Object { [PSCustomObject]@{Name=$_.Name; MB=[math]::Round((Get-ChildItem $_ -Recurse -File | Measure-Object Length -Sum).Sum/1MB,1)} } | Sort-Object MB -Descending <span class="lbl">⧉ 복사</span></div>
+        <div class="snip-note">하위 폴더별 용량을 MB 단위로 계산해 큰 순으로 정렬. 드라이브 어디가 터졌는지 찾을 때.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══════════ 소소한 유틸 ═══════════ -->
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">소소하지만 은근 쓰는 것들</div><span class="shell cmd">CMD</span></div>
+    <div class="panel-body">
+
+      <div class="sec">
+        <div class="sec-h h1">폴더 구조를 텍스트로 뽑기</div>
+        <div class="copy-snip" data-copy='tree /F > 구조.txt'>tree /F > 구조.txt <span class="lbl">⧉ 복사</span></div>
+        <div class="snip-note">폴더 구조 전체를 트리 형태 텍스트로 저장. <span class="hl">AI한테 프로젝트 구조 보여줄 때 복붙용으로 최고.</span> 파일명 빼고 폴더만 보려면 /F 제거.</div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-h h2">두 텍스트 파일 비교</div>
+        <div class="copy-snip" data-copy='fc 파일1.txt 파일2.txt'>fc 파일1.txt 파일2.txt <span class="lbl">⧉ 복사</span></div>
+        <div class="snip-note">두 파일의 다른 부분을 출력. json 설정 파일 두 버전 뭐가 다른지 급하게 볼 때.</div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-h h3">어떤 실행 파일이 잡히는지 경로 확인</div>
+        <div class="copy-snip" data-copy='where python'>where python <span class="lbl">⧉ 복사</span></div>
+        <div class="snip-note">python 입력 시 실제로 어느 경로의 python이 실행되는지 전부 나열. <span class="hl">ComfyUI 임베디드 파이썬 vs 시스템 파이썬 꼬였을 때 생명의 은인.</span> PowerShell에서는 <b>where.exe python</b>으로 실행 (where만 치면 다른 명령으로 인식됨).</div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+let toastT;
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),1600);}
+document.querySelectorAll('.copy-snip').forEach(el=>{
+  el.addEventListener('click',async()=>{
+    const txt=el.dataset.copy||'';
+    try{await navigator.clipboard.writeText(txt);}
+    catch(e){const ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();}
+    toast('복사됨');
+  });
+});
+</script>
+</body>
+</html>
