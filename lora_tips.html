@@ -173,7 +173,7 @@ footer{margin-top:2rem;font-size:11px;color:var(--text3);text-align:center;lette
         <div style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:12px">이미지 장수를 넣으면 추천 스텝이 바로 나와. <b style="color:var(--danger)">이건 출발점이지 정답이 아님</b> — 반드시 save로 체크포인트 뽑아 비교할 것.</div>
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
           <input id="imgCount" type="range" min="10" max="600" value="153" style="flex:1;accent-color:var(--accent)">
-          <input id="imgNum" type="number" min="1" max="2000" value="153" style="width:76px;padding:6px 8px;background:var(--bg2);border:.5px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-size:13px;font-family:ui-monospace,monospace;text-align:center">
+          <input id="imgNum" type="number" inputmode="numeric" min="1" max="2000" value="153" style="width:76px;padding:6px 8px;background:var(--bg2);border:.5px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-size:13px;font-family:ui-monospace,monospace;text-align:center">
           <span style="font-size:12px;color:var(--text3)">장</span>
         </div>
         <div id="calcOut" style="display:grid;gap:8px"></div>
@@ -358,14 +358,27 @@ footer{margin-top:2rem;font-size:11px;color:var(--text3);text-align:center;lette
      +'※ 장수 늘수록 장당 스텝을 낮춰 과적합 방지. 마지막 체크포인트가 과하면 중간 것과 비교해 고를 것. <b style="color:var(--danger)">경험칙 · 정답 아님</b></div>';
   }
 
-  function sync(v){
-    v=Math.max(1,Math.min(2000,parseInt(v)||0));
-    range.value=Math.min(600,v);
+  // 슬라이더: 항상 유효한 값이라 바로 반영
+  range.addEventListener('input',function(){
+    var v=parseInt(range.value)||10;
     num.value=v;
     render(v);
-  }
-  range.addEventListener('input',function(){sync(range.value);});
-  num.addEventListener('input',function(){sync(num.value);});
+  });
+  // 숫자칸 타이핑 중: 빈칸 허용(강제 1 안 함), 값 있으면 상한만 걸고 계산
+  num.addEventListener('input',function(){
+    var raw=num.value.trim();
+    if(raw===''){out.innerHTML='';return;}   // 다 지워도 1로 안 튕김
+    var v=parseInt(raw)||0;
+    if(v>2000){v=2000;num.value=2000;}
+    if(v>=1){range.value=Math.min(600,Math.max(10,v));render(v);}
+  });
+  // 포커스 빠질 때만 최솟값 보정 (빈칸/0이면 1로)
+  num.addEventListener('blur',function(){
+    var v=Math.max(1,Math.min(2000,parseInt(num.value)||1));
+    num.value=v;
+    range.value=Math.min(600,Math.max(10,v));
+    render(v);
+  });
   render(153);
 })();
 </script>
