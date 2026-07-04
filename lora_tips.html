@@ -70,6 +70,11 @@ details[open]>summary.panel-head{border-bottom:.5px solid var(--border)}
 .tool-name{font-weight:700}
 .tool-note{font-size:11px;color:var(--text3)}
 
+code{font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:11px;background:var(--bg2);border:.5px solid var(--border);border-radius:4px;padding:1px 5px;color:var(--danger);word-break:break-all}
+.codeblock{position:relative;margin-top:8px}
+.codeblock pre{background:var(--bg3);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;padding-right:56px;font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:11px;line-height:1.6;color:var(--text2);white-space:pre-wrap;word-break:break-all;overflow-x:auto}
+.copybtn{position:absolute;top:7px;right:7px;background:var(--accent);color:#fff;border:0;border-radius:6px;padding:4px 9px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit}
+.copybtn:hover{opacity:.86}
 .callout{padding:12px 14px;background:rgba(187,102,136,.08);border:.5px solid rgba(187,102,136,.28);border-radius:var(--radius);font-size:12px;color:var(--text2);line-height:1.65;margin-bottom:10px}
 .callout b{color:var(--danger)}
 
@@ -157,6 +162,21 @@ footer{margin-top:2rem;font-size:11px;color:var(--text3);text-align:center;lette
       <div class="tip" style="--tip-color:#CCAA88">
         <div class="tip-title">steps / epoch — "총 학습량 / 몇 바퀴" <span class="badge b-fact">사실</span></div>
         <div class="tip-body"><b>step</b> = 학습을 총 몇 번 하는지. <b>epoch</b> = 데이터셋 전체를 몇 바퀴 도는지. 관계식은 <b>step = 이미지수 × repeat × epoch ÷ batch</b>. 너무 적으면 덜 익고, 너무 많으면 원본을 통째로 외워버려(과적합). 그래서 중간 체크포인트를 여러 개 뽑아 비교하는 거야.</div>
+      </div>
+    </div>
+  </details>
+
+  <details class="panel" open>
+    <summary class="panel-head">스텝 <span class="accent">계산기</span> · 장수만 넣어</summary>
+    <div class="panel-body">
+      <div style="padding:14px 16px">
+        <div style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:12px">이미지 장수를 넣으면 추천 스텝이 바로 나와. <b style="color:var(--danger)">이건 출발점이지 정답이 아님</b> — 반드시 save로 체크포인트 뽑아 비교할 것.</div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+          <input id="imgCount" type="range" min="10" max="600" value="153" style="flex:1;accent-color:var(--accent)">
+          <input id="imgNum" type="number" min="1" max="2000" value="153" style="width:76px;padding:6px 8px;background:var(--bg2);border:.5px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-size:13px;font-family:ui-monospace,monospace;text-align:center">
+          <span style="font-size:12px;color:var(--text3)">장</span>
+        </div>
+        <div id="calcOut" style="display:grid;gap:8px"></div>
       </div>
     </div>
   </details>
@@ -259,11 +279,95 @@ footer{margin-top:2rem;font-size:11px;color:var(--text3);text-align:center;lette
     </div>
   </details>
 
+  <details class="panel" open>
+    <summary class="panel-head">comfyui-instant-lora <span class="accent">유지보수</span></summary>
+    <div class="panel-body">
+      <div class="tip" style="--tip-color:#8888CC">
+        <div class="tip-title">어느 파일이 진짜 작동하냐 <span class="badge b-fact">사실</span></div>
+        <div class="tip-body"><b>src/</b> 안의 <code>nodes.py</code>·<code>runtime.py</code>만 실제로 로드됨 (<code>__init__.py</code>가 <code>from .src.nodes</code>로 불러옴). 폴더 <b>밖</b>의 같은 이름 파일은 유령이니 무시. 수정은 반드시 <code>...\comfyui-instant-lora\src\</code> 쪽에 할 것.</div>
+      </div>
+      <div class="tip" style="--tip-color:#BB6688">
+        <div class="tip-title">① learning_rate 자릿수 복구 (업데이트마다 초기화됨) <span class="badge b-fact">사실</span></div>
+        <div class="tip-body"><code>src/nodes.py</code>에서 <code>learning_rate_override</code> 줄을 검색해서(행 번호는 버전마다 다름) 아래로 통째 교체. <code>step 0.0001</code> → <code>step/round 0.000001</code>이면 6자리까지 안 뭉개짐.</div>
+        <div class="codeblock"><button class="copybtn" onclick="navigator.clipboard.writeText(this.nextElementSibling.textContent).then(()=>{this.textContent='복사됨!';setTimeout(()=>this.textContent='복사',1200)})">복사</button><pre>"learning_rate_override": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 1.0, "step": 0.000001, "round": 0.000001}),</pre></div>
+      </div>
+      <div class="tip" style="--tip-color:#CCAA88">
+        <div class="tip-title">② 매번 139개 재설치 고치기 <span class="badge b-fact">사실</span></div>
+        <div class="tip-body"><code>src/runtime.py</code>의 <code>resolve_runtime_python</code>에서 <code>sys.executable</code> 줄을 아래로 교체(원래 <code>py -3.12</code> 코드로 복원). venv는 3.12로 만드는데 비교 기준이 3.13이라 <b>매 실행마다 venv를 갈아엎던</b> 게 원인. 시스템에 파이썬 3.12 설치 필요 (<code>py -0p</code>로 확인). 고친 뒤에도 재설치되면 <code>runtime\venv</code> 폴더 한 번 지우고 재실행.</div>
+        <div class="codeblock"><button class="copybtn" onclick="navigator.clipboard.writeText(this.nextElementSibling.textContent).then(()=>{this.textContent='복사됨!';setTimeout(()=>this.textContent='복사',1200)})">복사</button><pre>["py", "-3.12", "-c", "import sys; print(sys.executable)"],</pre></div>
+      </div>
+      <div class="tip" style="--tip-color:#DDAACC">
+        <div class="tip-title">노드 세대 구분 <span class="badge b-fact">사실</span></div>
+        <div class="tip-body">태깅 노드가 두 갈래. <b>자동 태거 버전</b>(general_threshold·character_threshold 위젯 = WD14 자동 태깅, 캡션 없어도 생성)과 <b>수동 버전</b>(tags 박스만). 지금 쓰는 건 자동 태거 버전.</div>
+      </div>
+      <div class="tip" style="--tip-color:#8888CC">
+        <div class="tip-title">수정 후 체크리스트 <span class="badge b-emp">경험칙</span></div>
+        <div class="tip-body">① ComfyUI 재시작 → 콘솔에 빨간 에러 없으면 로드 성공. ② 노드를 <b>새로 꺼내기</b> (기존 노드는 워크플로에 옛 정의가 박제돼 반영 안 됨). ③ 위젯 값 밀림 주의 — <code>--tag_replacement True</code> 에러 나면 Tagging 노드 지우고 새로 꺼낼 것.</div>
+      </div>
+    </div>
+  </details>
+
   <div class="callout">
     <b>버전 주의</b> — preview(1~3)로 구운 로라는 Anima 1.0에서 "소프트하게" 먹힌다. 1.0 이후로는 1.0 기준으로 새로 굽는 것을 권장. 향후 2.0, 3.0이 나오면 구버전 로라는 점점 더 어긋난다.
   </div>
 
   <footer>✦ 2026-07 기준 · Anima 커뮤니티 경험칙은 아직 어리다 — 수치는 출발점이지 정답이 아님<br>근거: kohya sd-scripts 문서 · circlestone-labs 개발자 발언 · Civitai / TrainFlow 가이드</footer>
 </div>
+<script>
+(function(){
+  var range=document.getElementById('imgCount');
+  var num=document.getElementById('imgNum');
+  var out=document.getElementById('calcOut');
+  if(!range||!num||!out)return;
+
+  // 구간별 "장당 스텝" 계수 (세션 경험칙 기반 · 장수 늘수록 낮아짐)
+  function perImage(n){
+    if(n<=120)return 25;
+    if(n<=160)return 20;
+    if(n<=240)return 16;
+    if(n<=290)return 14;
+    return 13;
+  }
+  function round100(v){return Math.round(v/100)*100;}
+
+  function calc(n){
+    var ppi=perImage(n);
+    var center=round100(n*ppi);
+    var min=round100(n*Math.max(ppi-4,8));
+    var max=round100(n*(ppi+4));
+    var ckpt=Math.floor(center/500);
+    return {ppi:ppi,center:center,min:min,max:max,ckpt:ckpt};
+  }
+
+  function row(label,val,color,sub){
+    return '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:10px 12px;border:.5px solid var(--border);border-left:4px solid '+color+';border-radius:8px;background:var(--bg)">'
+      +'<span style="font-size:12px;color:var(--text2);font-weight:600">'+label+'</span>'
+      +'<span style="font-size:13px;color:var(--text);font-weight:700;font-family:ui-monospace,monospace">'+val
+      +(sub?'<span style="font-size:11px;color:var(--text3);font-weight:400;margin-left:6px">'+sub+'</span>':'')+'</span></div>';
+  }
+
+  function render(n){
+    if(!n||n<1){out.innerHTML='';return;}
+    var r=calc(n);
+    out.innerHTML=
+      row('추천 총 스텝', r.center.toLocaleString(), '#8888CC', '장당 '+r.ppi)
+     +row('안전 범위', r.min.toLocaleString()+' ~ '+r.max.toLocaleString(), '#DDAACC')
+     +row('체크포인트', r.ckpt+'개', '#CCAA88', 'save 500 기준')
+     +row('dim / alpha', '32 / 16', '#BB6688', '스타일 · 강도 0.5')
+     +'<div style="font-size:11px;color:var(--text3);line-height:1.6;padding:8px 12px">'
+     +'※ 장수 늘수록 장당 스텝을 낮춰 과적합 방지. 마지막 체크포인트가 과하면 중간 것과 비교해 고를 것. <b style="color:var(--danger)">경험칙 · 정답 아님</b></div>';
+  }
+
+  function sync(v){
+    v=Math.max(1,Math.min(2000,parseInt(v)||0));
+    range.value=Math.min(600,v);
+    num.value=v;
+    render(v);
+  }
+  range.addEventListener('input',function(){sync(range.value);});
+  num.addEventListener('input',function(){sync(num.value);});
+  render(153);
+})();
+</script>
 </body>
 </html>
