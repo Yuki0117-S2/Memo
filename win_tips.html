@@ -179,6 +179,18 @@ header{display:flex;align-items:center;gap:10px;border-bottom:.5px solid var(--b
         <div class="snip-note">만든 날짜와 수정한 날짜를 한 번에 같은 시각으로 맞춘다.</div>
       </div>
 
+      <div class="sec">
+        <div class="sec-h h1">폴더 날짜를 '지금'으로 (정렬 맨 위로 올리기)</div>
+        <div class="copy-snip" data-copy='(Get-Item "E:\경로\폴더이름").LastWriteTime = Get-Date'>(Get-Item "E:\경로\폴더이름").LastWriteTime = Get-Date <span class="lbl">⧉ 복사</span></div>
+        <div class="snip-note">폴더도 파일과 똑같이 변경 가능. <b>Get-Date</b>는 실행하는 순간의 현재 시각 — 탐색기에서 "수정한 날짜" 정렬 시 맨 위로 올라온다. 지정 날짜로 하려면 Get-Date 대신 <b>"2026-07-06 15:30"</b>처럼 적기.</div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-h h2">여러 폴더 한꺼번에 (오타 체크 포함)</div>
+        <div class="copy-snip" data-copy='$base = "E:\006_AIpicture\OriginLora"; "폴더A","폴더B","폴더C" | ForEach-Object { $p = Join-Path $base $_; if (Test-Path $p) { (Get-Item $p).LastWriteTime = Get-Date; Write-Host "완료: $_" -ForegroundColor Green } else { Write-Host "없음: $_" -ForegroundColor Red } }'>$base = "E:\006_AIpicture\OriginLora"; "폴더A","폴더B","폴더C" | ForEach-Object { $p = Join-Path $base $_; if (Test-Path $p) { (Get-Item $p).LastWriteTime = Get-Date; Write-Host "완료: $_" -ForegroundColor Green } else { Write-Host "없음: $_" -ForegroundColor Red } } <span class="lbl">⧉ 복사</span></div>
+        <div class="snip-note"><b>$base</b>에 상위 경로, 따옴표 목록에 폴더 이름들을 적는다. <b>Test-Path</b>가 실존 여부를 검사해서 이름이 틀리면 <span class="warn">빨간색 "없음"</span>으로 알려줌. 지정 날짜로 바꾸려면 여기서도 Get-Date 자리에 <b>"2026-07-06 15:30"</b>을 넣으면 된다. <span class="hl">폴더 자체의 날짜만 바뀌고 안에 든 파일들은 그대로.</span></div>
+      </div>
+
       <div class="tipbox"><b>실패하는 경우:</b> 읽기 전용 파일, 권한 부족, 일부 클라우드 동기화 폴더(OneDrive 등)에서는 변경이 막힐 수 있다. GUI가 편하면 무료 툴 <b>NewFileTime</b>도 있음 (드래그 앤 드롭 일괄 변경).</div>
     </div>
   </div>
