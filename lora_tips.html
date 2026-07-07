@@ -346,8 +346,12 @@ footer{margin-top:2rem;font-size:11px;color:var(--text3);text-align:center;lette
       +(sub?'<span style="font-size:11px;color:var(--text3);font-weight:400;margin-left:6px">'+sub+'</span>':'')+'</span></div>';
   }
 
+  var LS_KEY='loratips_imgCount';
+  function save(v){try{localStorage.setItem(LS_KEY,v);}catch(e){}}
+
   function render(n){
     if(!n||n<1){out.innerHTML='';return;}
+    save(n);
     var r=calc(n);
     out.innerHTML=
       row('추천 총 스텝', r.center.toLocaleString(), '#8888CC', '장당 '+r.ppi)
@@ -379,7 +383,14 @@ footer{margin-top:2rem;font-size:11px;color:var(--text3);text-align:center;lette
     range.value=Math.min(600,Math.max(10,v));
     render(v);
   });
-  render(153);
+  var saved=153;
+  try{
+    var s=parseInt(localStorage.getItem(LS_KEY));
+    if(s>=1&&s<=2000)saved=s;
+  }catch(e){}
+  num.value=saved;
+  range.value=Math.min(600,Math.max(10,saved));
+  render(saved);
 })();
 </script>
 </body>
