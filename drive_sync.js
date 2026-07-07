@@ -95,11 +95,171 @@
     try{return jsonClone(state)}catch(e){throw new Error('현재 앱 상태를 읽을 수 없어: '+e.message)}
   }
 
+  // ===== LoRA Lab 전용: 이미지 분리 저장 =====
+  // 메인 파일엔 카드 메타 + 이미지 참조(imageFileId)만 담고,
+  // 실제 이미지 dataUrl은 카드별 파일로 쪼개 저장해 V8 문자열 한계(~512MB)를 회피한다.
+  // 기존 단일 백업 파일(appFileName)은 절대 건드리지 않아 롤백이 항상 가능하다(비파괴).
+  function loraMainFileName(){
+    const base=(typeof GIST_FILE_NAME!=='undefined' && GIST_FILE_NAME) ? GIST_FILE_NAME.replace(/\.json$/,'') : 'lora_lab_data';
+    return base+'_drive_v2.json';
+  }
+  function loraImgFileName(cardId){
+    return 'lora_lab_img_'+String(cardId||'').replace(/[^a-zA-Z0-9_-]/g,'')+'.json';
+  }
+  // 이미지 세트 변경 감지용 시그니처(재업로드 스킵 판단). id + dataUrl 길이 조합.
+  function loraCardImageSig(card){
+    const imgs=Array.isArray(card&&card.images)?card.images:[];
+    return imgs.map(im=>(im&&im.id||'')+':'+(im&&im.dataUrl?im.dataUrl.length:0)).join('|');
+  }
+
+  async function uploadDriveSlotLoRA(){
+    try{
+      setStatus('Drive 저장 중... (이미지 분리 저장)','loading');
+      if(typeof saveCardsToIndexedDBNow==='function') await saveCardsToIndexedDBNow();
+      else if(typeof save==='function') save();
+
+      const cards=(state&&Array.isArray(state.cards))?state.cards:[];
+      const mainName=loraMainFileName();
+
+      // 기존 v2 메인 파일에서 이전 슬롯/이미지 참조를 읽어온다(있으면 변경분만 올린다).
+      let prevSlots=[];
+      const mainFile=await findDriveFileByName(mainName);
+      if(mainFile){
+        try{ const d=await readDriveFile(mainFile.id); prevSlots=Array.isArray(d.slots)?d.slots:[]; }catch(e){ prevSlots=[]; }
+      }
+      const prevRef={};
+      const prevTop=prevSlots[0];
+      if(prevTop && Array.isArray(prevTop.cards)){
+        prevTop.cards.forEach(c=>{ if(c&&c.id) prevRef[c.id]={imageFileId:c.imageFileId||'', sig:c.imageSig||''}; });
+      }
+
+      // 이미지 파일 목록을 한 번에 조회해둔다(카드별 검색 대신 이 맵을 참조 → 중복 생성 방지 + 속도).
+      setStatus('Drive 이미지 목록 확인 중...','loading');
+      let imgFileMap={};
+      try{ imgFileMap=await listDriveFilesByPrefix('lora_lab_img_'); }catch(e){ imgFileMap={}; }
+
+      let uploaded=0, skipped=0, imgErrors=0, idx=0;
+      const total=cards.length;
+      const mainCards=[];
+      for(const card of cards){
+        idx++;
+        setStatus(`이미지 저장 중 (${idx}/${total})\n${(card.title||'제목 없음').slice(0,40)}`,'loading');
+        const imgs=Array.isArray(card.images)?card.images.filter(im=>im&&im.dataUrl):[];
+        const sig=loraCardImageSig(card);
+        // 이미지/무거운 레거시 필드를 제외한 메타만 복사
+        const meta={};
+        for(const k in card){
+          if(k==='images'||k==='representativeImage'||k==='rawMetadata') continue;
+          meta[k]=card[k];
+        }
+        meta.imageMeta=imgs.map(im=>({id:im.id,name:im.name,addedAt:im.addedAt}));
+        meta.imagesStripped=true;
+        meta.imageSig=sig;
+
+        if(imgs.length===0){ meta.imageFileId=''; mainCards.push(meta); continue; }
+
+        const prev=prevRef[card.id];
+        if(prev && prev.imageFileId && prev.sig===sig){
+          meta.imageFileId=prev.imageFileId; mainCards.push(meta); skipped++; continue;
+        }
+        try{
+          const imgName=loraImgFileName(card.id);
+          const existingId=(prev&&prev.imageFileId)||imgFileMap[imgName]||null;
+          const imgPayload={version:1,kind:'lora-lab-card-images',cardId:card.id,images:imgs.map(im=>({id:im.id,name:im.name,dataUrl:im.dataUrl,addedAt:im.addedAt}))};
+          let written;
+          try{
+            written=await writeDriveFile(existingId, imgPayload, imgName);
+          }catch(inner){
+            // 재사용하려던 파일 ID가 유효하지 않으면(수동 삭제 등) 새로 생성해 재시도한다.
+            if(existingId) written=await writeDriveFile(null, imgPayload, imgName);
+            else throw inner;
+          }
+          if(written&&written.id) imgFileMap[imgName]=written.id;
+          meta.imageFileId=written.id; mainCards.push(meta); uploaded++;
+        }catch(e){
+          imgErrors++; meta.imageFileId=''; meta.imageUploadError=true; mainCards.push(meta);
+        }
+      }
+
+      // 이미지 업로드가 하나라도 실패하면 메인 파일을 새로 쓰지 않고 중단한다.
+      // 로컬 원본과 기존 백업이 그대로 남으므로 데이터는 안전하다.
+      if(imgErrors>0){
+        setStatus(`이미지 ${imgErrors}개 카드 업로드에 실패해서 저장을 멈췄어.\n로컬 원본과 기존 백업은 그대로야. 잠시 후 다시 시도해줘.`,'err');
+        return;
+      }
+
+      const maxSlots=getDriveSlotMax();
+      const currentSlot={savedAt:nowIso(),device:deviceName(),app:appLabel(),cards:mainCards};
+      const slots=[currentSlot, ...prevSlots].slice(0,maxSlots);
+
+      const payload={version:2,kind:'lora-lab-drive-slots-split',appFile:mainName,updatedAt:nowIso(),slots};
+      const approx=byteSizeOfJson(payload);
+      setStatus(`메인 파일 저장 중...\n메인 크기: ${formatBytes(approx)} (이미지 제외)\n이미지 파일: 신규/갱신 ${uploaded} · 재사용 ${skipped}`,'loading');
+
+      const writtenMain=await writeDriveFile(mainFile?mainFile.id:null, payload, mainName);
+
+      // read-back 검증: 메인을 다시 읽어 이미지 참조 수를 확인한다.
+      let verifyMsg='';
+      try{
+        const rb=await readDriveFile(writtenMain.id);
+        const rbCards=(rb.slots&&rb.slots[0]&&rb.slots[0].cards)||[];
+        const refCount=rbCards.filter(c=>c.imageFileId).length;
+        verifyMsg=`\n검증 OK · 이미지 참조 ${refCount}개 확인`;
+      }catch(e){
+        verifyMsg='\n⚠ 검증 재읽기는 실패했지만 저장 자체는 됐을 수 있어. 기존 백업은 그대로야.';
+      }
+
+      setStatus(`Drive 저장 완료! (분리 저장)\n메인: ${writtenMain.name}\n슬롯: ${slots.length}개 · 메인 ${formatBytes(approx)}${verifyMsg}`,'ok');
+      safeToast('☁️ Drive 분리 저장 완료');
+    }catch(e){
+      setStatus('Drive 저장 실패: '+(e.message||e)+'\n(로컬 원본과 기존 백업은 안전해)','err');
+    }
+  }
+
+  async function applyDriveStateLoRA(slot){
+    const cards=(slot&&Array.isArray(slot.cards))?slot.cards:[];
+    let missing=0;
+    const rebuilt=[];
+    for(const c of cards){
+      const card=Object.assign({},c);
+      if(card.imagesStripped){
+        if(card.imageFileId){
+          try{
+            const imgData=await readDriveFile(card.imageFileId);
+            card.images=Array.isArray(imgData.images)?imgData.images:[];
+          }catch(e){ card.images=[]; missing++; }
+        }else{
+          card.images=[];
+        }
+        delete card.imageMeta; delete card.imagesStripped; delete card.imageSig; delete card.imageUploadError;
+      }else if(!Array.isArray(card.images)){
+        card.images=[];
+      }
+      rebuilt.push(card);
+    }
+    state.cards = typeof normalizeCard==='function' ? rebuilt.map(normalizeCard) : rebuilt;
+    if(state.selected && typeof state.selected.clear==='function') state.selected.clear();
+    state.selectedId=state.cards[0]?.id||null;
+    if('selectMode' in state) state.selectMode=false;
+    if(typeof saveCardsToIndexedDBNow==='function') await saveCardsToIndexedDBNow();
+    else if(typeof save==='function') save();
+    if(typeof render==='function') render();
+    if(missing>0) safeToast(`⚠ 이미지 파일 ${missing}개를 못 찾아 해당 카드는 이미지 없이 복원했어.`);
+  }
+  // ===== /LoRA Lab 전용 =====
+
   async function applyDriveState(slot){
     const incoming=slot.state || slot;
     try{
       if(typeof GIST_FILE_NAME!=='undefined' && GIST_FILE_NAME==='lora_lab_data.json'){
         const cards=incoming.cards || slot.cards || [];
+        // v2 분리형 슬롯(imagesStripped)이면 이미지 파일을 fetch해 재조립하고,
+        // 구형 슬롯(dataUrl 통째)이면 기존 방식대로 바로 복원한다.
+        const isSplit=cards.some(c=>c&&c.imagesStripped);
+        if(isSplit){
+          await applyDriveStateLoRA({cards});
+          return;
+        }
         state.cards = typeof normalizeCard==='function' ? cards.map(normalizeCard) : cards;
         if(state.selected && typeof state.selected.clear==='function') state.selected.clear();
         state.selectedId=state.cards[0]?.id||null;
@@ -343,6 +503,41 @@
     return await res.json();
   }
 
+  // 임의 파일명으로 appDataFolder에서 파일 하나를 찾는다. (분리 저장용)
+  async function findDriveFileByName(name){
+    const safe=String(name).replace(/'/g,"\\'");
+    const params=new URLSearchParams({
+      spaces:'appDataFolder',
+      fields:'files(id,name,modifiedTime,size)',
+      q:`name='${safe}' and 'appDataFolder' in parents and trashed=false`
+    });
+    const res=await driveFetch(DRIVE_API+'?'+params.toString());
+    const data=await res.json();
+    return data.files?.[0]||null;
+  }
+
+  // 접두사로 시작하는 파일들을 한 번에(페이지네이션 포함) 조회해 {파일명: id} 맵으로 돌려준다.
+  // 카드마다 개별 검색하던 걸 1회 조회로 줄이고, 중단 후 재저장 시 중복 생성을 막는다.
+  async function listDriveFilesByPrefix(prefix){
+    const map={};
+    const safe=String(prefix).replace(/'/g,"\\'");
+    let pageToken='';
+    do{
+      const params=new URLSearchParams({
+        spaces:'appDataFolder',
+        fields:'nextPageToken,files(id,name)',
+        q:`name contains '${safe}' and 'appDataFolder' in parents and trashed=false`,
+        pageSize:'1000'
+      });
+      if(pageToken) params.set('pageToken',pageToken);
+      const res=await driveFetch(DRIVE_API+'?'+params.toString());
+      const data=await res.json();
+      (data.files||[]).forEach(f=>{ if(f&&f.name&&f.name.indexOf(prefix)===0&&!(f.name in map)) map[f.name]=f.id; });
+      pageToken=data.nextPageToken||'';
+    }while(pageToken);
+    return map;
+  }
+
   function multipartBody(metadata, contentObj){
     const boundary='workshop_drive_'+Math.random().toString(36).slice(2);
     // 대용량 이미지가 많은 앱에서는 pretty-print 공백도 수 MB까지 불어날 수 있어서 compact JSON으로 저장한다.
@@ -351,8 +546,9 @@
     return {body,boundary};
   }
 
-  async function writeDriveFile(fileId, payload){
-    const metadata=fileId?{}:{name:appFileName(),parents:['appDataFolder'],mimeType:'application/json'};
+  async function writeDriveFile(fileId, payload, fileName){
+    const nm=fileName||appFileName();
+    const metadata=fileId?{}:{name:nm,parents:['appDataFolder'],mimeType:'application/json'};
     const mp=multipartBody(metadata,payload);
     const method=fileId?'PATCH':'POST';
     const url=fileId?`${DRIVE_UPLOAD}/${fileId}?uploadType=multipart&fields=id,name,modifiedTime`:`${DRIVE_UPLOAD}?uploadType=multipart&fields=id,name,modifiedTime`;
@@ -371,6 +567,7 @@
   }
 
   async function uploadDriveSlot(){
+    if(isLoRALabApp()) return await uploadDriveSlotLoRA();
     try{
       setStatus('Drive 저장 중...','loading');
       if(typeof saveResultGalleryToIndexedDBNow==='function') await saveResultGalleryToIndexedDBNow();
@@ -404,7 +601,14 @@
     try{
       setStatus('Drive에서 슬롯 읽는 중...','loading');
       q('#drive-slot-list').innerHTML='';
-      const file=await findDriveFile();
+      let file=null;
+      if(isLoRALabApp()){
+        // v2 분리형 메인 파일을 먼저 찾고, 없으면 구형 단일 파일로 폴백한다.
+        file=await findDriveFileByName(loraMainFileName());
+        if(!file) file=await findDriveFile();
+      }else{
+        file=await findDriveFile();
+      }
       if(!file){setStatus('아직 Drive에 저장된 파일이 없어. 먼저 Drive에 저장을 눌러봐.','err');return;}
       const data=await readDriveFile(file.id);
       const slots=data.slots||[];
