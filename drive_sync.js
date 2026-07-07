@@ -218,18 +218,29 @@
 
   async function applyDriveStateLoRA(slot){
     const cards=(slot&&Array.isArray(slot.cards))?slot.cards:[];
-    let missing=0, idx=0;
+    // 복원 전, 현재 로컬 카드에서 cardId -> {images, sig} 맵을 만든다.
+    // 슬롯 카드의 imageSig와 로컬 sig가 같으면 Drive에서 다시 받지 않고 로컬 이미지를 재사용한다.
+    const localMap={};
+    const curCards=(state&&Array.isArray(state.cards))?state.cards:[];
+    curCards.forEach(lc=>{ if(lc&&lc.id) localMap[lc.id]={images:Array.isArray(lc.images)?lc.images:[], sig:loraCardImageSig(lc)}; });
+
+    let missing=0, reused=0, fetched=0, idx=0;
     const total=cards.length;
     const rebuilt=[];
     for(const c of cards){
       idx++;
-      setStatus(`이미지 불러오는 중 (${idx}/${total})\n${(c&&c.title||'제목 없음').slice(0,40)}`,'loading');
       const card=Object.assign({},c);
       if(card.imagesStripped){
-        if(card.imageFileId){
+        const local=localMap[card.id];
+        if(local && card.imageSig && local.sig===card.imageSig){
+          // 로컬에 동일 구성 이미지가 있음 → 다운로드 생략, 로컬 것 재사용
+          card.images=local.images; reused++;
+          setStatus(`불러오는 중 (${idx}/${total})\n로컬 재사용 ${reused} · 다운로드 ${fetched}\n${(c&&c.title||'제목 없음').slice(0,40)}`,'loading');
+        }else if(card.imageFileId){
+          setStatus(`이미지 불러오는 중 (${idx}/${total})\n로컬 재사용 ${reused} · 다운로드 ${fetched+1}\n${(c&&c.title||'제목 없음').slice(0,40)}`,'loading');
           try{
             const imgData=await readDriveFile(card.imageFileId);
-            card.images=Array.isArray(imgData.images)?imgData.images:[];
+            card.images=Array.isArray(imgData.images)?imgData.images:[]; fetched++;
           }catch(e){ card.images=[]; missing++; }
         }else{
           card.images=[];
@@ -247,6 +258,7 @@
     if(typeof saveCardsToIndexedDBNow==='function') await saveCardsToIndexedDBNow();
     else if(typeof save==='function') save();
     if(typeof render==='function') render();
+    if(reused||fetched) safeToast(`☁️ 복원: 로컬 재사용 ${reused} · 새로 받음 ${fetched}`);
     if(missing>0) safeToast(`⚠ 이미지 파일 ${missing}개를 못 찾아 해당 카드는 이미지 없이 복원했어.`);
   }
   // ===== /LoRA Lab 전용 =====
