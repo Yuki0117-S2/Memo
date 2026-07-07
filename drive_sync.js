@@ -218,9 +218,12 @@
 
   async function applyDriveStateLoRA(slot){
     const cards=(slot&&Array.isArray(slot.cards))?slot.cards:[];
-    let missing=0;
+    let missing=0, idx=0;
+    const total=cards.length;
     const rebuilt=[];
     for(const c of cards){
+      idx++;
+      setStatus(`이미지 불러오는 중 (${idx}/${total})\n${(c&&c.title||'제목 없음').slice(0,40)}`,'loading');
       const card=Object.assign({},c);
       if(card.imagesStripped){
         if(card.imageFileId){
