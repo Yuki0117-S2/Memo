@@ -885,6 +885,7 @@ const STAGE_COLORS={'러프':SC,'구체화중':SP,'완성':SR};
 const TAB_COLORS=['#8888CC','#BB6688','#DDAACC','#CCAA88','#884499','#EE1166','#FF6699','#00BBDD','#FF7722','#0077DD'];
 const IQ='input,textarea,button,select,a';
 const STORE_KEY='caddy_v4';
+const IMG_STRIPPED_MARK='__img_stripped__'; // Gist 동기화 시 base64 이미지 대체 마커 (초기 renderAll보다 먼저 선언돼야 함)
 
 let state={tabs:[],activeTabId:null};
 let dragging=null,dragOffX=0,dragOffY=0;
@@ -936,7 +937,7 @@ let suppressHistory=false;
 function snapshot(){ return JSON.stringify(state); }
 function bytes(n){if(!n)return '0KB';if(n<1024)return n+'B';if(n<1024*1024)return (n/1024).toFixed(n<10240?1:0)+'KB';return (n/1024/1024).toFixed(2)+'MB'}
 function utf8Bytes(s){try{return new Blob([s]).size}catch(e){return new TextEncoder().encode(s).length}}
-function estimateGistPayloadBytes(){try{return utf8Bytes(JSON.stringify({version:1,slots:[{savedAt:new Date().toISOString(),device:'예상',state:JSON.parse(JSON.stringify(state))}]},null,2))}catch(e){return 0}}
+function estimateGistPayloadBytes(){try{return utf8Bytes(JSON.stringify({version:1,slots:[{savedAt:new Date().toISOString(),device:'예상',state:stripStateForSync(state)}]},null,2))}catch(e){return 0}}
 function updateGistEstimateBadge(){const el=document.getElementById('gist-size-badge');if(el)el.textContent='Gist 예상 '+bytes(estimateGistPayloadBytes())}
 
 function pushHistoryNow(){
@@ -1445,6 +1446,22 @@ function makeCard(data,tab){
       const div=document.createElement('div');
       div.className='image-thumb';
       const src=typeof img==='string'?img:(img.src||'');
+      if(src===IMG_STRIPPED_MARK){
+        div.innerHTML=`<button class="img-del" title="삭제"><i class="ti ti-x"></i></button>`;
+        const b=document.createElement('div'); b.className='img-broken'; b.textContent='☁ 동기화됨';
+        b.title='이미지는 원본 기기 또는 Drive 백업에 있어';
+        div.insertBefore(b,div.firstChild);
+        div.addEventListener('mousedown',e=>e.stopPropagation());
+        div.addEventListener('touchstart',e=>e.stopPropagation(),{passive:true});
+        div.querySelector('.img-del').addEventListener('click',e=>{
+          e.stopPropagation();
+          pushHistory();
+          data.images.splice(idx,1);
+          renderGallery(); updateImgCount(); save(); scheduleMasonry();
+        });
+        imgGallery.appendChild(div);
+        return;
+      }
       div.innerHTML=`<img loading="lazy" src="${esc(src)}" alt=""><button class="img-del" title="삭제"><i class="ti ti-x"></i></button>`;
       const im=div.querySelector('img');
       im.addEventListener('error',()=>{
@@ -2471,7 +2488,9 @@ function copyMemoViewerText(){
 // === 라이트박스 ===
 let lbImages=[], lbIdx=0;
 function openLightbox(images,idx){
-  lbImages=images.slice(); lbIdx=idx;
+  const before=images.slice(0,idx).filter(s=>s!==IMG_STRIPPED_MARK).length;
+  lbImages=images.filter(s=>s!==IMG_STRIPPED_MARK); lbIdx=Math.min(before,Math.max(0,lbImages.length-1));
+  if(!lbImages.length)return;
   const lb=document.getElementById('lightbox');
   showLbImage();
   lb.classList.add('open');
@@ -2584,6 +2603,38 @@ window.addEventListener('keydown',e=>{
 const GIST_TOKEN_KEY='workshop_gist_token';
 const GIST_ID_KEY='workshop_gist_id';
 const GIST_FILE_NAME='cd_idea_data.json';
+
+// Gist 동기화용 경량화: base64(data:) 이미지만 마커로 치환. 외부 URL은 가벼우니 유지.
+// 이미지 풀본은 localStorage + Drive 백업 담당 (result_gallery의 stripStateForSync 패턴 이식).
+function stripStateForSync(s){
+  const cloned=JSON.parse(JSON.stringify(s));
+  (cloned.tabs||[]).forEach(tab=>{
+    (tab.cards||[]).forEach(card=>{
+      if(Array.isArray(card.images)){
+        card.images=card.images.map(src=>
+          (typeof src==='string'&&src.startsWith('data:'))?IMG_STRIPPED_MARK:src
+        );
+      }
+    });
+  });
+  return cloned;
+}
+
+// Gist 다운로드로 덮어쓰기 전, 마커 자리에 로컬(현재 state)의 동일 id 카드 base64를 순서대로 복원.
+// 로컬에도 없으면 마커 유지 → 갤러리에 "동기화됨" 자리표시로 렌더링.
+function mergeStrippedImages(incoming){
+  const localCards=new Map();
+  (state.tabs||[]).forEach(t=>(t.cards||[]).forEach(c=>localCards.set(c.id,c)));
+  (incoming.tabs||[]).forEach(t=>(t.cards||[]).forEach(c=>{
+    if(!Array.isArray(c.images)||!c.images.includes(IMG_STRIPPED_MARK))return;
+    const local=localCards.get(c.id);
+    const localData=(local&&Array.isArray(local.images))
+      ?local.images.filter(s=>typeof s==='string'&&s.startsWith('data:')):[];
+    let k=0;
+    c.images=c.images.map(src=>src===IMG_STRIPPED_MARK?(k<localData.length?localData[k++]:src):src);
+  }));
+  return incoming;
+}
 const GIST_AUTO_INTERVAL=10*60*1000;
 let gistAutoSaveTimer=null;
 
@@ -2687,7 +2738,7 @@ async function pushSlot(token, gistId, deviceLabel){
   slots.unshift({
     savedAt:new Date().toISOString(),
     device:deviceLabel,
-    state:JSON.parse(JSON.stringify(state))
+    state:stripStateForSync(state)
   });
   if(slots.length>5) slots=slots.slice(0,5);
   const body={
@@ -2769,7 +2820,7 @@ function showSlotPicker(slots, token, gistId){
     btn.onclick=()=>{
       overlay.remove();
       pushHistory(); // 현재 상태 히스토리에 남기기
-      state=slot.state;
+      state=mergeStrippedImages(slot.state);
       if(!state.activeTabId && state.tabs?.[0]) state.activeTabId=state.tabs[0].id;
       save();
       renderAll();
