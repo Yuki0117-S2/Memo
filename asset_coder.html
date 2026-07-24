@@ -89,6 +89,31 @@ button.act.pink{border-color:var(--danger);color:var(--danger)}
 .pathpv{font-family:var(--mono);font-size:10px;color:var(--accent3);word-break:break-all;line-height:1.4}
 .pathpv .d{color:var(--text3)}
 
+/* 경로 안 맞는 이미지 */
+.orphan{border:.5px solid var(--danger);background:rgba(187,102,136,.07);border-radius:var(--radius);margin-bottom:14px;overflow:hidden}
+.orphan-bar{display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;user-select:none}
+.orphan-bar .ic{color:var(--danger);font-size:13px;flex:none}
+.orphan-bar .tt{flex:1;min-width:0;font-size:12.5px;font-weight:700;color:var(--danger)}
+.orphan-bar .ar{color:var(--danger);font-size:12px;flex:none}
+.orphan-body{padding:0 12px 12px;display:none;flex-direction:column;gap:9px}
+.orphan-body.open{display:flex}
+.orphan-hint{font-size:11px;color:var(--text3);line-height:1.6}
+.orphan-hint b{color:var(--danger)}
+.orphan-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
+.oitem{border:.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--bg);overflow:hidden;cursor:pointer;transition:.15s}
+.oitem:hover{border-color:var(--danger)}
+.oitem.sel{border-color:var(--accent);box-shadow:0 0 0 3px rgba(136,136,204,.22)}
+.oitem .oth{aspect-ratio:1/1;background:var(--bg2) center/cover no-repeat;position:relative}
+.oitem .otx{position:absolute;top:3px;right:3px;width:19px;height:19px;border-radius:5px;background:rgba(0,0,0,.6);border:none;color:#fff;font-size:10px;line-height:1;cursor:pointer;padding:0}
+.oitem .otx:hover{background:var(--danger)}
+.oitem .ok{font-family:var(--mono);font-size:9.5px;color:var(--text3);padding:5px 6px;word-break:break-all;line-height:1.35}
+.movebar{position:fixed;left:0;right:0;bottom:0;z-index:9998;background:var(--accent);color:#fff;padding:11px 16px;display:flex;align-items:center;gap:10px;font-size:12.5px;font-weight:700}
+.movebar .mk{font-family:var(--mono);opacity:.85;font-weight:400;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.movebar button{background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:var(--radius-sm);padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;flex:none}
+body.moving .slot{border-color:var(--accent2);border-style:dashed}
+body.moving .slot .dz{border-color:var(--accent);color:var(--accent)}
+body.moving .barwrap{display:none}
+
 /* 모달 공용 */
 .ov{position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:20px}
 .ov.open{display:flex}
@@ -186,8 +211,11 @@ textarea.inp{min-height:260px;line-height:1.6;resize:vertical;white-space:pre;ov
     <div id="parse-err"></div>
   </section>
 
+  <div id="orphan"></div>
   <div id="cats"></div>
 </div>
+
+<div id="movebar"></div>
 
 <!-- 코드표 편집 -->
 <div class="ov" id="schema-ov">
@@ -451,6 +479,7 @@ function render(){
   rebuildSchema();
   renderControls();
   renderPreview();
+  renderOrphans();
   renderBoard();
   updateStat();
 }
@@ -545,6 +574,102 @@ function renderBoard(){
   bindBoard();
 }
 
+/* ---------- 경로 안 맞는 이미지(고아) 감지 ---------- */
+let orphanOpen=false;
+let movingKey=null;   // 탭 이동 모드
+let dragOrphan=null;  // 드래그 이동 중
+
+/* 키가 '지금 코드표 구조'에 맞는지 대조.
+   ※ 다른 캐릭터/성별 조합에 넣어둔 건 고아가 아님 — 구조만 본다. */
+function keyFitsSchema(key){
+  const front=frontSections();
+  const ss=slotSection();
+  if(!ss)return false;
+  const parts=String(key).split('/');
+  if(parts.length!==front.length+1)return false;
+  for(let i=0;i<front.length;i++){
+    if(!sectionItems(front[i]).some(it=>it.code===parts[i]))return false;
+  }
+  return sectionItems(ss).some(it=>it.code===parts[parts.length-1]);
+}
+function orphanKeys(){return Object.keys(images).filter(k=>!keyFitsSchema(k)).sort();}
+
+function renderOrphans(){
+  const root=$('#orphan');
+  const keys=orphanKeys();
+  if(!keys.length){root.innerHTML='';root.className='';cancelMove();return;}
+  root.className='orphan';
+  root.innerHTML=`
+    <div class="orphan-bar" id="orphan-bar">
+      <span class="ic">⚠</span>
+      <span class="tt">지금 코드표와 경로가 안 맞는 이미지 ${keys.length}장</span>
+      <span class="ar">${orphanOpen?'▾':'▸'}</span>
+    </div>
+    <div class="orphan-body ${orphanOpen?'open':''}">
+      <div class="orphan-hint">
+        코드표 구조를 바꾸기 <b>전에</b> 넣은 이미지들이야. 이대로 두면 <b>ZIP에 옛날 경로 그대로 나가.</b><br>
+        옮기려면 — PC는 <b>칸으로 끌어다 놓기</b>, 모바일은 <b>탭해서 고르고 → 넣을 칸 탭</b>. 이동하면 코드는 그 칸 것으로, 앞단은 지금 고른 조합으로 바뀌어.<br>
+        <span style="color:var(--text3)">※ 다른 캐릭터·성별 조합에 넣어둔 건 여기 안 떠. 그건 정상이야.</span>
+      </div>
+      <div class="orphan-list">${keys.map(k=>`
+        <div class="oitem ${movingKey===k?'sel':''}" data-k="${esc(k)}" draggable="true">
+          <div class="oth" style="background-image:url('${images[k].url}')">
+            <button class="otx" data-k="${esc(k)}" title="버리기">✕</button>
+          </div>
+          <div class="ok">${esc(k)}</div>
+        </div>`).join('')}</div>
+    </div>`;
+
+  $('#orphan-bar').addEventListener('click',()=>{orphanOpen=!orphanOpen;renderOrphans();});
+  root.querySelectorAll('.otx').forEach(b=>b.addEventListener('click',e=>{
+    e.stopPropagation();
+    const k=e.currentTarget.dataset.k;
+    if(!confirm(`'${k}' 이미지를 버릴까?`))return;
+    if(images[k]){URL.revokeObjectURL(images[k].url);delete images[k];}
+    if(movingKey===k)cancelMove();
+    render();
+  }));
+  root.querySelectorAll('.oitem').forEach(el=>{
+    el.addEventListener('click',e=>{
+      if(e.target.classList.contains('otx'))return;
+      const k=el.dataset.k;
+      if(movingKey===k)cancelMove(); else startMove(k);
+      renderOrphans();renderMoveBar();
+    });
+    el.addEventListener('dragstart',e=>{
+      dragOrphan=el.dataset.k;
+      try{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain','orphan');}catch(_){}
+      document.body.classList.add('moving');
+    });
+    el.addEventListener('dragend',()=>{dragOrphan=null;if(!movingKey)document.body.classList.remove('moving');});
+  });
+  renderMoveBar();
+}
+
+function startMove(k){movingKey=k;document.body.classList.add('moving');}
+function cancelMove(){movingKey=null;dragOrphan=null;document.body.classList.remove('moving');renderMoveBar();}
+function renderMoveBar(){
+  const bar=$('#movebar');
+  if(!movingKey){bar.className='';bar.innerHTML='';return;}
+  bar.className='movebar';
+  bar.innerHTML=`<span>이동할 칸을 탭해</span><span class="mk">${esc(movingKey)}</span><button id="move-cancel">취소</button>`;
+  $('#move-cancel').addEventListener('click',()=>{cancelMove();renderOrphans();});
+}
+
+/* 고아 이미지를 현재 조합 + 지정 코드 자리로 이동 */
+function moveOrphanTo(oldKey,code){
+  if(!images[oldKey])return;
+  const nk=keyOf(code);
+  if(nk===oldKey){cancelMove();render();return;}
+  if(images[nk]&&!confirm(`'${nk}' 자리에 이미 이미지가 있어. 덮어쓸까?`))return;
+  if(images[nk])URL.revokeObjectURL(images[nk].url);
+  images[nk]=images[oldKey];
+  delete images[oldKey];
+  cancelMove();
+  render();
+  toast(`${oldKey} → ${nk}`);
+}
+
 function bindBoard(){
   const root=$('#cats');
   root.querySelectorAll('.cat-toggle').forEach(b=>b.addEventListener('click',e=>{
@@ -564,9 +689,13 @@ function bindBoard(){
     inp.onchange=e=>{setImage(code,e.target.files&&e.target.files[0]);inp.remove();};
     inp.click();
   };
-  root.querySelectorAll('.dz').forEach(dz=>dz.addEventListener('click',()=>pick(dz.dataset.code)));
+  root.querySelectorAll('.dz').forEach(dz=>dz.addEventListener('click',()=>{
+    if(movingKey){moveOrphanTo(movingKey,dz.dataset.code);return;}
+    pick(dz.dataset.code);
+  }));
   root.querySelectorAll('.thumb').forEach(th=>th.addEventListener('click',e=>{
     if(e.target.classList.contains('tx'))return;
+    if(movingKey){moveOrphanTo(movingKey,th.dataset.code);return;}
     pick(th.dataset.code);
   }));
   root.querySelectorAll('.slot').forEach(slot=>{
@@ -574,6 +703,7 @@ function bindBoard(){
     slot.addEventListener('dragleave',e=>{if(!slot.contains(e.relatedTarget))slot.classList.remove('dragover');});
     slot.addEventListener('drop',e=>{
       e.preventDefault();e.stopPropagation();slot.classList.remove('dragover');
+      if(dragOrphan){moveOrphanTo(dragOrphan,slot.dataset.code);return;}
       const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];
       setImage(slot.dataset.code,f);
     });
@@ -602,6 +732,8 @@ function updateStat(){
     if(empty>0)txt+=` · <span class="warn">빈칸 ${empty}</span>`;
   }
   $('#stat').innerHTML=txt;
+  const orph=orphanKeys().length;
+  if(orph)$('#stat').innerHTML=txt+` · <span class="warn">경로 안 맞음 ${orph}</span>`;
   $('#download').disabled=total===0;
 }
 
