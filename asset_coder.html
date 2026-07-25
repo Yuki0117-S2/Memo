@@ -45,6 +45,45 @@ header{display:flex;align-items:center;gap:10px;border-bottom:.5px solid var(--b
 .switch::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--text3);transition:.18s}
 .toggle input:checked + .switch{background:var(--accent);border-color:var(--accent)}
 .toggle input:checked + .switch::after{transform:translateX(18px);background:#fff}
+.qfield{display:flex;flex-direction:column;gap:5px}
+.qfield label{font-size:11px;color:var(--text3);font-weight:700;letter-spacing:.3px}
+.qrow{display:flex;align-items:center;gap:8px}
+input[type=range].qr{-webkit-appearance:none;appearance:none;width:118px;height:4px;padding:0;margin:0;border-radius:999px;background:var(--bg3);outline:none;cursor:pointer;flex:none}
+input[type=range].qr::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:14px;height:14px;border-radius:50%;background:var(--accent);border:2px solid var(--bg);box-shadow:0 0 0 1px var(--border2);cursor:pointer}
+input[type=range].qr::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--accent);border:2px solid var(--bg);box-shadow:0 0 0 1px var(--border2);cursor:pointer}
+input[type=range].qr:focus-visible{box-shadow:0 0 0 3px rgba(136,136,204,.28)}
+.qnum{width:54px;background:var(--bg2);border:.5px solid var(--border2);color:var(--text);border-radius:var(--radius-sm);padding:6px 7px;font-family:var(--mono);font-size:12px;text-align:right;flex:none}
+.qnum:focus{outline:none;border-color:var(--accent)}
+.qpct{font-family:var(--mono);font-size:12px;color:var(--text3);flex:none}
+.qhint{font-family:var(--mono);font-size:11px;color:var(--accent3);white-space:nowrap}
+
+/* 슬롯 이동 버튼 */
+.pathrow{display:flex;align-items:center;gap:6px}
+.pathrow .pathpv{flex:1;min-width:0}
+.mvgrp{display:flex;gap:2px;flex:none}
+.mv{width:20px;height:20px;border:.5px solid var(--border);background:var(--bg2);color:var(--text3);border-radius:5px;font-size:10px;cursor:pointer;line-height:1;padding:0;font-family:inherit}
+.mv:hover{border-color:var(--accent);color:var(--accent)}
+.mv:disabled{opacity:.25;cursor:not-allowed}
+
+/* 번호 정리 모달 */
+.cp-drop{display:flex;flex-wrap:wrap;gap:6px;max-height:132px;overflow:auto;padding:9px;border:.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--bg2)}
+.cp-chip{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:11.5px;padding:4px 8px;border-radius:999px;border:.5px solid var(--border2);background:var(--bg);color:var(--text2);cursor:pointer;user-select:none}
+.cp-chip input{margin:0;accent-color:var(--danger)}
+.cp-chip.on{border-color:var(--danger);color:var(--danger);background:rgba(187,102,136,.09)}
+.cp-empty{font-size:11.5px;color:var(--text3);padding:2px}
+.cp-tools{display:flex;gap:6px;margin-top:6px}
+.cp-mini{font-family:inherit;font-size:11px;font-weight:700;padding:4px 9px;border-radius:6px;border:.5px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer}
+.cp-mini:hover{border-color:var(--accent);color:var(--accent)}
+.cp-radio{display:flex;align-items:flex-start;gap:7px;font-size:12px;color:var(--text2);line-height:1.55;cursor:pointer;padding:3px 0}
+.cp-radio input{margin-top:3px;accent-color:var(--accent);flex:none}
+.cp-radio b{color:var(--text)}
+.cp-prev{max-height:150px;overflow:auto;padding:9px;border:.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--bg2);font-family:var(--mono);font-size:11.5px;line-height:1.75}
+.cp-prev .row{display:flex;gap:6px;align-items:center}
+.cp-prev .o{color:var(--text3);min-width:34px;text-align:right}
+.cp-prev .ar{color:var(--accent2)}
+.cp-prev .n{color:var(--accent);font-weight:700;min-width:34px}
+.cp-prev .lb{color:var(--text2)}
+.cp-prev .none{color:var(--text3)}
 .spacer{flex:1;min-width:0}
 button.act{font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;border:.5px solid var(--border2);background:var(--bg2);color:var(--text2);border-radius:var(--radius-sm);padding:9px 13px;transition:.15s}
 button.act:hover{border-color:var(--accent);color:var(--accent)}
@@ -293,6 +332,42 @@ textarea.inp{min-height:260px;line-height:1.6;resize:vertical;white-space:pre;ov
   </div>
 </div>
 
+<!-- 번호 정리 모달 -->
+<div class="ov" id="cp-ov">
+  <div class="modal">
+    <div class="modal-title">⇅ 번호 정리</div>
+    <div class="hint" id="cp-sum"></div>
+
+    <div class="sec">
+      <span class="lab">지울 칸 — 이미지가 없는 코드야. 체크된 것만 지워져</span>
+      <div class="cp-drop" id="cp-drop"></div>
+      <div class="cp-tools">
+        <button class="cp-mini" id="cp-all">전체 선택</button>
+        <button class="cp-mini" id="cp-none">전체 해제</button>
+      </div>
+    </div>
+
+    <div class="sec">
+      <span class="lab">남은 코드에 번호 다시 매기기</span>
+      <label class="cp-radio"><input type="radio" name="cpmode" value="group" checked>
+        <span><b>그룹별 번호대 유지</b> — 그룹마다 원래 시작 번호부터 이어 붙여 (감정 1~, 등장 20~)</span></label>
+      <label class="cp-radio"><input type="radio" name="cpmode" value="all">
+        <span><b>전체 통 연번</b> — 그룹 상관없이 처음부터 끝까지 1, 2, 3…</span></label>
+    </div>
+
+    <div class="sec">
+      <span class="lab">바뀌는 번호</span>
+      <div class="cp-prev" id="cp-prev"></div>
+    </div>
+
+    <div class="status" id="cp-status"></div>
+    <div class="brow">
+      <button class="mbtn mbtn-cancel" id="cp-cancel">취소</button>
+      <button class="mbtn mbtn-go" id="cp-go">적용</button>
+    </div>
+  </div>
+</div>
+
 <div class="barwrap">
   <div class="bar">
     <span class="stat" id="stat">이미지 0장</span>
@@ -363,7 +438,8 @@ let state={
   active:'p1',
   sel:{},            // 섹션명 -> 코드
   collapsed:{},      // 그룹키 -> true
-  webp:false
+  webp:false,
+  webpQ:92           // webp 변환 품질 (1~100)
 };
 /* images: 경로키('DM/Q/B/3') -> {id,file,url}  (메모리 전용) */
 let images={};
@@ -466,6 +542,9 @@ function normalizeState(){
   if(!state.sel||typeof state.sel!=='object')state.sel={};
   if(!state.collapsed||typeof state.collapsed!=='object')state.collapsed={};
   if(typeof state.webp!=='boolean')state.webp=false;
+  let q=Math.round(Number(state.webpQ));
+  if(!isFinite(q))q=92;
+  state.webpQ=Math.min(100,Math.max(1,q));
 }
 function save(){normalizeState();try{localStorage.setItem(LS_KEY,JSON.stringify(state));}catch(e){}}
 function load(){
@@ -484,6 +563,151 @@ function render(){
   updateStat();
 }
 
+/* ---------- 번호 재배치 엔진 ---------- */
+/* 코드표 raw에서 슬롯 섹션(마지막 ## 블록)만 다시 씀. 앞부분은 원문 그대로 보존 */
+function rewriteSlotSection(groups){
+  const p=activePreset();if(!p)return false;
+  const lines=String(p.raw||'').split(/\r?\n/);
+  let idx=-1;
+  lines.forEach((l,i)=>{if(/^\s*##\s*.+$/.test(l))idx=i;});
+  if(idx<0)return false;
+  const body=[];
+  groups.forEach(g=>{
+    if(!g.items.length)return;
+    if(g.name)body.push('--- '+g.name+' ---');
+    g.items.forEach(it=>body.push(it.code+': '+it.label));
+  });
+  p.raw=lines.slice(0,idx+1).concat(body).join('\n');
+  return true;
+}
+/* 슬롯 코드 -> 새 코드 매핑을 모든 캐릭터·작품 경로에 걸쳐 적용.
+   매핑에 없는 코드는 키를 그대로 둬서 orphan 목록으로 흘려보냄 */
+function remapImageCodes(map){
+  const next={};
+  Object.keys(images).forEach(k=>{
+    const i=k.lastIndexOf('/');
+    const fp=i<0?'':k.slice(0,i),code=i<0?k:k.slice(i+1);
+    const nc=Object.prototype.hasOwnProperty.call(map,code)?map[code]:code;
+    next[(fp?fp+'/':'')+nc]=images[k];
+  });
+  images=next;
+}
+/* 슬롯을 그룹 안에서 한 칸 이동. 번호는 자리에 고정되고 라벨과 이미지가 옮겨감 */
+function moveSlot(code,dir){
+  const ss=slotSection();if(!ss)return;
+  for(const g of ss.groups){
+    const i=g.items.findIndex(it=>it.code===code);
+    if(i<0)continue;
+    const j=i+dir;
+    if(j<0||j>=g.items.length){toast('여기가 끝이야');return;}
+    const a=g.items[i],b=g.items[j];
+    const t=a.label;a.label=b.label;b.label=t;
+    remapImageCodes({[a.code]:b.code,[b.code]:a.code});
+    if(!rewriteSlotSection(ss.groups)){toast('코드표를 다시 쓰지 못했어');return;}
+    save();render();
+    toast(a.code+' ↔ '+b.code);
+    return;
+  }
+}
+/* 지울 코드 집합과 방식으로 재배치 계획 산출 */
+function planCompact(drop,mode){
+  const ss=slotSection();
+  const plan={groups:[],map:{},changed:[]};
+  if(!ss)return plan;
+  plan.groups=ss.groups.map(g=>({
+    name:g.name,
+    items:g.items.filter(it=>!drop.has(it.code)).map(it=>({code:it.code,label:it.label}))
+  }));
+  let running=1;
+  plan.groups.forEach((g,gi)=>{
+    let n;
+    if(mode==='all')n=running;
+    else{
+      const orig=ss.groups[gi].items;
+      const v=orig.length?parseInt(orig[0].code,10):NaN;
+      n=isFinite(v)?v:1;
+    }
+    g.items.forEach(it=>{
+      const nc=String(n++);
+      if(nc!==it.code){plan.map[it.code]=nc;plan.changed.push({from:it.code,to:nc,label:it.label});}
+      it.code=nc;
+    });
+    running=n;
+  });
+  return plan;
+}
+
+/* ---------- 번호 정리 모달 ---------- */
+let cpDrop=new Set();
+function usedCodes(){
+  const s=new Set();
+  Object.keys(images).forEach(k=>{const i=k.lastIndexOf('/');s.add(i<0?k:k.slice(i+1));});
+  return s;
+}
+function openCompact(){
+  const ss=slotSection();
+  if(!ss){toast('코드표를 먼저 고쳐줘');return;}
+  const used=usedCodes();
+  cpDrop=new Set(sectionItems(ss).filter(it=>!used.has(it.code)).map(it=>it.code));
+  setStatus('#cp-status','','');
+  $('#cp-ov').classList.add('open');
+  renderCompact();
+}
+function closeCompact(){$('#cp-ov').classList.remove('open');}
+function cpMode(){const r=document.querySelector('input[name="cpmode"]:checked');return r?r.value:'group';}
+function renderCompact(){
+  const ss=slotSection();if(!ss)return;
+  const items=sectionItems(ss),used=usedCodes();
+  const cand=items.filter(it=>!used.has(it.code));
+  $('#cp-sum').innerHTML=`<b>${esc(ss.name)}</b> ${items.length}칸 · 채워진 칸 ${items.length-cand.length} · 빈 칸 ${cand.length}`
+    +'<br>이미지가 들어있는 칸은 목록에 안 나와. 여러 캐릭터를 함께 올려뒀다면 그중 하나라도 쓰는 코드는 빈 칸으로 안 잡혀.';
+  const dz=$('#cp-drop');
+  dz.innerHTML=cand.length
+    ? cand.map(it=>`<label class="cp-chip${cpDrop.has(it.code)?' on':''}"><input type="checkbox" data-code="${esc(it.code)}"${cpDrop.has(it.code)?' checked':''}>${esc(it.code)} ${esc(it.label)}</label>`).join('')
+    : '<span class="cp-empty">빈 칸이 없어. 번호만 다시 매길게.</span>';
+  dz.querySelectorAll('input[data-code]').forEach(cb=>cb.addEventListener('change',e=>{
+    const c=e.target.dataset.code;
+    if(e.target.checked)cpDrop.add(c);else cpDrop.delete(c);
+    renderCompact();
+  }));
+  const plan=planCompact(cpDrop,cpMode());
+  const pv=$('#cp-prev');
+  pv.innerHTML=plan.changed.length
+    ? plan.changed.map(c=>`<div class="row"><span class="o">${esc(c.from)}</span><span class="ar">→</span><span class="n">${esc(c.to)}</span><span class="lb">${esc(c.label)}</span></div>`).join('')
+    : '<span class="none">바뀌는 번호가 없어.</span>';
+  const total=sectionItems({groups:plan.groups}).length;
+  $('#cp-go').textContent=`적용 (${cpDrop.size}칸 삭제 · ${total}칸 남음)`;
+}
+function applyCompact(){
+  const ss=slotSection();if(!ss)return;
+  const plan=planCompact(cpDrop,cpMode());
+  const lost=[...cpDrop].filter(c=>usedCodes().has(c));
+  if(lost.length&&!confirm(`이미지가 들어있는 코드 ${lost.length}개(${lost.join(', ')})를 지우려 해. 그 이미지들은 '경로 안 맞는 이미지'로 빠져. 계속할까?`))return;
+  if(!rewriteSlotSection(plan.groups)){setStatus('#cp-status','코드표에서 슬롯 섹션을 못 찾았어. ✎ 코드표를 확인해줘.','err');return;}
+  remapImageCodes(plan.map);
+  save();render();
+  closeCompact();
+  toast(`${cpDrop.size}칸 삭제 · ${plan.changed.length}칸 번호 변경`);
+}
+
+function qHint(v){
+  if(v>=97)return '거의 무손실 · 용량 큼';
+  if(v>=90)return '고화질 · 권장';
+  if(v>=80)return '균형';
+  if(v>=60)return '용량 우선';
+  return '열화 눈에 띔';
+}
+function applyQ(v,writeR,writeN){
+  let q=Math.round(Number(v));
+  if(!isFinite(q))q=92;
+  q=Math.min(100,Math.max(1,q));
+  state.webpQ=q;
+  const qr=$('#webpq'),qn=$('#webpqn'),qh=$('#webpqh');
+  if(qr&&writeR)qr.value=q;
+  if(qn&&writeN)qn.value=q;
+  if(qh)qh.textContent=qHint(q);
+}
+
 function renderControls(){
   const c=$('#controls');
   let html='';
@@ -497,8 +721,17 @@ function renderControls(){
         + '</select></div>';
   });
   html+=`<label class="toggle"><input type="checkbox" id="webp"${state.webp?' checked':''}><span class="switch"></span><span>webp 변환</span></label>`;
+  if(state.webp){
+    html+='<div class="qfield"><label for="webpq">변환 품질</label><div class="qrow">'
+        + `<input type="range" class="qr" id="webpq" min="1" max="100" step="1" value="${state.webpQ}" aria-label="webp 변환 품질">`
+        + `<input type="number" class="qnum" id="webpqn" min="1" max="100" step="1" value="${state.webpQ}" aria-label="webp 변환 품질 직접 입력">`
+        + '<span class="qpct">%</span>'
+        + `<span class="qhint" id="webpqh">${esc(qHint(state.webpQ))}</span>`
+        + '</div></div>';
+  }
   html+='<div class="spacer"></div>';
   html+='<button class="act" id="editSchema">✎ 코드표</button>';
+  html+='<button class="act" id="compact">⇅ 번호 정리</button>';
   html+='<button class="act purple" id="presetMenu">프리셋 관리</button>';
   html+='<button class="act pink" id="clearImgs">이미지 비우기</button>';
   c.innerHTML=html;
@@ -508,7 +741,19 @@ function renderControls(){
     state.sel[e.target.dataset.sec]=e.target.value;save();render();
   }));
   $('#webp').addEventListener('change',e=>{state.webp=e.target.checked;save();render();});
+  if(state.webp){
+    const qr=$('#webpq'),qn=$('#webpqn');
+    qr.addEventListener('input',e=>applyQ(e.target.value,false,true));
+    qr.addEventListener('change',()=>{save();updateStat();});
+    qn.addEventListener('input',e=>{
+      const v=e.target.value;
+      if(!v.length||!isFinite(Number(v)))return;
+      applyQ(v,true,false);
+    });
+    qn.addEventListener('change',e=>{applyQ(e.target.value,true,true);save();updateStat();});
+  }
   $('#editSchema').addEventListener('click',openSchema);
+  $('#compact').addEventListener('click',openCompact);
   $('#presetMenu').addEventListener('click',presetMenu);
   $('#clearImgs').addEventListener('click',()=>{
     const n=Object.keys(images).length;
@@ -545,7 +790,7 @@ function renderBoard(){
     const collapsed=!!state.collapsed[gkey];
     const filled=g.items.filter(it=>images[keyOf(it.code)]).length;
     const el=document.createElement('div');el.className='cat';
-    const slotsHtml=g.items.map(it=>{
+    const slotsHtml=g.items.map((it,ii)=>{
       const k=keyOf(it.code);const im=images[k];
       return `
       <div class="slot ${im?'has':'empty'}" data-code="${esc(it.code)}">
@@ -558,7 +803,13 @@ function renderBoard(){
           ${im
             ? `<div class="thumb" data-code="${esc(it.code)}" style="background-image:url('${im.url}')"><button class="tx rm" data-code="${esc(it.code)}">✕</button></div>`
             : `<div class="dz" data-code="${esc(it.code)}"><span>이미지</span><br>드롭 / 탭</div>`}
-          <div class="pathpv">${esc(k)}<span class="d">.${esc(curExt())}</span></div>
+          <div class="pathrow">
+            <div class="pathpv">${esc(k)}<span class="d">.${esc(curExt())}</span></div>
+            <div class="mvgrp">
+              <button class="mv" data-mv="${esc(it.code)}" data-dir="-1" title="앞으로" ${ii===0?'disabled':''}>←</button>
+              <button class="mv" data-mv="${esc(it.code)}" data-dir="1" title="뒤로" ${ii===g.items.length-1?'disabled':''}>→</button>
+            </div>
+          </div>
         </div>
       </div>`;
     }).join('');
@@ -680,6 +931,10 @@ function bindBoard(){
     const k=keyOf(e.currentTarget.dataset.code);
     if(images[k]){URL.revokeObjectURL(images[k].url);delete images[k];}
     render();
+  }));
+  root.querySelectorAll('.mv').forEach(b=>b.addEventListener('click',e=>{
+    e.stopPropagation();
+    moveSlot(e.currentTarget.dataset.mv,Number(e.currentTarget.dataset.dir));
   }));
   const pick=code=>{
     const inp=document.createElement('input');
@@ -880,13 +1135,16 @@ function renderOut(){
 function openOut(){setStatus('#out-status','','');$('#out-ov').classList.add('open');renderOut();}
 
 /* ---------- webp ---------- */
-function toWebp(file){
+function toWebp(file,q){
+  let n=Math.round(Number(q));
+  if(!isFinite(n))n=92;
+  const quality=Math.min(100,Math.max(1,n))/100;
   return new Promise((res,rej)=>{
     const img=new Image();
     img.onload=()=>{
       const cv=document.createElement('canvas');cv.width=img.naturalWidth;cv.height=img.naturalHeight;
       cv.getContext('2d').drawImage(img,0,0);
-      cv.toBlob(b=>b?res(b):rej(new Error('webp 변환 실패')),'image/webp',0.92);
+      cv.toBlob(b=>b?res(b):rej(new Error('webp 변환 실패')),'image/webp',quality);
     };
     img.onerror=()=>rej(new Error('이미지 로드 실패'));img.src=URL.createObjectURL(file);
   });
@@ -898,13 +1156,14 @@ $('#download').addEventListener('click',async()=>{
   const keys=Object.keys(images).sort();
   if(!keys.length)return;
   const useWebp=state.webp;
+  const webpQ=state.webpQ;
   btn.disabled=true;const orig=btn.textContent;const zip=new JSZip();
   try{
     for(let i=0;i<keys.length;i++){
-      btn.textContent=`처리 중 ${i+1}/${keys.length}`;
+      btn.textContent=useWebp?`변환 중 ${i+1}/${keys.length} (${webpQ}%)`:`처리 중 ${i+1}/${keys.length}`;
       const im=images[keys[i]];
       const e=useWebp?'webp':(schema.ext||ext(im.file.name)||'png');
-      const blob=useWebp?await toWebp(im.file):im.file;
+      const blob=useWebp?await toWebp(im.file,webpQ):im.file;
       zip.file(keys[i]+'.'+e,blob);
     }
     btn.textContent='압축 중...';
@@ -1085,6 +1344,18 @@ window.save=save;window.render=render; // drive_sync.js 호환
     a.download=(outTab==='md'?'markdown':'codetable')+'.txt';a.click();
     setTimeout(()=>URL.revokeObjectURL(a.href),1000);
   });
+
+  $('#cp-cancel').addEventListener('click',closeCompact);
+  $('#cp-go').addEventListener('click',applyCompact);
+  $('#cp-ov').addEventListener('click',e=>{if(e.target.id==='cp-ov')closeCompact();});
+  $('#cp-all').addEventListener('click',()=>{
+    const ss=slotSection();if(!ss)return;
+    const used=usedCodes();
+    cpDrop=new Set(sectionItems(ss).filter(it=>!used.has(it.code)).map(it=>it.code));
+    renderCompact();
+  });
+  $('#cp-none').addEventListener('click',()=>{cpDrop=new Set();renderCompact();});
+  document.querySelectorAll('input[name="cpmode"]').forEach(r=>r.addEventListener('change',renderCompact));
 
   $('#input-ok').addEventListener('click',confirmInput);
   $('#input-cancel').addEventListener('click',closeInput);
