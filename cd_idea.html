@@ -666,6 +666,23 @@
   .sync-indicator.error { background: var(--accent2); }
 
   .gist-size-badge{display:inline-flex;align-items:center;gap:4px;background:var(--bg2);border:0.5px solid var(--border2);border-radius:var(--radius-md);color:var(--text2);font-size:11px;padding:5px 9px;white-space:nowrap}
+  /* [D단계] 로컬 저장 용량 배지: 임계치에 따라 색만 바뀐다 */
+  .local-size-badge{display:inline-flex;align-items:center;gap:4px;background:var(--bg2);border:0.5px solid var(--border2);border-radius:var(--radius-md);color:var(--text2);font-size:11px;padding:5px 9px;white-space:nowrap;transition:color .12s,border-color .12s}
+  .local-size-badge.warn{color:#CCAA88;border-color:#CCAA88}
+  .local-size-badge.danger{color:#BB6688;border-color:#BB6688;font-weight:600}
+  /* [D단계] 저장 실패 상시 경고 배너: 토스트와 달리 사라지지 않는다 */
+  #save-error-banner{display:none;align-items:center;gap:10px;flex-wrap:wrap;
+    background:#BB6688;color:#fff;border-radius:var(--radius-md);
+    padding:10px 14px;margin-bottom:0.75rem;font-size:13px;line-height:1.5}
+  #save-error-banner.show{display:flex}
+  #save-error-banner .seb-icon{font-size:16px;flex-shrink:0}
+  #save-error-banner .seb-text{flex:1;min-width:180px}
+  #save-error-banner .seb-detail{display:block;color:#DDAACC;font-size:11px;margin-top:2px;word-break:break-all}
+  #save-error-banner button{border:0;border-radius:var(--radius-md);padding:6px 12px;
+    font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;
+    background:#fff;color:#BB6688;transition:opacity .12s}
+  #save-error-banner button:hover{opacity:.85}
+  #save-error-banner .seb-dismiss{background:transparent;color:#fff;border:0.5px solid rgba(255,255,255,.5)}
 #gist-overlay {
     position: fixed; inset: 0; z-index: 10001;
     background: rgba(0,0,0,0.55);
@@ -783,7 +800,7 @@
     <a id="back-to-hub" href="index.html" title="작업실로"><i class="ti ti-arrow-left"></i></a>
     <span class="logo" id="toolbar-logo">✦ 아이디어 캐디</span>
     <button id="add-card-btn" class="tb-btn"><i class="ti ti-plus"></i> 새 카드</button>
-    <button id="sync-btn" class="tb-btn outline" title="Gist 동기화"><i class="ti ti-cloud"></i> 동기화 <span class="sync-indicator" id="sync-indicator"></span></button><span class="gist-size-badge" id="gist-size-badge">Gist 예상 0KB</span>
+    <button id="sync-btn" class="tb-btn outline" title="Gist 동기화"><i class="ti ti-cloud"></i> 동기화 <span class="sync-indicator" id="sync-indicator"></span></button><span class="gist-size-badge" id="gist-size-badge">Gist 예상 0KB</span><span class="local-size-badge" id="local-size-badge" title="이 기기 localStorage에 저장 중인 실제 용량">로컬 0KB</span>
     <div id="undo-redo">
       <button class="ur-btn" id="undo-btn" title="되돌리기 (Ctrl+Z)"><i class="ti ti-arrow-back-up"></i></button>
       <button class="ur-btn" id="redo-btn" title="다시 실행 (Ctrl+Y)"><i class="ti ti-arrow-forward-up"></i></button>
@@ -800,6 +817,16 @@
       <div class="filter-chip" data-stage="완성">완성</div>
       <div class="filter-chip" data-stage="fav" title="즐겨찾기만"><i class="ti ti-star"></i></div>
     </div>
+  </div>
+  <!-- [D단계] 저장 실패 상시 경고 배너 -->
+  <div id="save-error-banner" role="alert">
+    <span class="seb-icon"><i class="ti ti-alert-triangle-filled"></i></span>
+    <span class="seb-text">
+      저장 실패 — 변경사항이 이 기기에 안 남고 있어. 새로고침하면 날아가니까 지금 백업해!
+      <span class="seb-detail" id="save-error-detail"></span>
+    </span>
+    <button id="save-error-export">JSON 내보내기</button>
+    <button class="seb-dismiss" id="save-error-retry">다시 저장 시도</button>
   </div>
   <div id="search-bar">
     <i class="ti ti-search"></i>
@@ -886,6 +913,22 @@ const TAB_COLORS=['#8888CC','#BB6688','#DDAACC','#CCAA88','#884499','#EE1166','#
 const IQ='input,textarea,button,select,a';
 const STORE_KEY='caddy_v4';
 const IMG_STRIPPED_MARK='__img_stripped__'; // Gist 동기화 시 base64 이미지 대체 마커 (초기 renderAll보다 먼저 선언돼야 함)
+// [A단계] IndexedDB 저장소. localStorage 할당량 한계를 벗어나기 위한 이전.
+const IDB_NAME='cdIdea.db';
+const IDB_VERSION=1;
+const IDB_STORE='state';
+const IDB_RECORD_ID='main';
+const MIGRATED_KEY='caddy_v4.migratedAt';
+const SAVE_DEBOUNCE=250; // save()는 타이핑 한 글자마다 호출되므로 실제 쓰기는 디바운스한다
+// [A단계] 이미지 압축 설정. 그림체 보관용이라 화질 우선(1280px / WebP 0.90).
+// 더 줄이고 싶으면 이 두 줄만 바꾸면 된다.
+const IMG_MAX_PX=1280;
+const IMG_QUALITY=0.90;
+// [D단계→A단계] 용량 경고는 절대 바이트가 아니라 할당량 대비 비율로 판단한다.
+const STORAGE_WARN_RATIO=0.70;
+const STORAGE_DANGER_RATIO=0.85;
+// save()는 입력 한 글자마다 호출되므로 실패 토스트에는 쿨다운을 둔다. 배너는 쿨다운 없이 계속 떠 있는다.
+const SAVE_TOAST_COOLDOWN=5000;
 
 let state={tabs:[],activeTabId:null};
 let dragging=null,dragOffX=0,dragOffY=0;
@@ -913,18 +956,122 @@ function pushTabPrefs(){
 
 function uid(){return 'i'+Date.now()+Math.random().toString(36).slice(2,6);}
 function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-let saveErrorShown=false;
-function save(){
-  try{
-    localStorage.setItem(STORE_KEY,JSON.stringify(state));
-    if(typeof updateGistEstimateBadge==='function')updateGistEstimateBadge();
-    saveErrorShown=false;
-  }catch(e){
-    if(!saveErrorShown){
-      saveErrorShown=true;
-      console.error('저장 실패:',e);
-      setTimeout(()=>toast('저장 실패: 브라우저 저장공간이 부족할 수 있어'),0);
+// === [A단계] IndexedDB 저장 계층 ===
+function openIdb(){
+  return new Promise((resolve,reject)=>{
+    if(!('indexedDB' in window)){reject(new Error('IndexedDB를 사용할 수 없어.'));return;}
+    const req=indexedDB.open(IDB_NAME,IDB_VERSION);
+    req.onupgradeneeded=()=>{
+      const db=req.result;
+      if(!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE,{keyPath:'id'});
+    };
+    req.onsuccess=()=>resolve(req.result);
+    req.onerror=()=>reject(req.error||new Error('IndexedDB 열기 실패'));
+  });
+}
+async function idbGetState(){
+  const db=await openIdb();
+  return await new Promise((resolve,reject)=>{
+    const tx=db.transaction(IDB_STORE,'readonly');
+    const req=tx.objectStore(IDB_STORE).get(IDB_RECORD_ID);
+    req.onsuccess=()=>resolve(req.result||null);
+    req.onerror=()=>reject(req.error||new Error('IndexedDB 읽기 실패'));
+    tx.oncomplete=()=>db.close();
+    tx.onerror=()=>{db.close();reject(tx.error||new Error('IndexedDB 트랜잭션 실패'))};
+  });
+}
+async function idbPutState(s){
+  const db=await openIdb();
+  // 구조화 복제(structured clone)로 바로 넣는다. JSON 왕복보다 훨씬 빠르다.
+  // 복제 불가한 값이 섞여 있으면 DataCloneError가 나므로 그때만 JSON으로 정제한다.
+  let rec={id:IDB_RECORD_ID,tabs:s.tabs||[],activeTabId:s.activeTabId||null,savedAt:new Date().toISOString()};
+  return await new Promise((resolve,reject)=>{
+    const tx=db.transaction(IDB_STORE,'readwrite');
+    const st=tx.objectStore(IDB_STORE);
+    try{
+      st.put(rec);
+    }catch(e){
+      try{ st.put(JSON.parse(JSON.stringify(rec))); }
+      catch(e2){ db.close(); reject(e2); return; }
     }
+    tx.oncomplete=()=>{db.close();resolve(true)};
+    tx.onerror=()=>{db.close();reject(tx.error||new Error('IndexedDB 저장 실패'))};
+    tx.onabort=()=>{db.close();reject(tx.error||new Error('IndexedDB 저장 중단됨'))};
+  });
+}
+
+// === [D단계] 저장 실패 감지 & 용량 표시 ===
+let lastSaveToastAt=0;
+let saveFailed=false;
+let saveTimer=null;
+let badgeTimer=null;
+
+// navigator.storage.estimate()로 실제 사용량을 잰다. 42MB짜리 state를 매번
+// JSON.stringify 하는 것보다 훨씬 가볍고, 할당량 대비 비율까지 알 수 있다.
+async function updateStorageBadge(){
+  const el=document.getElementById('local-size-badge');
+  if(!el)return;
+  try{
+    if(navigator.storage&&navigator.storage.estimate){
+      const est=await navigator.storage.estimate();
+      const usage=est.usage||0, quota=est.quota||0;
+      el.textContent='저장소 '+bytes(usage)+(quota?' / '+bytes(quota):'');
+      const ratio=quota?usage/quota:0;
+      el.classList.toggle('warn', ratio>=STORAGE_WARN_RATIO && ratio<STORAGE_DANGER_RATIO);
+      el.classList.toggle('danger', ratio>=STORAGE_DANGER_RATIO);
+      el.title=`이 앱이 실제로 쓰고 있는 저장소 용량 (IndexedDB 포함). 할당량 대비 ${(ratio*100).toFixed(1)}%`;
+      return;
+    }
+  }catch(e){ console.warn('저장소 용량 조회 실패:',e); }
+  // 폴백: estimate()를 못 쓰는 환경에서만 state를 직접 잰다.
+  try{
+    const n=utf8Bytes(JSON.stringify(state));
+    el.textContent='데이터 '+bytes(n);
+    el.title='navigator.storage.estimate()를 쓸 수 없어 state 크기로 대체 표시 중';
+  }catch(e){ el.textContent='데이터 ?'; }
+}
+function queueStorageBadge(){
+  clearTimeout(badgeTimer);
+  badgeTimer=setTimeout(()=>{updateStorageBadge();},800);
+}
+
+// 저장이 한 번이라도 실패하면 배너를 띄우고, 성공할 때까지 내리지 않는다.
+function setSaveErrorBanner(on,err){
+  saveFailed=!!on;
+  const el=document.getElementById('save-error-banner');
+  if(!el)return;
+  el.classList.toggle('show',!!on);
+  const d=document.getElementById('save-error-detail');
+  if(d) d.textContent = on ? [err&&err.name, err&&err.message].filter(Boolean).join(': ') : '';
+}
+
+// 호출부 40여 곳을 그대로 두기 위해 save()의 동기 시그니처는 유지한다.
+// 실제 쓰기는 flushSave()가 디바운스로 처리한다.
+function save(){
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>{flushSave();},SAVE_DEBOUNCE);
+}
+async function flushSave(){
+  clearTimeout(saveTimer); saveTimer=null;
+  // Gist 예상치 계산은 state 전체를 복제해서 무겁다. 타이핑마다 돌리지 않고 여기서 한 번만 돈다.
+  if(typeof updateGistEstimateBadge==='function'){
+    try{ updateGistEstimateBadge(); }catch(e){ console.warn('Gist 예상치 계산 실패:',e); }
+  }
+  try{
+    await idbPutState(state);
+    setSaveErrorBanner(false);
+    queueStorageBadge();
+    return true;
+  }catch(e){
+    console.error('저장 실패:',e);
+    setSaveErrorBanner(true,e);
+    queueStorageBadge();
+    const t=Date.now();
+    if(t-lastSaveToastAt>SAVE_TOAST_COOLDOWN){
+      lastSaveToastAt=t;
+      setTimeout(()=>toast('저장 실패: 변경사항이 저장되지 않았어'),0);
+    }
+    return false;
   }
 }
 
@@ -1046,10 +1193,45 @@ function updateUndoRedoBtns(){
   if(rb) rb.disabled=redoStack.length===0;
 }
 
-function load(){
-  try{const d=localStorage.getItem(STORE_KEY);if(d){state=JSON.parse(d);return;}}catch(e){}
-  state={tabs:[{id:uid(),name:'아이디어 캐디',color:'#8888CC',cards:[]}],activeTabId:null};
-  state.activeTabId=state.tabs[0].id;
+function newDefaultState(){
+  const s={tabs:[{id:uid(),name:'아이디어 캐디',color:'#8888CC',cards:[]}],activeTabId:null};
+  s.activeTabId=s.tabs[0].id;
+  return s;
+}
+// [A단계] 우선순위: IndexedDB → (없으면) localStorage 이전 → (없으면) 신규
+async function load(){
+  try{
+    const rec=await idbGetState();
+    if(rec && Array.isArray(rec.tabs) && rec.tabs.length){
+      state={tabs:rec.tabs, activeTabId:rec.activeTabId||rec.tabs[0].id};
+      if(!state.tabs.some(t=>t.id===state.activeTabId)) state.activeTabId=state.tabs[0].id;
+      return;
+    }
+  }catch(e){ console.warn('IndexedDB 로드 실패:',e); }
+
+  // 기존 localStorage 데이터 1회 이전.
+  // 순서가 중요하다: IDB 쓰기 성공을 확인한 뒤에만 원본 키를 지운다.
+  try{
+    const d=localStorage.getItem(STORE_KEY);
+    if(d){
+      const parsed=JSON.parse(d);
+      if(parsed && Array.isArray(parsed.tabs) && parsed.tabs.length){
+        state=parsed;
+        if(!state.activeTabId || !state.tabs.some(t=>t.id===state.activeTabId)) state.activeTabId=state.tabs[0].id;
+        await idbPutState(state);                                   // ① 먼저 쓰고
+        localStorage.setItem(MIGRATED_KEY,new Date().toISOString()); // ② 흔적 남기고
+        localStorage.removeItem(STORE_KEY);                          // ③ 그 다음에 지운다
+        setTimeout(()=>toast('기존 데이터를 IndexedDB로 옮겼어'),400);
+        return;
+      }
+    }
+  }catch(e){
+    console.warn('localStorage 이전 실패:',e);
+    // 이전에 실패하면 원본 키는 절대 건드리지 않는다. 다음 실행에서 다시 시도한다.
+    if(state && Array.isArray(state.tabs) && state.tabs.length) return;
+  }
+
+  state=newDefaultState();
 }
 function activeTab(){return state.tabs.find(t=>t.id===state.activeTabId)||state.tabs[0];}
 
@@ -1517,7 +1699,7 @@ function makeCard(data,tab){
     const picker=document.getElementById('img-picker');
     picker.onchange=ev=>{
       const files=[...(ev.target.files||[])];
-      files.forEach(f=>readFileAsDataURL(f).then(src=>addImage(src)));
+      files.forEach(f=>imageToThumb(f).then(src=>addImage(src)));
       picker.value='';
     };
     picker.click();
@@ -1536,7 +1718,7 @@ function makeCard(data,tab){
     const items=[...(e.dataTransfer.files||[])];
     if(items.length){
       items.filter(f=>f.type.startsWith('image/'))
-        .forEach(f=>readFileAsDataURL(f).then(src=>addImage(src)));
+        .forEach(f=>imageToThumb(f).then(src=>addImage(src)));
     } else {
       const url=e.dataTransfer.getData('text/uri-list')||e.dataTransfer.getData('text/plain');
       if(url) addImage(url.trim());
@@ -1551,7 +1733,7 @@ function makeCard(data,tab){
     items.forEach(it=>{
       if(it.type.startsWith('image/')){
         const f=it.getAsFile();
-        if(f){ readFileAsDataURL(f).then(src=>addImage(src)); handled=true; }
+        if(f){ imageToThumb(f).then(src=>addImage(src)); handled=true; }
       }
     });
     if(handled) e.preventDefault();
@@ -2118,6 +2300,8 @@ function boardMenuItems(tab,x,y){
     {icon:'ti-download', label:'JSON 내보내기 (전체)', action:()=>exportJSON('all')},
     {icon:'ti-upload', label:'JSON 불러오기', action:()=>importJSON()},
     {sep:true},
+    {icon:'ti-archive', label:'이미지 일괄 재압축 (전체 탭)', action:()=>recompressAllImages()},
+    {sep:true},
     {icon:'ti-trash', label:'이 탭 전체 삭제', danger:true, action:()=>clearTab(tab)},
   ];
 }
@@ -2306,6 +2490,60 @@ function exportJSON(scope){
   setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); },100);
 }
 function importJSON(){ document.getElementById('json-import-input').click(); }
+
+// [A단계] 이미 쌓인 원본 base64 이미지를 일괄 재압축한다.
+// 되돌릴 수 없는 손실 압축이라 반드시 확인을 받고, 실행 전 상태를 undo 스택에 남긴다.
+let recompressRunning=false;
+async function recompressAllImages(){
+  if(recompressRunning){ toast('이미 재압축 중이야'); return; }
+  const targets=[];
+  (state.tabs||[]).forEach(tab=>(tab.cards||[]).forEach(card=>{
+    if(!Array.isArray(card.images))return;
+    card.images.forEach((src,i)=>{
+      if(typeof src==='string' && src.startsWith('data:image')) targets.push({card,i});
+    });
+  }));
+  if(!targets.length){ await showAlert('재압축할 이미지가 없어. (외부 URL이나 동기화 마커뿐이야)'); return; }
+
+  const before=targets.reduce((s,t)=>s+t.card.images[t.i].length,0);
+  const ok=await showConfirm(
+    `이미지 ${targets.length}장을 ${IMG_MAX_PX}px / WebP ${IMG_QUALITY}로 다시 압축할까?\n`+
+    `현재 이미지 데이터: 약 ${bytes(before)}\n\n`+
+    `손실 압축이라 되돌릴 수 없어. JSON 내보내기부터 해두는 걸 권해.`,
+    {confirmText:'재압축 시작', danger:true}
+  );
+  if(!ok)return;
+
+  recompressRunning=true;
+  pushHistory();
+  let done=0, after=0;
+  try{
+    for(const t of targets){
+      const src=t.card.images[t.i];
+      const out=await recompressDataUrl(src);
+      t.card.images[t.i]=out;
+      after+=out.length;
+      done++;
+      if(done%5===0 || done===targets.length){
+        toast(`재압축 중... ${done}/${targets.length}`);
+        await new Promise(r=>setTimeout(r,0)); // UI 숨통 틔우기
+      }
+    }
+    const saved=await flushSave();
+    renderAll();
+    const pct=before?Math.max(0,(1-after/before)*100):0;
+    await showAlert(
+      `재압축 완료!\n`+
+      `${bytes(before)} → ${bytes(after)} (약 ${pct.toFixed(1)}% 감소)\n`+
+      (saved?'':'\n⚠️ 저장에 실패했어. 배너를 확인해줘.')
+    );
+  }catch(e){
+    console.error('재압축 실패:',e);
+    await showAlert('재압축 중 오류가 났어: '+(e.message||e));
+  }finally{
+    recompressRunning=false;
+  }
+}
 document.getElementById('json-import-input').addEventListener('change',e=>{
   const f=e.target.files[0]; if(!f)return;
   const reader=new FileReader();
@@ -2428,6 +2666,55 @@ function readFileAsDataURL(file){
   });
 }
 
+// [A단계] 저장 전 압축. 비율 유지 리사이즈 + WebP 인코딩.
+// 실패하면 원본 dataURL로 폴백하므로 이미지를 잃지는 않는다.
+function imageToThumb(file,max=IMG_MAX_PX,quality=IMG_QUALITY){
+  return new Promise(resolve=>{
+    const url=URL.createObjectURL(file);
+    const img=new Image();
+    img.onload=()=>{
+      try{
+        let w=img.naturalWidth||img.width, h=img.naturalHeight||img.height;
+        if(!w||!h){ URL.revokeObjectURL(url); readFileAsDataURL(file).then(resolve).catch(()=>resolve('')); return; }
+        if(w>max||h>max){ const r=Math.min(max/w,max/h); w=Math.round(w*r); h=Math.round(h*r); }
+        const c=document.createElement('canvas'); c.width=w; c.height=h;
+        c.getContext('2d').drawImage(img,0,0,w,h);
+        URL.revokeObjectURL(url);
+        const out=c.toDataURL('image/webp',quality);
+        // WebP 인코딩을 지원하지 않으면 toDataURL이 image/png를 돌려준다. 그것도 그대로 쓴다.
+        resolve(out||'');
+      }catch(e){
+        URL.revokeObjectURL(url);
+        readFileAsDataURL(file).then(resolve).catch(()=>resolve(''));
+      }
+    };
+    img.onerror=()=>{ URL.revokeObjectURL(url); readFileAsDataURL(file).then(resolve).catch(()=>resolve('')); };
+    img.src=url;
+  });
+}
+
+// dataURL(base64) → 재압축. 기존에 쌓인 원본 이미지를 줄이는 용도.
+function recompressDataUrl(src,max=IMG_MAX_PX,quality=IMG_QUALITY){
+  return new Promise(resolve=>{
+    if(typeof src!=='string'||!src.startsWith('data:image')){resolve(src);return;}
+    const img=new Image();
+    img.onload=()=>{
+      try{
+        let w=img.naturalWidth||img.width, h=img.naturalHeight||img.height;
+        if(!w||!h){resolve(src);return;}
+        if(w>max||h>max){ const r=Math.min(max/w,max/h); w=Math.round(w*r); h=Math.round(h*r); }
+        const c=document.createElement('canvas'); c.width=w; c.height=h;
+        c.getContext('2d').drawImage(img,0,0,w,h);
+        const out=c.toDataURL('image/webp',quality);
+        // 오히려 커지면 원본을 유지한다 (이미 압축된 작은 이미지 대비)
+        resolve(out && out.length<src.length ? out : src);
+      }catch(e){ resolve(src); }
+    };
+    img.onerror=()=>resolve(src);
+    img.src=src;
+  });
+}
+
 // === 메모 크게보기 ===
 let memoViewerText='';
 function openMemoViewer(title,text){
@@ -2518,16 +2805,28 @@ function lbPrev(){ if(lbImages.length<=1)return; lbIdx=(lbIdx-1+lbImages.length)
   });
 })();
 
-load();
-pullTabPrefs();
-renderAll();
+// [A단계] load()가 비동기가 되었으므로, state에 의존하는 초기화는 전부 이 안에서 순서대로 돈다.
+// (아래에 남아 있는 IIFE들은 리스너만 붙이는 코드라 state와 무관하다.)
+(async function boot(){
+  await load();
+  pullTabPrefs();
+  renderAll();
 
-// 시작 시 필터칩 UI 상태 동기화
-(function(){
+  // 필터칩 UI 상태 동기화 — activeFilter가 pullTabPrefs() 이후여야 한다
   document.querySelectorAll('.filter-chip').forEach(c=>{
     c.classList.toggle('active', c.dataset.stage===activeFilter);
   });
   renderActiveTagFilters();
+
+  // 경고 배너 버튼 연결 + 현재 저장소 사용량 1회 반영
+  const ex=document.getElementById('save-error-export');
+  if(ex) ex.addEventListener('click',()=>exportJSON('all'));
+  const rt=document.getElementById('save-error-retry');
+  if(rt) rt.addEventListener('click',async()=>{
+    const ok=await flushSave();
+    toast(ok?'저장 성공!':'여전히 저장이 안 돼. 백업부터 해줘');
+  });
+  updateStorageBadge();
 })();
 (function(){
   const ub=document.getElementById('undo-btn');
@@ -2717,7 +3016,7 @@ async function gistUpload(){
   const gistId=document.getElementById('gist-id-input').value.trim();
   if(!token){setGistStatus('토큰을 입력해줘!','err');return;}
   setGistStatus('업로드 중...','loading');
-  save();
+  await flushSave(); // [A단계] 디바운스 대기 중인 변경분을 확정 저장한 뒤 업로드
   await pushSlot(token, gistId, '수동');
 }
 
@@ -2847,7 +3146,7 @@ async function gistAutoSave(){
   const token=localStorage.getItem(GIST_TOKEN_KEY);
   const gistId=localStorage.getItem(GIST_ID_KEY);
   if(!token||!gistId)return;
-  save();
+  await flushSave(); // [A단계] 동일
   await pushSlot(token, gistId, '자동');
   showAutoSaveToast();
 }
