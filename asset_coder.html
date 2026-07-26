@@ -732,6 +732,7 @@ function renderControls(){
   html+='<div class="spacer"></div>';
   html+='<button class="act" id="editSchema">✎ 코드표</button>';
   html+='<button class="act" id="compact">⇅ 번호 정리</button>';
+  html+='<button class="act" id="bulk">⬚ 일괄 넣기</button>';
   html+='<button class="act purple" id="presetMenu">프리셋 관리</button>';
   html+='<button class="act pink" id="clearImgs">이미지 비우기</button>';
   c.innerHTML=html;
@@ -754,6 +755,7 @@ function renderControls(){
   }
   $('#editSchema').addEventListener('click',openSchema);
   $('#compact').addEventListener('click',openCompact);
+  $('#bulk').addEventListener('click',pickBulk);
   $('#presetMenu').addEventListener('click',presetMenu);
   $('#clearImgs').addEventListener('click',()=>{
     const n=Object.keys(images).length;
@@ -959,10 +961,77 @@ function bindBoard(){
     slot.addEventListener('drop',e=>{
       e.preventDefault();e.stopPropagation();slot.classList.remove('dragover');
       if(dragOrphan){moveOrphanTo(dragOrphan,slot.dataset.code);return;}
-      const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];
-      setImage(slot.dataset.code,f);
+      const fs=e.dataTransfer&&e.dataTransfer.files;
+      if(fs&&fs.length>1){bulkImport(fs);return;}
+      setImage(slot.dataset.code,fs&&fs[0]);
     });
   });
+  ['dragenter','dragover'].forEach(ev=>root.addEventListener(ev,e=>{
+    if(e.dataTransfer&&Array.prototype.indexOf.call(e.dataTransfer.types||[],'Files')>=0)e.preventDefault();
+  }));
+  root.addEventListener('drop',e=>{
+    const fs=e.dataTransfer&&e.dataTransfer.files;
+    if(!fs||!fs.length)return;
+    e.preventDefault();
+    bulkImport(fs);
+  });
+}
+
+/* ---------- 일괄 넣기 ---------- */
+/* 파일명에서 코드를 뽑아냄. 1.png / 1.webp / 01.jpg / P_A_1.png / 1_기쁨.png 모두 1번으로 */
+function codeFromFilename(name,codeSet){
+  const stem=String(name||'').replace(/\.[^.]+$/,'').trim();
+  if(!stem)return null;
+  if(codeSet.has(stem))return stem;
+  if(/^\d+$/.test(stem)){
+    const t=String(parseInt(stem,10));
+    if(codeSet.has(t))return t;
+  }
+  const runs=stem.match(/\d+/g);
+  if(runs){
+    const tries=runs.length>1?[runs[0],runs[runs.length-1]]:[runs[0]];
+    for(const r of tries){
+      if(codeSet.has(r))return r;
+      const t=String(parseInt(r,10));
+      if(codeSet.has(t))return t;
+    }
+  }
+  return null;
+}
+function bulkImport(fileList){
+  const ss=slotSection();
+  if(!ss){toast('코드표를 먼저 만들어줘');return;}
+  const files=Array.from(fileList||[]).filter(f=>f&&f.type&&f.type.startsWith('image/'));
+  if(!files.length){toast('이미지 파일이 없어');return;}
+  const codeSet=new Set(sectionItems(ss).map(it=>it.code));
+  const fp=frontPath();
+  let placed=0,replaced=0,miss=0;
+  files.forEach(f=>{
+    const code=codeFromFilename(f.name,codeSet);
+    let k;
+    if(code){
+      k=keyOf(code);
+      if(images[k])replaced++;else placed++;
+    }else{
+      miss++;
+      const stem=String(f.name).replace(/\.[^.]+$/,'').trim()||('미매칭_'+(uid+1));
+      k=(fp?fp+'/':'')+stem;
+    }
+    if(images[k])URL.revokeObjectURL(images[k].url);
+    images[k]={id:++uid,file:f,url:URL.createObjectURL(f)};
+  });
+  if(miss)orphanOpen=true;
+  render();
+  toast(`${placed+replaced}장 배치${replaced?' (교체 '+replaced+')':''}${miss?' · 미매칭 '+miss+'장':''}`);
+  if(miss)setTimeout(()=>toast('미매칭 '+miss+'장은 아래 "경로 안 맞는 이미지"에 있어. 끌어서 넣으면 돼'),1800);
+}
+function pickBulk(){
+  const inp=document.createElement('input');
+  inp.type='file';inp.accept='image/*';inp.multiple=true;
+  inp.style.cssText='position:absolute;opacity:0;pointer-events:none';
+  document.body.appendChild(inp);
+  inp.onchange=e=>{bulkImport(e.target.files);inp.remove();};
+  inp.click();
 }
 
 function setImage(code,file){
@@ -1076,23 +1145,25 @@ function closeSchema(){
 function setStatus(sel,msg,type){const el=$(sel);if(!el)return;el.textContent=msg||'';el.className='status'+(type?' '+type:'');}
 
 /* ---------- 출력 ---------- */
-let outTab='md',outAll=false,outFilled=true;
+let outTab='md',outMd='cur',outFilled=true;
 function buildMarkdown(){
   const ss=slotSection();if(!ss)return '';
   const lines=[];
-  if(outAll){
+  if(outMd==='all'){
     const keys=Object.keys(images).sort();
     keys.forEach(k=>{
       const b=schema.base?schema.base.replace(/\/+$/,'')+'/':'';
       lines.push(`![](${b}${k}.${curExt()}${schema.tail||''})`);
     });
   }else{
+    // 'code' = 코드표에 있는 모든 코드 (이미지 유무 무시) / 'cur' = 이미지 있는 것만
     sectionItems(ss).forEach(it=>{
-      if(!images[keyOf(it.code)])return;
+      if(outMd==='cur'&&!images[keyOf(it.code)])return;
       lines.push(`![](${urlOf(it.code)})`);
     });
   }
-  return lines.length?lines.join('\n'):'(내보낼 이미지가 없어)';
+  if(lines.length)return lines.join('\n');
+  return outMd==='code'?'(코드표에 코드가 없어)':'(내보낼 이미지가 없어)';
 }
 function buildTable(){
   const ss=slotSection();if(!ss)return '';
@@ -1120,9 +1191,12 @@ function buildTable(){
 function renderOut(){
   const opts=$('#out-opts');
   if(outTab==='md'){
-    opts.innerHTML=`<button class="mbtn ${outAll?'mbtn-alt':'mbtn-go'}" id="o1">현재 조합만</button><button class="mbtn ${outAll?'mbtn-go':'mbtn-alt'}" id="o2">전체 (${Object.keys(images).length}장)</button>`;
-    $('#o1').onclick=()=>{outAll=false;renderOut();};
-    $('#o2').onclick=()=>{outAll=true;renderOut();};
+    opts.innerHTML=`<button class="mbtn ${outMd==='cur'?'mbtn-go':'mbtn-alt'}" id="o1">현재 조합만</button>`
+      +`<button class="mbtn ${outMd==='all'?'mbtn-go':'mbtn-alt'}" id="o2">전체 (${Object.keys(images).length}장)</button>`
+      +`<button class="mbtn ${outMd==='code'?'mbtn-go':'mbtn-alt'}" id="o3">코드표 전체</button>`;
+    $('#o1').onclick=()=>{outMd='cur';renderOut();};
+    $('#o2').onclick=()=>{outMd='all';renderOut();};
+    $('#o3').onclick=()=>{outMd='code';renderOut();};
     $('#out-text').value=buildMarkdown();
   }else{
     opts.innerHTML=`<button class="mbtn ${outFilled?'mbtn-go':'mbtn-alt'}" id="o1">이미지 있는 코드만</button><button class="mbtn ${outFilled?'mbtn-alt':'mbtn-go'}" id="o2">코드표 전체</button>`;
