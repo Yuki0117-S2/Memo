@@ -800,7 +800,7 @@
     <a id="back-to-hub" href="index.html" title="작업실로"><i class="ti ti-arrow-left"></i></a>
     <span class="logo" id="toolbar-logo">✦ 아이디어 캐디</span>
     <button id="add-card-btn" class="tb-btn"><i class="ti ti-plus"></i> 새 카드</button>
-    <button id="sync-btn" class="tb-btn outline" title="Gist 동기화"><i class="ti ti-cloud"></i> 동기화 <span class="sync-indicator" id="sync-indicator"></span></button><span class="gist-size-badge" id="gist-size-badge">Gist 예상 0KB</span><span class="local-size-badge" id="local-size-badge" title="이 기기 localStorage에 저장 중인 실제 용량">로컬 0KB</span>
+    <button id="sync-btn" class="tb-btn outline" title="Gist 동기화"><i class="ti ti-cloud"></i> 동기화 <span class="sync-indicator" id="sync-indicator"></span></button><span class="gist-size-badge" id="gist-size-badge">Gist 예상 0KB</span><span class="local-size-badge" id="local-size-badge" title="작업실 도구 전체가 공유하는 저장소 사용량">작업실 0KB</span>
     <div id="undo-redo">
       <button class="ur-btn" id="undo-btn" title="되돌리기 (Ctrl+Z)"><i class="ti ti-arrow-back-up"></i></button>
       <button class="ur-btn" id="redo-btn" title="다시 실행 (Ctrl+Y)"><i class="ti ti-arrow-forward-up"></i></button>
@@ -1008,6 +1008,9 @@ let badgeTimer=null;
 
 // navigator.storage.estimate()로 실제 사용량을 잰다. 42MB짜리 state를 매번
 // JSON.stringify 하는 것보다 훨씬 가볍고, 할당량 대비 비율까지 알 수 있다.
+// ⚠️ 이 값은 오리진 단위 집계다. 작업실 도구들이 workshop_gist_token 같은 키를
+//    공유한다는 건 같은 오리진을 쓴다는 뜻이므로, 여기 뜨는 숫자는 CD Idea 단독이
+//    아니라 작업실 전체(모든 도구의 IndexedDB + localStorage) 합계다.
 async function updateStorageBadge(){
   const el=document.getElementById('local-size-badge');
   if(!el)return;
@@ -1015,20 +1018,23 @@ async function updateStorageBadge(){
     if(navigator.storage&&navigator.storage.estimate){
       const est=await navigator.storage.estimate();
       const usage=est.usage||0, quota=est.quota||0;
-      el.textContent='저장소 '+bytes(usage)+(quota?' / '+bytes(quota):'');
+      el.textContent='작업실 '+bytes(usage)+(quota?' / '+bytes(quota):'');
       const ratio=quota?usage/quota:0;
       el.classList.toggle('warn', ratio>=STORAGE_WARN_RATIO && ratio<STORAGE_DANGER_RATIO);
       el.classList.toggle('danger', ratio>=STORAGE_DANGER_RATIO);
-      el.title=`이 앱이 실제로 쓰고 있는 저장소 용량 (IndexedDB 포함). 할당량 대비 ${(ratio*100).toFixed(1)}%`;
+      el.title='작업실 도구 전체가 같은 오리진을 공유하므로, 이 값은 CD Idea 단독이 아니라 '
+        +'작업실 전체 저장소 사용량이야 (IndexedDB + localStorage 포함).'
+        +(quota?` 할당량 대비 ${(ratio*100).toFixed(1)}%`:'');
       return;
     }
   }catch(e){ console.warn('저장소 용량 조회 실패:',e); }
-  // 폴백: estimate()를 못 쓰는 환경에서만 state를 직접 잰다.
+  // 폴백: estimate()를 못 쓰는 환경에서만 state를 직접 잰다. 이건 CD Idea 단독 크기다.
   try{
     const n=utf8Bytes(JSON.stringify(state));
-    el.textContent='데이터 '+bytes(n);
-    el.title='navigator.storage.estimate()를 쓸 수 없어 state 크기로 대체 표시 중';
-  }catch(e){ el.textContent='데이터 ?'; }
+    el.textContent='이 앱 '+bytes(n);
+    el.classList.remove('warn','danger');
+    el.title='navigator.storage.estimate()를 쓸 수 없어, CD Idea 데이터 크기(UTF-8 실측)로 대체 표시 중이야. 작업실 전체 합계가 아니야.';
+  }catch(e){ el.textContent='이 앱 ?'; }
 }
 function queueStorageBadge(){
   clearTimeout(badgeTimer);

@@ -208,7 +208,7 @@ header{display:flex;align-items:center;gap:10px;border-bottom:.5px solid var(--b
         <div class="stat"><b id="stat-items">0</b><span>이미지</span></div>
         <div class="stat"><b id="stat-meta">0</b><span>메타 감지</span></div>
         <div class="stat"><b id="stat-fav">0</b><span>즐겨찾기</span></div>
-        <div class="stat"><b id="stat-store">0KB</b><span>저장량 추정</span></div><div class="stat"><b id="stat-gist">0KB</b><span>Gist 예상</span></div>
+        <div class="stat" title="현재 데이터를 JSON으로 직렬화했을 때의 UTF-8 실측 바이트. IndexedDB 실제 점유량과는 다를 수 있어."><b id="stat-store">0KB</b><span>저장량 추정</span></div><div class="stat" title="Gist 업로드 시 예상 크기. 썸네일이 제외된 경량 페이로드 기준이야."><b id="stat-gist">0KB</b><span>Gist 예상</span></div>
       </div>
     </div>
   </aside>
@@ -660,7 +660,34 @@ function renderList(){
 }
 function current(){return state.items.find(i=>i.id===state.selectedId)}
 function renderDetail(){const it=current();$('#detail-empty').style.display=it?'none':'block';$('#detail').style.display=it?'block':'none';$('#selected-state').textContent=it?'편집 중':'선택 없음';if(!it)return;const m=it.meta||{};$('#d-img').src=it.thumb||'';$('#d-title').value=it.title||'';$('#d-status').value=it.status||'보류';$('#d-score').value=String(it.score||0);$('#d-tags').value=(it.tags||[]).join(', ');$('#d-notes').value=it.notes||'';$('#toggle-fav-btn').textContent=it.fav?'즐겨찾기 해제':'즐겨찾기';const loras=(m.loras||[]).map(l=>`${l.name}${l.strength_model!=null?' @'+l.strength_model:''}`).join(', ');$('#d-kv').innerHTML=[['출처',m.source||'확인 불가'],['모델',m.model||'확인 불가'],['LoRA',loras||'확인 불가'],['Seed',m.seed??'확인 불가'],['Steps',m.steps??'확인 불가'],['CFG',m.cfg??'확인 불가'],['Sampler',m.sampler||'확인 불가'],['Scheduler',m.scheduler||'확인 불가'],['Denoise',m.denoise??'확인 불가'],['크기',(m.width&&m.height)?`${m.width}×${m.height}`:'확인 불가'],['파일',bytes(it.size)]].map(([k,v])=>`<b>${esc(k)}</b><span>${esc(v)}</span>`).join('');$('#d-positive').textContent=m.positive||'확인 불가';$('#d-negative').textContent=m.negative||'확인 불가'}
-function renderStats(){let store=0;try{store=JSON.stringify(state).length*2}catch(e){}$('#stat-items').textContent=state.items.length;$('#stat-meta').textContent=state.items.filter(i=>i.meta&&i.meta.metaFound).length;$('#stat-fav').textContent=state.items.filter(i=>i.fav).length;$('#stat-store').textContent=bytes(store);const ge=$('#stat-gist');if(ge)ge.textContent=bytes(estimateGistPayloadBytes())}
+// [C단계] 무거운 용량 계산을 렌더링 경로에서 분리한다.
+// JSON.stringify(state)와 estimateGistPayloadBytes()(내부에서 state를 깊은 복제)는
+// 항목이 쌓이면 render()마다 돌리기엔 비싸다. 디바운스로 갱신 빈도를 낮춘다.
+let storeStatTimer=null;
+function queueStoreStats(delay=600){
+  clearTimeout(storeStatTimer);
+  storeStatTimer=setTimeout(renderStoreStatsNow,delay);
+}
+function renderStoreStatsNow(){
+  clearTimeout(storeStatTimer); storeStatTimer=null;
+  const se=$('#stat-store');
+  if(se){
+    // 이전에는 .length*2(UTF-16 가정)로 쟀다. 하지만 state 내용물의 대부분은
+    // base64 썸네일 = ASCII라 UTF-8에서 1바이트/문자다. 그래서 실제보다 부풀려졌다.
+    // lora_lab / cd_idea와 동일하게 utf8Bytes() 실측으로 통일한다.
+    let store=0;
+    try{ store=utf8Bytes(JSON.stringify(state)); }catch(e){ console.warn('저장량 계산 실패',e); }
+    se.textContent=bytes(store);
+  }
+  const ge=$('#stat-gist');
+  if(ge){ try{ ge.textContent=bytes(estimateGistPayloadBytes()) }catch(e){ console.warn('Gist 예상치 계산 실패',e) } }
+}
+function renderStats(){
+  $('#stat-items').textContent=state.items.length;
+  $('#stat-meta').textContent=state.items.filter(i=>i.meta&&i.meta.metaFound).length;
+  $('#stat-fav').textContent=state.items.filter(i=>i.fav).length;
+  queueStoreStats();
+}
 function renderAll(){applyView();render()}
 
 function cardExpandedHTML(it){
