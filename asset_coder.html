@@ -84,6 +84,26 @@ input[type=range].qr:focus-visible{box-shadow:0 0 0 3px rgba(136,136,204,.28)}
 .cp-prev .n{color:var(--accent);font-weight:700;min-width:34px}
 .cp-prev .lb{color:var(--text2)}
 .cp-prev .none{color:var(--text3)}
+
+/* rclone 가이드 */
+.rc-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:9px;margin:12px 0}
+.rc-in{display:flex;flex-direction:column;gap:4px}
+.rc-in label{font-size:10px;color:var(--text3);font-weight:800;letter-spacing:.5px;text-transform:uppercase}
+.rc-in input{background:var(--bg2);border:.5px solid var(--border2);color:var(--text);border-radius:var(--radius-sm);padding:8px 9px;font-family:var(--mono);font-size:12px;outline:0}
+.rc-in input:focus{border-color:var(--accent)}
+.rc-steps{display:flex;flex-direction:column;gap:11px;margin-top:4px}
+.rc-step{border:.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--bg2);padding:10px 11px}
+.rc-step .t{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:800;color:var(--text);margin-bottom:3px}
+.rc-step .n{flex:none;width:19px;height:19px;border-radius:50%;background:var(--accent);color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;font-family:var(--mono)}
+.rc-step .d{font-size:11.5px;color:var(--text2);line-height:1.65;margin-bottom:7px}
+.rc-step .d b{color:var(--accent3)}
+.rc-cmdwrap{display:flex;align-items:stretch;gap:6px}
+.rc-cmd{flex:1;min-width:0;margin:0;background:var(--bg);border:.5px solid var(--border2);border-radius:6px;padding:8px 9px;font-family:var(--mono);font-size:11.5px;line-height:1.6;color:var(--accent);white-space:pre-wrap;word-break:break-all;overflow-x:auto}
+.rc-copy{flex:none;align-self:flex-start;font-family:inherit;font-size:11px;font-weight:800;padding:7px 10px;border-radius:6px;border:.5px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;white-space:nowrap}
+.rc-copy:hover{border-color:var(--accent);color:var(--accent)}
+.rc-warn{margin-top:13px;border:.5px solid var(--danger);background:rgba(187,102,136,.08);border-radius:var(--radius-sm);padding:11px;font-size:11.5px;line-height:1.7;color:var(--text2)}
+.rc-warn b{color:var(--danger)}
+.rc-warn code{font-family:var(--mono);background:var(--bg);padding:1px 5px;border-radius:4px;color:var(--accent)}
 .spacer{flex:1;min-width:0}
 button.act{font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;border:.5px solid var(--border2);background:var(--bg2);color:var(--text2);border-radius:var(--radius-sm);padding:9px 13px;transition:.15s}
 button.act:hover{border-color:var(--accent);color:var(--accent)}
@@ -368,6 +388,37 @@ textarea.inp{min-height:260px;line-height:1.6;resize:vertical;white-space:pre;ov
   </div>
 </div>
 
+<!-- rclone 업로드 가이드 -->
+<div class="ov" id="rc-ov">
+  <div class="modal">
+    <div class="modal-title">☁ R2 업로드 가이드 (rclone)</div>
+    <div class="hint">대시보드는 <b>한 번에 100개</b>까지만 올라가. 그 이상은 rclone으로. 아래 칸을 채우면 명령어가 알아서 완성돼.</div>
+
+    <div class="rc-form">
+      <div class="rc-in"><label for="rc-bucket">버킷 이름</label><input id="rc-bucket" placeholder="chat"></div>
+      <div class="rc-in"><label for="rc-acct">Account ID</label><input id="rc-acct" placeholder="R2 대시보드 우측 상단"></div>
+      <div class="rc-in"><label for="rc-local">올릴 로컬 폴더</label><input id="rc-local" placeholder="C:\Users\나\Downloads\P"></div>
+    </div>
+
+    <div class="rc-steps" id="rc-steps"></div>
+
+    <div class="rc-warn">
+      <b>⚠ 반드시 <code>copy</code>를 써. <code>sync</code>는 쓰지 마.</b><br>
+      sync는 로컬에 없는 파일을 <b>버킷에서 지워버려.</b> 폴더 하나 잘못 지정하면 올려둔 에셋이 통째로 날아가.
+      <br><br>
+      <b>토큰은 절대 공유 금지.</b> Secret은 발급할 때 딱 한 번만 보여주고, rclone.conf에 평문으로 저장돼.
+      <br><br>
+      토큰을 <b>Object-level 권한</b>으로 만들었다면 설정 파일에 <code>no_check_bucket = true</code> 한 줄을 추가해. 안 그러면 버킷 조회에서 막혀.
+      <br><br>
+      rclone은 <b>v1.59 이상</b>이어야 해. 낮으면 401 Unauthorized가 나.
+    </div>
+
+    <div class="brow">
+      <button class="mbtn mbtn-cancel" id="rc-close">닫기</button>
+    </div>
+  </div>
+</div>
+
 <div class="barwrap">
   <div class="bar">
     <span class="stat" id="stat">이미지 0장</span>
@@ -439,7 +490,8 @@ let state={
   sel:{},            // 섹션명 -> 코드
   collapsed:{},      // 그룹키 -> true
   webp:false,
-  webpQ:92           // webp 변환 품질 (1~100)
+  webpQ:92,          // webp 변환 품질 (1~100)
+  rc:{bucket:'',account:'',local:''}   // rclone 가이드 입력값
 };
 /* images: 경로키('DM/Q/B/3') -> {id,file,url}  (메모리 전용) */
 let images={};
@@ -545,6 +597,8 @@ function normalizeState(){
   let q=Math.round(Number(state.webpQ));
   if(!isFinite(q))q=92;
   state.webpQ=Math.min(100,Math.max(1,q));
+  if(!state.rc||typeof state.rc!=='object')state.rc={bucket:'',account:'',local:''};
+  ['bucket','account','local'].forEach(k=>{if(typeof state.rc[k]!=='string')state.rc[k]='';});
 }
 function save(){normalizeState();try{localStorage.setItem(LS_KEY,JSON.stringify(state));}catch(e){}}
 function load(){
@@ -690,6 +744,63 @@ function applyCompact(){
   toast(`${cpDrop.size}칸 삭제 · ${plan.changed.length}칸 번호 변경`);
 }
 
+/* ---------- rclone 가이드 ---------- */
+function rcVals(){
+  const r=state.rc||{};
+  const bucket=(r.bucket||'').trim()||'버킷이름';
+  const acct=(r.account||'').trim()||'ACCOUNT_ID';
+  const local=(r.local||'').trim()||'C:\\Users\\나\\Downloads\\P';
+  const seg=local.replace(/[\\/]+$/,'').split(/[\\/]/).pop()||'P';
+  return {bucket,acct,local,seg};
+}
+function rcSteps(){
+  const v=rcVals();
+  return [
+    {t:'rclone 설치',
+     d:'PowerShell을 열고 아래를 붙여넣어. 이미 깔려 있으면 건너뛰어도 돼.',
+     c:'winget install Rclone.Rclone'},
+    {t:'R2 API 토큰 발급',
+     d:'Cloudflare 대시보드 → <b>R2</b> → <b>Manage R2 API Tokens</b> → Create → 권한은 <b>Object Read &amp; Write</b>. '
+      +'<b>Access Key ID</b>와 <b>Secret Access Key</b>를 받아 적어. Secret은 이 화면을 닫으면 다시 못 봐. '
+      +'<b>Account ID</b>는 R2 개요 화면 우측 상단에 있어 — 위 칸에 넣으면 아래 명령어가 완성돼.',
+     c:''},
+    {t:'설정 파일 열기',
+     d:'아래를 실행하면 설정 폴더가 탐색기로 열려. 그 안에 <b>rclone.conf</b> 파일을 만들어(메모장으로 열고 다음 단계 내용을 붙여넣은 뒤 저장).',
+     c:'explorer $env:APPDATA\\rclone'},
+    {t:'rclone.conf 내용',
+     d:'통째로 붙여넣고 <b>키 두 개만</b> 네 값으로 바꿔.',
+     c:'[r2]\ntype = s3\nprovider = Cloudflare\naccess_key_id = 발급받은_ACCESS_KEY\nsecret_access_key = 발급받은_SECRET\nendpoint = https://'+v.acct+'.r2.cloudflarestorage.com\nregion = auto\nacl = private'},
+    {t:'연결 확인 — 올리기 전에 이것부터',
+     d:'목록이 나오거나(비었으면 아무것도 안 나옴) 에러가 없으면 성공이야. 여기서 막히면 다음 단계로 넘어가지 마.',
+     c:'rclone ls r2:'+v.bucket},
+    {t:'업로드',
+     d:'폴더 구조가 그대로 키가 돼. <b>'+esc(v.seg)+'/A/1.webp</b> 같은 모양으로 올라가.',
+     c:'rclone copy "'+v.local+'" r2:'+v.bucket+'/'+v.seg+' --progress'},
+    {t:'확인',
+     d:'올라간 개수를 세어봐. 브라우저로 URL 하나 열어보는 것도 잊지 말고.',
+     c:'rclone size r2:'+v.bucket+'/'+v.seg}
+  ];
+}
+function renderRc(){
+  const box=$('#rc-steps');
+  box.innerHTML=rcSteps().map((s,i)=>
+    `<div class="rc-step"><div class="t"><span class="n">${i+1}</span>${esc(s.t)}</div><div class="d">${s.d}</div>`
+    +(s.c?`<div class="rc-cmdwrap"><pre class="rc-cmd" id="rcc${i}">${esc(s.c)}</pre><button class="rc-copy" data-i="${i}">복사</button></div>`:'')
+    +'</div>').join('');
+  box.querySelectorAll('.rc-copy').forEach(b=>b.addEventListener('click',e=>{
+    const txt=$('#rcc'+e.currentTarget.dataset.i).textContent;
+    navigator.clipboard.writeText(txt).then(()=>toast('복사됨'),()=>toast('복사 실패. 직접 긁어서 복사해줘'));
+  }));
+}
+function openRc(){
+  if(!state.rc)state.rc={bucket:'',account:'',local:''};
+  $('#rc-bucket').value=state.rc.bucket||'';
+  $('#rc-acct').value=state.rc.account||'';
+  $('#rc-local').value=state.rc.local||'';
+  $('#rc-ov').classList.add('open');
+  renderRc();
+}
+
 function qHint(v){
   if(v>=97)return '거의 무손실 · 용량 큼';
   if(v>=90)return '고화질 · 권장';
@@ -733,6 +844,7 @@ function renderControls(){
   html+='<button class="act" id="editSchema">✎ 코드표</button>';
   html+='<button class="act" id="compact">⇅ 번호 정리</button>';
   html+='<button class="act" id="bulk">⬚ 일괄 넣기</button>';
+  html+='<button class="act" id="rcguide">☁ 업로드 가이드</button>';
   html+='<button class="act purple" id="presetMenu">프리셋 관리</button>';
   html+='<button class="act pink" id="clearImgs">이미지 비우기</button>';
   c.innerHTML=html;
@@ -756,6 +868,7 @@ function renderControls(){
   $('#editSchema').addEventListener('click',openSchema);
   $('#compact').addEventListener('click',openCompact);
   $('#bulk').addEventListener('click',pickBulk);
+  $('#rcguide').addEventListener('click',openRc);
   $('#presetMenu').addEventListener('click',presetMenu);
   $('#clearImgs').addEventListener('click',()=>{
     const n=Object.keys(images).length;
@@ -1419,6 +1532,12 @@ window.save=save;window.render=render; // drive_sync.js 호환
     setTimeout(()=>URL.revokeObjectURL(a.href),1000);
   });
 
+  $('#rc-close').addEventListener('click',()=>$('#rc-ov').classList.remove('open'));
+  $('#rc-ov').addEventListener('click',ev=>{if(ev.target.id==='rc-ov')$('#rc-ov').classList.remove('open');});
+  [['#rc-bucket','bucket'],['#rc-acct','account'],['#rc-local','local']].forEach(([sel,key])=>{
+    $(sel).addEventListener('input',ev=>{state.rc[key]=ev.target.value;renderRc();});
+    $(sel).addEventListener('change',()=>save());
+  });
   $('#cp-cancel').addEventListener('click',closeCompact);
   $('#cp-go').addEventListener('click',applyCompact);
   $('#cp-ov').addEventListener('click',e=>{if(e.target.id==='cp-ov')closeCompact();});
