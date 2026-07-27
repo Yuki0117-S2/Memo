@@ -304,6 +304,7 @@ textarea.inp{min-height:260px;line-height:1.6;resize:vertical;white-space:pre;ov
     </div>
     <div class="brow" id="out-opts"></div>
     <textarea class="inp" id="out-text" spellcheck="false" readonly></textarea>
+    <div class="hint" id="out-count" style="display:none;text-align:right;font-family:var(--mono);color:var(--accent3)"></div>
     <div class="status" id="out-status"></div>
     <div class="brow">
       <button class="mbtn mbtn-go" id="out-copy">📋 복사</button>
@@ -1316,6 +1317,16 @@ function renderOut(){
     $('#o1').onclick=()=>{outFilled=true;renderOut();};
     $('#o2').onclick=()=>{outFilled=false;renderOut();};
     $('#out-text').value=buildTable();
+  }
+  const cntEl=$('#out-count');
+  if(cntEl){
+    if(outTab==='table'){
+      cntEl.style.display='block';
+      cntEl.textContent='총 '+$('#out-text').value.length.toLocaleString()+'자 (공백 포함)';
+    }else{
+      cntEl.style.display='none';
+      cntEl.textContent='';
+    }
   }
   document.querySelectorAll('#out-ov .tab').forEach(t=>t.classList.toggle('on',t.dataset.t===outTab));
 }
