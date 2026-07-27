@@ -330,13 +330,33 @@ footer{margin-top:2rem;font-size:11px;color:var(--text3);text-align:center;lette
   }
   function round100(v){return Math.round(v/100)*100;}
 
+  // 총 스텝의 약수 중 target(500)에 가장 가까운 값 = save_every_n_steps
+  // · 최소 2회 저장 보장(약수 <= total/2) · 동점이면 작은 쪽(체크포인트 많은 쪽) 선택
+  function bestDivisor(total,target){
+    var best=null,bestDiff=Infinity,limit=Math.floor(total/2);
+    for(var d=1;d*d<=total;d++){
+      if(total%d)continue;
+      var cand=[d,total/d];
+      for(var i=0;i<2;i++){
+        var v=cand[i];
+        if(v<1||v>limit)continue;
+        var diff=Math.abs(v-target);
+        if(best===null||diff<bestDiff||(diff===bestDiff&&v<best)){best=v;bestDiff=diff;}
+      }
+    }
+    return best||total;
+  }
+
   function calc(n){
     var ppi=perImage(n);
     var center=round100(n*ppi);
     var min=round100(n*Math.max(ppi-4,8));
     var max=round100(n*(ppi+4));
-    var ckpt=Math.floor(center/500);
-    return {ppi:ppi,center:center,min:min,max:max,ckpt:ckpt};
+    var sv=bestDivisor(center,500);          // 추천 총 스텝을 딱 나누는 저장 주기
+    var ckpt=center/sv;                      // 추천 지점까지의 저장 횟수
+    var maxAligned=Math.ceil(max/sv)*sv;     // 최대까지 돌릴 때 주기에 맞춘 종료 스텝
+    return {ppi:ppi,center:center,min:min,max:max,
+            sv:sv,ckpt:ckpt,maxAligned:maxAligned,maxCkpt:maxAligned/sv};
   }
 
   function row(label,val,color,sub){
@@ -356,9 +376,13 @@ footer{margin-top:2rem;font-size:11px;color:var(--text3);text-align:center;lette
     out.innerHTML=
       row('추천 총 스텝', r.center.toLocaleString(), '#8888CC', '장당 '+r.ppi)
      +row('안전 범위', r.min.toLocaleString()+' ~ '+r.max.toLocaleString(), '#DDAACC')
-     +row('체크포인트', r.ckpt+'개', '#CCAA88', 'save 500 기준')
-     +row('dim / alpha', '32 / 16', '#BB6688', '스타일 · 강도 0.5')
+     +row('save_every_n_steps', r.sv.toLocaleString(), '#CCAA88', '500 최근접 약수')
+     +row('체크포인트', r.ckpt+'개', '#BB6688', '→ '+r.center.toLocaleString()+' 딱 떨어짐')
+     +row('최대까지 돌릴 때', r.maxAligned.toLocaleString(), '#884499', r.sv.toLocaleString()+'×'+r.maxCkpt+' · 마지막 스텝=저장')
+     +row('dim / alpha', '32 / 16', '#EE1166', '스타일 · 강도 0.5')
      +'<div style="font-size:11px;color:var(--text3);line-height:1.6;padding:8px 12px">'
+     +'※ 저장 주기를 <b>총 스텝의 약수</b>로 잡아 끝자락 스텝이 저장 없이 버려지는 걸 막음. '
+     +'추천 지점('+r.center.toLocaleString()+')·최대 지점('+r.maxAligned.toLocaleString()+') 둘 다 정확히 체크포인트로 남아.<br>'
      +'※ 장수 늘수록 장당 스텝을 낮춰 과적합 방지. 마지막 체크포인트가 과하면 중간 것과 비교해 고를 것. <b style="color:var(--danger)">경험칙 · 정답 아님</b></div>';
   }
 
