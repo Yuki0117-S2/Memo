@@ -1050,7 +1050,26 @@ function searchableText(c){
     c.status,c.purpose,c.resultReview,c.nextExperiment,c.notes,c.testPrompt,c.recommendedWeight,c.representativeImageName,imageNames
   ].map(v=>String(v??'')).join(' ').toLowerCase();
 }
-function filtered(){let arr=[...state.cards];const q=state.query.trim().toLowerCase();if(q){arr=arr.filter(c=>searchableText(c).includes(q))}if(state.favOnly)arr=arr.filter(c=>c.fav);if(state.statusFilter!=='전체')arr=arr.filter(c=>c.status===state.statusFilter);if(state.purposeFilter!=='전체')arr=arr.filter(c=>c.purpose===state.purposeFilter);if(state.baseFilter&&state.baseFilter!=='전체')arr=arr.filter(c=>(compact(c.baseModel)||'미지정')===state.baseFilter);if(state.imgFilter&&state.imgFilter!=='all'){arr=arr.filter(c=>{const n=cardImageCount(c);if(state.imgFilter==='3+')return n>=3;if(state.imgFilter==='not2')return n!==2;return n===Number(state.imgFilter)})}if(state.metaFilter==='has')arr=arr.filter(c=>c.metaRead);if(state.metaFilter==='none')arr=arr.filter(c=>!c.metaRead);arr.sort((a,b)=>{if(state.sort==='nameAsc')return (a.title||a.fileName).localeCompare(b.title||b.fileName,'ko');if(state.sort==='stepsDesc')return toNum(b.totalSteps)-toNum(a.totalSteps);if(state.sort==='createdDesc')return (b.createdAt||'').localeCompare(a.createdAt||'');return (b.updatedAt||'').localeCompare(a.updatedAt||'')});return arr}
+// 카드 한 장이 현재 필터 조건을 통과하는지 검사 (부분 갱신 후 정합성 확인용)
+function passesFilter(c){
+  if(!c)return false;
+  const q=state.query.trim().toLowerCase();
+  if(q&&!searchableText(c).includes(q))return false;
+  if(state.favOnly&&!c.fav)return false;
+  if(state.statusFilter!=='전체'&&c.status!==state.statusFilter)return false;
+  if(state.purposeFilter!=='전체'&&c.purpose!==state.purposeFilter)return false;
+  if(state.baseFilter&&state.baseFilter!=='전체'&&(compact(c.baseModel)||'미지정')!==state.baseFilter)return false;
+  if(state.imgFilter&&state.imgFilter!=='all'){
+    const n=cardImageCount(c);
+    if(state.imgFilter==='3+'){if(n<3)return false}
+    else if(state.imgFilter==='not2'){if(n===2)return false}
+    else if(n!==Number(state.imgFilter))return false;
+  }
+  if(state.metaFilter==='has'&&!c.metaRead)return false;
+  if(state.metaFilter==='none'&&c.metaRead)return false;
+  return true;
+}
+function filtered(){let arr=state.cards.filter(passesFilter);arr.sort((a,b)=>{if(state.sort==='nameAsc')return (a.title||a.fileName).localeCompare(b.title||b.fileName,'ko');if(state.sort==='stepsDesc')return toNum(b.totalSteps)-toNum(a.totalSteps);if(state.sort==='createdDesc')return (b.createdAt||'').localeCompare(a.createdAt||'');return (b.updatedAt||'').localeCompare(a.updatedAt||'')});return arr}
 function renderFilters(){const s=$('status-list'),p=$('purpose-list');const count=(key,val)=>val==='전체'?state.cards.length:state.cards.filter(c=>c[key]===val).length;s.innerHTML=['전체',...STATUSES].map(v=>`<button class="cat ${state.statusFilter===v?'active':''}" data-status="${v}"><span>${v}</span><span class="count">${count('status',v)}</span></button>`).join('');if(p){p.innerHTML=['전체',...PURPOSES].map(v=>`<button class="cat ${state.purposeFilter===v?'active':''}" data-purpose="${v}"><span>${v}</span><span class="count">${count('purpose',v)}</span></button>`).join('');p.querySelectorAll('[data-purpose]').forEach(b=>b.onclick=()=>{state.purposeFilter=b.dataset.purpose;render()});}s.querySelectorAll('[data-status]').forEach(b=>b.onclick=()=>{state.statusFilter=b.dataset.status;render()});}
 function renderBaseFilter(){const el=$('base-filter');if(!el)return;const bases=[...new Set(state.cards.map(c=>compact(c.baseModel)||'미지정'))].sort((a,b)=>a.localeCompare(b,'ko'));if(state.baseFilter!=='전체'&&!bases.includes(state.baseFilter))state.baseFilter='전체';el.innerHTML=['전체',...bases].map(v=>`<option value="${escapeHtml(v)}" ${state.baseFilter===v?'selected':''}>${v==='전체'?'base model 전체':v}</option>`).join('');}
 function statusClass(c){return c.status==='성공'?'ok':c.status==='실패'?'bad':c.status==='보류'?'warn':''}
@@ -1158,6 +1177,14 @@ function refreshCardEl(id){
   const c=state.cards.find(x=>x.id===id);
   const el=document.querySelector('#list .card[data-id="'+CSS.escape(id)+'"]');
   if(!c||!el){render();return}
+  // 이 카드가 더 이상 현재 필터를 통과하지 않으면 목록에서 즉시 제거 (필터 불일치 방지)
+  if(!passesFilter(c)){
+    el.remove();
+    state.selected.delete(id);
+    if(!$('list').querySelector('.card'))$('list').innerHTML='<div class="empty">조건에 맞는 LoRA 카드가 없음.</div>';
+    renderStats();
+    return;
+  }
   const tmp=document.createElement('div');
   tmp.innerHTML=cardHtml(c);
   const neu=tmp.firstElementChild;
