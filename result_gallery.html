@@ -165,6 +165,29 @@ header{display:flex;align-items:center;gap:10px;border-bottom:.5px solid var(--b
 .cm-ghost{background:var(--bg2);color:var(--text2);border:.5px solid var(--border)}
 .cm-ghost:hover{background:var(--bg3);opacity:1}
 .cm-btn:focus-visible{outline:2px solid var(--accent2);outline-offset:2px}
+/* === patch: sticky detail / edit overlay (lora_lab 이식) === */
+/* PC 넓은 화면: 상세 패널이 스크롤을 따라옴 */
+@media(min-width:1121px){
+  .split:not(.gallery-view) .detail-panel{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow-y:auto;overscroll-behavior:contain}
+  .split:not(.gallery-view) .detail-panel.collapsed{overflow:hidden}
+}
+/* 편집 오버레이 (모바일/갤러리 뷰/중간 폭) — #detail-panel 노드를 통째로 이 안으로 이동시켜 표시 */
+#edit-overlay{position:fixed;inset:0;z-index:10045;background:rgba(0,0,0,.55);display:none;align-items:flex-end;justify-content:center}
+#edit-overlay.open{display:flex}
+body.eo-open{overflow:hidden}
+.eo-shell{width:min(720px,100%);max-height:92dvh;background:var(--bg);border:.5px solid var(--border2);border-radius:16px 16px 0 0;display:flex;flex-direction:column;overflow:hidden}
+@media(min-width:721px){#edit-overlay{align-items:center;padding:24px}.eo-shell{border-radius:16px;max-height:calc(100vh - 48px)}}
+.eo-head{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:.5px solid var(--border);background:var(--bg2);font-size:13px;font-weight:800;color:var(--text2);flex:0 0 auto}
+.eo-close{border:0;background:transparent;color:var(--text3);font-size:24px;cursor:pointer;line-height:1;padding:2px 9px;border-radius:8px}
+.eo-close:hover{color:#BB6688;background:var(--bg)}
+.eo-body{overflow-y:auto;-webkit-overflow-scrolling:touch;min-height:0}
+#edit-overlay .detail-panel{border:0;border-radius:0;position:static;max-height:none;overflow:visible;display:block!important}
+#edit-overlay .detail-panel .panel-head{display:none}
+#edit-overlay .detail-panel.collapsed .panel-body{display:block}
+/* 뷰어를 오버레이 위로 (편집 중 이미지 확대 가능) + 뷰어 → 편집 버튼 */
+#lightbox{z-index:10050}
+.lb-edit{position:absolute;top:18px;left:18px;border:0;border-radius:999px;background:rgba(255,255,255,.16);color:#fff;font-size:12px;font-weight:700;padding:6px 14px;cursor:pointer;white-space:nowrap}
+.lb-edit:hover{background:#8888CC}
 </style>
 </head>
 <body>
@@ -234,7 +257,7 @@ header{display:flex;align-items:center;gap:10px;border-bottom:.5px solid var(--b
       <div id="list"></div>
     </div>
   </main>
-  <section class="panel detail-panel">
+  <section class="panel detail-panel" id="detail-panel">
     <div class="panel-head"><span>상세 / 평가 <span id="selected-state">선택 없음</span></span><button class="detail-toggle" id="detail-toggle" title="접기">▲</button></div>
     <div class="panel-body">
       <div id="detail-empty" class="hint">이미지를 선택해봐. 원본 ComfyUI PNG면 메타데이터를 자동으로 읽어서 채워둘게.</div>
@@ -267,7 +290,14 @@ header{display:flex;align-items:center;gap:10px;border-bottom:.5px solid var(--b
 </div>
 <input type="file" id="file-input" accept="image/png,image/webp,image/jpeg" multiple>
 <input type="file" id="import-input" accept="application/json,.json">
-<div id="lightbox"><button class="lb-close" id="lb-close">×</button><img id="lb-img" alt=""></div>
+<div id="lightbox"><button class="lb-edit" id="lb-edit">✎ 편집</button><button class="lb-close" id="lb-close">×</button><img id="lb-img" alt=""></div>
+
+<div id="edit-overlay" aria-hidden="true">
+  <div class="eo-shell">
+    <div class="eo-head"><span>상세 / 평가</span><button class="eo-close" id="eo-close" title="닫기">×</button></div>
+    <div class="eo-body" id="eo-body"></div>
+  </div>
+</div>
 
 <!-- Gist 동기화 모달 -->
 <div id="gist-overlay">
@@ -622,7 +652,7 @@ function renderList(){
     return `<article class="card ${it.id===state.selectedId?'active':''}${selectMode&&selectedIds.has(it.id)?' selected':''}" data-id="${it.id}"><div class="fav ${it.fav?'on':''}">${it.fav?'★':'☆'}</div><div class="thumb${it.thumbStripped?' stripped':''}">${it.thumb?`<img src="${it.thumb}" alt="">`:it.thumbStripped?'<span class="sync-noimg" title="원본 PNG를 다시 드롭하면 자동으로 채워져"><span class="sn-icon">☁</span>다른 기기에서<br>동기화됨<span class="sn-sub">원본 PNG 드롭 시 자동 매칭</span></span>':'<span class="noimg">이미지 없음</span>'}</div><div class="card-info"><div class="card-title">${esc(it.title)}</div><div class="card-meta"><span class="pill ${statusClass(it.status)}">${esc(it.status)}</span><span class="pill">${stars(it.score)}</span>${it.meta&&it.meta.metaFound?'<span class="pill meta">meta</span>':''}</div><div class="card-tags-mini">${tagsMini}</div><div class="card-note">${esc(it.notes||it.meta?.model||it.meta?.source||'메모 없음')}</div><button class="card-expand-btn" data-expand="${it.id}"><span class="ce-arrow">${expanded?'▴':'▾'}</span><span class="ce-label">${expanded?'정보 접기':'정보 보기'}</span></button><div class="card-expanded ${expanded?'open':''}" data-eid="${it.id}">${cardExpandedHTML(it)}</div></div></article>`;
   }).join('');
   box.classList.toggle('select-mode',selectMode);
-  box.querySelectorAll('.card').forEach(c=>c.onclick=()=>{if(selectMode){toggleCardSelect(c.dataset.id,c);return;}state.selectedId=c.dataset.id;save();render()});
+  box.querySelectorAll('.card').forEach(c=>c.onclick=()=>{if(selectMode){toggleCardSelect(c.dataset.id,c);return;}openEdit(c.dataset.id)});
   box.querySelectorAll('.fav').forEach(f=>f.onclick=e=>{e.stopPropagation();const card=f.closest('.card');if(selectMode){toggleCardSelect(card.dataset.id,card);return;}const it=state.items.find(x=>x.id===card.dataset.id);if(it){it.fav=!it.fav;save();render()}});
   if(state.view==='gallery'){
     box.querySelectorAll('.card .thumb').forEach(t=>t.onclick=e=>{
@@ -738,6 +768,42 @@ function applyView(){
   const cf=$('#chip-filters'); if(cf)cf.classList.toggle('visible',state.view==='gallery');
 }
 function setView(v){state.view=v;save();applyView();render()}
+
+/* === patch: 편집 오버레이 (lora_lab 이식) === */
+const detailPanelHome={parent:null,next:null};
+function useOverlayForEdit(){
+  // 갤러리 뷰(패널이 숨겨짐) 또는 3분할이 안 나오는 폭에서는 오버레이 사용
+  return state.view==='gallery'||window.matchMedia('(max-width:1120px)').matches;
+}
+function openEditOverlay(){
+  const panel=$('#detail-panel'),ov=$('#edit-overlay');
+  if(!panel||!ov)return;
+  if(!ov.classList.contains('open')){
+    detailPanelHome.parent=panel.parentNode;
+    detailPanelHome.next=panel.nextSibling;
+    $('#eo-body').appendChild(panel);
+    ov.classList.add('open');
+    ov.setAttribute('aria-hidden','false');
+    document.body.classList.add('eo-open');
+  }
+  renderDetail();
+  $('#eo-body').scrollTop=0;
+}
+function closeEditOverlay(doRender=true){
+  const panel=$('#detail-panel'),ov=$('#edit-overlay');
+  if(!ov||!ov.classList.contains('open'))return;
+  ov.classList.remove('open');
+  ov.setAttribute('aria-hidden','true');
+  document.body.classList.remove('eo-open');
+  if(panel&&detailPanelHome.parent)detailPanelHome.parent.insertBefore(panel,detailPanelHome.next);
+  if(doRender)render();
+}
+function openEdit(id){
+  if(id)state.selectedId=id;
+  save();
+  if(useOverlayForEdit()){renderList();openEditOverlay()}
+  else render();
+}
 
 function setDetailOpen(open){const panel=document.querySelector('.detail-panel');if(!panel)return;panel.classList.toggle('collapsed',!open);const btn=$('#detail-toggle');if(btn){btn.textContent=open?'▲':'▼';btn.title=open?'접기':'펼치기'}localStorage.setItem('result_gallery_detail_open',open?'1':'0')}
 function updateSelectCount(){$('#select-count').textContent=selectedIds.size+'개 선택됨'}
@@ -857,6 +923,15 @@ let lastTap={t:0,x:0,y:0};document.addEventListener('touchend',e=>{if(selectMode
 $('#pick-btn').onclick=()=>$('#file-input').click();$('#file-input').onchange=e=>addFiles(e.target.files);$('#export-btn').onclick=exportData;$('#import-btn').onclick=()=>$('#import-input').click();$('#import-input').onchange=e=>{if(e.target.files[0])importData(e.target.files[0])};$('#clear-filter-btn').onclick=()=>{state.status='전체';state.query='';state.scoreFilter='all';state.favOnly=false;state.tagFilter=[];state.loraFilter=[];save();render()};
 $('#search').oninput=e=>{state.query=e.target.value;save();render()};$('#search-clear').onclick=()=>{state.query='';save();render()};$('#sort-select').onchange=e=>{state.sort=e.target.value;save();render()};$('#score-filter').onchange=e=>{state.scoreFilter=e.target.value;save();render()};$('#fav-only').onchange=e=>{state.favOnly=e.target.checked;save();render()};
 $('#save-detail-btn').onclick=saveDetail;['#d-title','#d-status','#d-score','#d-tags','#d-notes'].forEach(s=>$(s).addEventListener('change',saveDetail));$('#copy-positive-btn').onclick=()=>{navigator.clipboard.writeText(current()?.meta?.positive||'');toast('Positive 복사했어')};$('#copy-negative-btn').onclick=()=>{navigator.clipboard.writeText(current()?.meta?.negative||'');toast('Negative 복사했어')};$('#toggle-fav-btn').onclick=()=>{const it=current();if(!it)return;it.fav=!it.fav;save();render()};$('#delete-btn').onclick=async()=>{const it=current();if(!it)return;if(!await showConfirm('이 결과를 삭제할까? 원본 파일은 삭제되지 않아.',{danger:true}))return;state.items=state.items.filter(x=>x.id!==it.id);state.selectedId=state.items[0]?.id||null;save();render();toast('삭제했어')};$('#open-lightbox-btn').onclick=openLightbox;$('#lb-close').onclick=()=>$('#lightbox').classList.remove('open');$('#lightbox').onclick=e=>{if(e.target.id==='lightbox')$('#lightbox').classList.remove('open')};
+/* === patch: 오버레이 바인딩 === */
+$('#eo-close').onclick=()=>closeEditOverlay();
+$('#edit-overlay').addEventListener('click',e=>{if(e.target.id==='edit-overlay')closeEditOverlay()});
+$('#lb-edit').onclick=e=>{e.stopPropagation();$('#lightbox').classList.remove('open');if(state.selectedId)openEdit(state.selectedId)};
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Escape')return;
+  if($('#lightbox').classList.contains('open')){$('#lightbox').classList.remove('open');return} // 뷰어가 위에 있으면 뷰어 먼저 닫기
+  if($('#edit-overlay').classList.contains('open'))closeEditOverlay();
+});
 const dz=$('#drop-zone');['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('dragover')}));['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('dragover')}));dz.addEventListener('drop',e=>addFiles(e.dataTransfer.files));dz.addEventListener('click',()=>$('#file-input').click());
 document.addEventListener('paste',e=>{const files=[];[...(e.clipboardData?.items||[])].forEach(it=>{if(it.type.startsWith('image/')){const f=it.getAsFile();if(f)files.push(f)}});if(files.length){e.preventDefault();addFiles(files)}});
 window.addEventListener('keydown',e=>{const mod=e.ctrlKey||e.metaKey;if(e.key==='Escape'){if(selectMode)exitSelectMode();closeCtxMenu()}if(mod&&e.key.toLowerCase()==='f'){e.preventDefault();$('#search').focus()}if(mod&&e.key.toLowerCase()==='s'){e.preventDefault();saveDetail()}});
