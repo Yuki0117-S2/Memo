@@ -177,6 +177,74 @@ footer{margin-top:2rem;font-size:11px;color:var(--text3);text-align:center;lette
           <span style="font-size:12px;color:var(--text3)">장</span>
         </div>
         <div id="calcOut" style="display:grid;gap:8px"></div>
+
+        <div style="margin-top:16px;padding-top:13px;border-top:.5px dashed var(--border2)">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+            <div style="font-size:12px;font-weight:700;color:var(--accent)">⟡ anima_lora 환산 <span style="font-weight:400;color:var(--text3)">· epoch 기반</span></div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:11px;color:var(--text3)">batch</span>
+              <input id="animaBatch" type="number" inputmode="numeric" min="1" max="64" value="4" style="width:56px;padding:5px 6px;background:var(--bg2);border:.5px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-size:12px;font-family:ui-monospace,monospace;text-align:center">
+              <span style="font-size:11px;color:var(--text3);margin-left:4px">repeat</span>
+              <input id="animaRepeat" type="number" inputmode="numeric" min="1" max="100" value="1" style="width:56px;padding:5px 6px;background:var(--bg2);border:.5px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-size:12px;font-family:ui-monospace,monospace;text-align:center">
+            </div>
+          </div>
+          <div id="animaOut" style="display:grid;gap:8px"></div>
+        </div>
+      </div>
+    </div>
+  </details>
+
+  <details class="panel" open>
+    <summary class="panel-head">anima_lora GUI <span class="accent">스타일 세팅</span> · epoch 체계</summary>
+    <div class="panel-body">
+      <div class="tip" style="--tip-color:#8888CC">
+        <div class="tip-title">step이 사라진 게 아니라 repeat와 합쳐진 거야 <span class="badge b-fact">사실</span></div>
+        <div class="tip-body">관계식은 그대로 <b>스텝 = 장수 × repeat × epoch ÷ batch</b>. 다만 anima_lora는 <code>num_repeats = 1</code>이 기본이라, 예전에 나눠 쓰던 <b>repeat와 epoch가 <code>max_train_epochs</code> 하나로 합쳐졌어</b>.<br><br>예전 <b>repeat 10 × epoch 8</b> → 지금 <b>max_train_epochs 80</b>. 그냥 곱해서 넣으면 돼. 위 계산기의 환산 블록이 장수 넣으면 알아서 뽑아줘.</div>
+      </div>
+      <div class="row">
+        <div class="row-key">network_dim<br>network_alpha</div>
+        <div class="row-val"><b>32 / 32</b><span class="sub">공식 기본은 48/48 · anima는 <b>alpha=dim</b>이 기본이라 기존 습관인 32/16을 쓰면 세기가 절반이 돼서 lr까지 같이 흔들려. 변수 하나로 줄이려면 32/32 고정하고 lr만 조절.</span></div>
+        <span class="badge b-emp">경험칙</span>
+      </div>
+      <div class="row">
+        <div class="row-key">learning_rate</div>
+        <div class="row-val"><b>2e-5</b><span class="sub">가이드북 명시 기본값 · Prodigy 시절 감각으로 5e-5씩 올리면 DiT는 색부터 타버림</span></div>
+        <span class="badge b-fact">사실</span>
+      </div>
+      <div class="row">
+        <div class="row-key">max_train_epochs</div>
+        <div class="row-val">계산기 환산값<span class="sub">공식 기본 12는 <b>큰 데이터셋 기준</b> · 150장짜리에 12 넣으면 450스텝밖에 안 나옴</span></div>
+        <span class="badge b-emp">경험칙</span>
+      </div>
+      <div class="row">
+        <div class="row-key">save_every_n_epochs<br>sample_every_n_epochs</div>
+        <div class="row-val"><b>총 에폭 ÷ 6</b><span class="sub">체크포인트 6개 확보 · 둘을 같은 값으로 맞춰야 저장 시점과 프리뷰 시점이 일치</span></div>
+        <span class="badge b-emp">경험칙</span>
+      </div>
+      <div class="row">
+        <div class="row-key">sample_at_first</div>
+        <div class="row-val"><b>켜기</b><span class="sub">0스텝 상태를 먼저 뽑아 비교 기준선 확보 — "이게 로라 효과인지 원본인지" 판별용</span></div>
+        <span class="badge b-emp">경험칙</span>
+      </div>
+      <div class="row">
+        <div class="row-key">network_train_unet_only</div>
+        <div class="row-val"><b>켜기</b><span class="sub">DiT만 학습 · 스타일 로라는 예외 없음</span></div>
+        <span class="badge b-fact">사실</span>
+      </div>
+      <div class="row">
+        <div class="row-key">use_valid<br>validation_split_num</div>
+        <div class="row-val"><b>끄기 / 0</b><span class="sub">소규모 데이터셋에서 검증용으로 이미지를 빼면 학습량만 손해</span></div>
+        <span class="badge b-emp">경험칙</span>
+      </div>
+      <div class="row">
+        <div class="row-key">건드리지 말 것</div>
+        <div class="row-val"><code>train_adaln</code> <code>adaln_rank</code> <code>channel_scaling_alpha</code> <code>artists_shard</code> <code>sample_ratio</code> <code>checkpointing_epochs</code> <code>caption_tag_randomize_rate</code><span class="sub">공식 문서에 설명이 없는 항목들 · 기본값 유지. GUI에서 <b>파라미터 이름을 클릭</b>하면 오른쪽에 한국어 설명이 뜨니 거기서 확인할 것</span></div>
+        <span class="badge b-unc">불확실</span>
+      </div>
+      <div class="row">
+        <div class="row-key">batch_size<br>num_repeats</div>
+        <div class="row-val">학습 설정 탭에 <b>없음</b><span class="sub">데이터셋 설정 소속 — <code>[[datasets]]</code>의 batch_size, <code>[[datasets.subsets]]</code>의 num_repeats</span></div>
+        <span class="badge b-fact">사실</span>
       </div>
     </div>
   </details>
@@ -269,9 +337,36 @@ footer{margin-top:2rem;font-size:11px;color:var(--text3);text-align:center;lette
   </details>
 
   <details class="panel" open>
+    <summary class="panel-head">anima_lora <span class="accent">함정 모음</span> — 조용히 실패하는 것들</summary>
+    <div class="panel-body">
+      <div class="tip" style="--tip-color:#BB6688">
+        <div class="tip-title">① 캡션 고쳐도 반영 안 됨 — 캐시 재생성 필수 <span class="badge b-fact">사실</span></div>
+        <div class="tip-body">텍스트 인코더 출력은 <b>전처리 때 미리 캐싱</b>돼. 캡션을 수정했거나 이미지를 추가/삭제했거나 캡션 관련 옵션을 바꿨으면, <code>post_image_dataset/lora/</code>를 <b>통째로 지우고</b> 전처리를 다시 돌려야 해. 안 지우면 옛날 캡션으로 계속 굽는데 <b>에러도 안 나서 눈치채기 어려워.</b></div>
+      </div>
+      <div class="tip" style="--tip-color:#DDAACC">
+        <div class="tip-title">② masked_loss는 마스크 없으면 그냥 무시됨 <span class="badge b-fact">사실</span></div>
+        <div class="tip-body">체크만 켜두면 아무 일도 안 일어나. 쓰려면 <code>make mask</code>로 마스크를 먼저 만들어야 해(SAM3 + MIT 병합 → <code>masks/merged/</code>). 결과 PNG는 <b>흰색(255)=학습 대상, 검정(0)=제외</b>. 만화 말풍선·텍스트 영역 빼는 용도라, 일반 일러스트 데이터셋이면 그냥 꺼둬.</div>
+      </div>
+      <div class="tip" style="--tip-color:#CCAA88">
+        <div class="tip-title">③ use_repa는 사전 캐싱 없이 켜면 못 돌아 <span class="badge b-fact">사실</span></div>
+        <div class="tip-body">REPA는 PE-Core 비전 인코더 피처와의 정렬 손실로 수렴을 가속하는 <b>보조 손실</b>인데, <code>make preprocess-pe</code>로 PE 피처를 미리 캐싱해둬야 해. 순서 지키면 되는 거지 어려운 건 아니야 — 다만 순서를 모르면 이유 없이 막힌 것처럼 보여.</div>
+      </div>
+      <div class="tip" style="--tip-color:#8888CC">
+        <div class="tip-title">④ caption_shuffle_variants는 짝꿍 옵션이 있어 <span class="badge b-fact">사실</span></div>
+        <div class="tip-body">이미지당 셔플된 캡션 순열을 여러 개 만들어 캐싱해두고 학습 중 배치마다 하나를 무작위로 고르는 방식이야. 동작하려면 <code>shuffle_caption = true</code>와 <code>cache_text_encoder_outputs = true</code>가 <b>같이</b> 켜져 있어야 해. 스마트 셔플이 <code>@artist</code> 태그와 섹션 구분자는 보존하고 섹션 내부만 섞어줌.</div>
+      </div>
+      <div class="tip" style="--tip-color:#884499">
+        <div class="tip-title">⑤ 스크린샷으로 설정 감사할 땐 접힌 영역 주의 <span class="badge b-emp">경험칙</span></div>
+        <div class="tip-body">GUI 학습 설정은 섹션이 길어서 스크롤과 <b>"고급 설정 (클릭하여 펼치기)"</b> 접힘에 가려지는 키가 생겨. <code>network_dim</code>/<code>network_alpha</code>가 안 보인다고 없는 게 아니야. 전체 점검은 <b>TOML 파일 자체</b>로 하는 게 확실해.</div>
+      </div>
+    </div>
+  </details>
+
+  <details class="panel" open>
     <summary class="panel-head">도구 <span class="accent">지원 현황</span></summary>
     <div class="panel-body">
       <div class="tool"><span class="tool-mark ok">O</span><span class="tool-name">sd-scripts</span><span class="tool-note">anima_train_network.py · 공식 지원, GUI 없음</span></div>
+      <div class="tool"><span class="tool-mark ok">O</span><span class="tool-name">sorryhyun/anima_lora</span><span class="tool-note">PySide6 GUI + CLI · LoRA/OrthoLoRA/T-LoRA/HydraLoRA · <b>epoch 기반 설정</b> · 한국어 가이드북 제공</span></div>
       <div class="tool"><span class="tool-mark ok">O</span><span class="tool-name">Anima TrainFlow</span><span class="tool-note">Windows GUI · 기본값이 무난한 출발점</span></div>
       <div class="tool"><span class="tool-mark ok">O</span><span class="tool-name">citron trainer UI</span><span class="tool-note">로컬 웹 UI</span></div>
       <div class="tool"><span class="tool-mark ok">O</span><span class="tool-name">Civitai 온라인 트레이너</span><span class="tool-note">buzz 소모 · 로컬 불가 시 대안</span></div>
@@ -311,7 +406,7 @@ footer{margin-top:2rem;font-size:11px;color:var(--text3);text-align:center;lette
     <b>버전 주의</b> — preview(1~3)로 구운 로라는 Anima 1.0에서 "소프트하게" 먹힌다. 1.0 이후로는 1.0 기준으로 새로 굽는 것을 권장. 향후 2.0, 3.0이 나오면 구버전 로라는 점점 더 어긋난다.
   </div>
 
-  <footer>✦ 2026-07 기준 · Anima 커뮤니티 경험칙은 아직 어리다 — 수치는 출발점이지 정답이 아님<br>근거: kohya sd-scripts 문서 · circlestone-labs 개발자 발언 · Civitai / TrainFlow 가이드</footer>
+  <footer>✦ 2026-07 기준 · Anima 커뮤니티 경험칙은 아직 어리다 — 수치는 출발점이지 정답이 아님<br>근거: kohya sd-scripts 문서 · circlestone-labs 개발자 발언 · Civitai / TrainFlow 가이드 · sorryhyun/anima_lora 공식 문서(가이드북 · training.md)</footer>
 </div>
 <script>
 (function(){
@@ -319,6 +414,13 @@ footer{margin-top:2rem;font-size:11px;color:var(--text3);text-align:center;lette
   var num=document.getElementById('imgNum');
   var out=document.getElementById('calcOut');
   if(!range||!num||!out)return;
+
+  // ── anima_lora 환산 블록 (기존 계산 로직은 건드리지 않고 별도 컨테이너에 출력) ──
+  var aBatch=document.getElementById('animaBatch');
+  var aRepeat=document.getElementById('animaRepeat');
+  var aOut=document.getElementById('animaOut');
+  var SAFE_RATIO=0.4;   // Anima 빠른 수렴 추론 기반 보수 계수 · 신뢰도 낮음
+  var CKPT_TARGET=6;    // 체크포인트 목표 개수
 
   // 구간별 "장당 스텝" 계수 (세션 경험칙 기반 · 장수 늘수록 낮아짐)
   function perImage(n){
@@ -366,11 +468,49 @@ footer{margin-top:2rem;font-size:11px;color:var(--text3);text-align:center;lette
       +(sub?'<span style="font-size:11px;color:var(--text3);font-weight:400;margin-left:6px">'+sub+'</span>':'')+'</span></div>';
   }
 
+  // 목표 스텝 → max_train_epochs 환산
+  // epoch = 목표스텝 × batch ÷ (장수 × repeat) · 반올림 오차 때문에 실제 스텝은 역산해서 표기
+  function animaPlan(n,steps,batch,repeat){
+    var ep=Math.max(1,Math.round(steps*batch/(n*repeat)));
+    var real=Math.round(n*repeat*ep/batch);
+    var sv=Math.max(1,Math.round(ep/CKPT_TARGET));
+    return {ep:ep,real:real,sv:sv,ckpt:Math.floor(ep/sv),exposure:n*repeat*ep};
+  }
+  function animaInputs(){
+    var b=parseInt(aBatch&&aBatch.value)||0;
+    var r=parseInt(aRepeat&&aRepeat.value)||0;
+    return {batch:Math.max(1,Math.min(64,b||4)),repeat:Math.max(1,Math.min(100,r||1))};
+  }
+  function renderAnima(n){
+    if(!aOut)return;
+    if(!n||n<1){aOut.innerHTML='';return;}
+    var io=animaInputs();
+    var r=calc(n);
+    // 기존 계산기는 장수 1~2에서 추천 스텝이 0/100으로 뭉개짐 → 하한 100 적용하고
+    // 안전값이 습관값을 역전하지 않도록 클램프
+    var baseStep=Math.max(100,r.center);
+    var safeStep=Math.min(baseStep,Math.max(100,round100(baseStep*SAFE_RATIO)));
+    var a=animaPlan(n,safeStep,io.batch,io.repeat);
+    var b=animaPlan(n,baseStep,io.batch,io.repeat);
+    aOut.innerHTML=
+      row('안전 출발 · 권장','epoch '+a.ep,'#8888CC','≈'+a.real.toLocaleString()+'스텝 · save_every_n_epochs '+a.sv)
+     +row('습관 이식','epoch '+b.ep,'#BB6688','≈'+b.real.toLocaleString()+'스텝 · save_every_n_epochs '+b.sv)
+     +row('총 이미지 노출',a.exposure.toLocaleString()+' / '+b.exposure.toLocaleString(),'#CCAA88','장수 × repeat × epoch')
+     +row('dim / alpha','32 / 32','#EE1166','anima는 alpha=dim이 기본')
+     +'<div style="font-size:11px;color:var(--text3);line-height:1.6;padding:8px 12px">'
+     +'※ <b>epoch = 목표스텝 × batch ÷ (장수 × repeat)</b>. 예전 kohya의 <b>repeat × epoch</b>이 곧 지금의 <b>max_train_epochs</b>야 — 손잡이가 하나로 합쳐진 것뿐.<br>'
+     +'※ <b>batch_size · num_repeats는 학습 설정이 아니라 데이터셋 설정(TOML)</b>에 있어. <code>[[datasets]]</code>의 batch_size, <code>[[datasets.subsets]]</code>의 num_repeats를 보고 맞춰 넣을 것.<br>'
+     +'※ 공식 기본 <code>max_train_epochs</code> 12는 <b>큰 데이터셋 기준</b>이라 소규모 스타일 데이터셋엔 한참 모자라.<br>'
+     +'※ <b style="color:var(--danger)">안전 출발 = 기존 추천의 40%</b> — Anima가 SD 계열보다 빨리 수렴한다는 <b>추론</b>에 기댄 계수야. 명시된 근거 아님. 두 값 사이를 프리뷰 보며 좁힐 것.</div>';
+  }
+
   var LS_KEY='loratips_imgCount';
+  var LS_BATCH='loratips_animaBatch';
+  var LS_REPEAT='loratips_animaRepeat';
   function save(v){try{localStorage.setItem(LS_KEY,v);}catch(e){}}
 
   function render(n){
-    if(!n||n<1){out.innerHTML='';return;}
+    if(!n||n<1){out.innerHTML='';renderAnima(0);return;}
     save(n);
     var r=calc(n);
     out.innerHTML=
@@ -384,6 +524,7 @@ footer{margin-top:2rem;font-size:11px;color:var(--text3);text-align:center;lette
      +'※ 저장 주기를 <b>총 스텝의 약수</b>로 잡아 끝자락 스텝이 저장 없이 버려지는 걸 막음. '
      +'추천 지점('+r.center.toLocaleString()+')·최대 지점('+r.maxAligned.toLocaleString()+') 둘 다 정확히 체크포인트로 남아.<br>'
      +'※ 장수 늘수록 장당 스텝을 낮춰 과적합 방지. 마지막 체크포인트가 과하면 중간 것과 비교해 고를 것. <b style="color:var(--danger)">경험칙 · 정답 아님</b></div>';
+    renderAnima(n);
   }
 
   // 슬라이더: 항상 유효한 값이라 바로 반영
@@ -407,6 +548,30 @@ footer{margin-top:2rem;font-size:11px;color:var(--text3);text-align:center;lette
     range.value=Math.min(600,Math.max(10,v));
     render(v);
   });
+  // batch / repeat: 값이 바뀌면 anima 블록만 다시 그림 (기존 출력은 건드리지 않음)
+  function currentN(){return Math.max(0,parseInt(num.value)||0);}
+  function bindAnimaInput(el,key,lo,hi){
+    if(!el)return;
+    el.addEventListener('input',function(){
+      var v=parseInt(el.value);
+      if(!isNaN(v)){try{localStorage.setItem(key,Math.max(lo,Math.min(hi,v)));}catch(e){}}
+      renderAnima(currentN());
+    });
+    el.addEventListener('blur',function(){
+      el.value=Math.max(lo,Math.min(hi,parseInt(el.value)||lo));
+      try{localStorage.setItem(key,el.value);}catch(e){}
+      renderAnima(currentN());
+    });
+  }
+  bindAnimaInput(aBatch,LS_BATCH,1,64);
+  bindAnimaInput(aRepeat,LS_REPEAT,1,100);
+  try{
+    var sb=parseInt(localStorage.getItem(LS_BATCH));
+    if(aBatch&&sb>=1&&sb<=64)aBatch.value=sb;
+    var sr=parseInt(localStorage.getItem(LS_REPEAT));
+    if(aRepeat&&sr>=1&&sr<=100)aRepeat.value=sr;
+  }catch(e){}
+
   var saved=153;
   try{
     var s=parseInt(localStorage.getItem(LS_KEY));
