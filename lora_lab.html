@@ -445,6 +445,16 @@ body.eo-open{overflow:hidden}
 /* 뷰어 → 편집 전환 버튼 */
 .lb-edit{border:0;border-radius:999px;background:rgba(255,255,255,.16);color:#fff;font-size:12px;font-weight:700;padding:4px 12px;cursor:pointer;white-space:nowrap}
 .lb-edit:hover{background:var(--accent)}
+/* === 슬라이드쇼 컨트롤 (PC 전용) === */
+.lb-progress{font-weight:800;color:#fff;background:rgba(136,136,204,.42);border-radius:999px;padding:2px 8px;white-space:nowrap}
+.lb-play{border:0;border-radius:999px;background:rgba(255,255,255,.16);color:#fff;font-size:12px;font-weight:700;padding:4px 11px;cursor:pointer;white-space:nowrap;min-width:34px}
+.lb-play:hover{background:#8888CC}
+.lb-play.on{background:#BB6688}
+.lb-speed{border:0;border-radius:999px;background:rgba(255,255,255,.16);color:#fff;font-size:11px;font-weight:700;padding:4px 6px;cursor:pointer;font-family:inherit}
+.lb-speed option{color:#222}
+.lb-hint{color:rgba(255,255,255,.5);font-size:11px;white-space:nowrap}
+/* 모바일: 슬라이드쇼 컨트롤 전부 숨김 → .lb-info 기존 레이아웃 그대로 유지 */
+@media(max-width:760px){#lb-progress,#lb-play,#lb-speed,#lb-hint{display:none!important}}
 /* 플로팅 선택 칩 + 액션 시트 */
 #sel-chip{position:fixed;left:50%;transform:translateX(-50%);bottom:66px;z-index:10030;display:none;align-items:center;gap:6px;background:var(--accent);color:#fff;border-radius:999px;padding:10px 16px;font-size:13px;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.25);cursor:pointer;user-select:none;border:0;font-family:inherit}
 #sel-chip.visible{display:inline-flex}
@@ -572,7 +582,7 @@ body.eo-open{overflow:hidden}
       <img id="lb-img" alt="">
       <button class="lb-nav next" type="button" id="lb-next" title="다음 이미지">›</button>
     </div>
-    <div class="lb-info"><span class="lb-title" id="lb-title"></span><span class="lb-count" id="lb-count"></span><button class="lb-edit" type="button" id="lb-edit" title="이 카드 편집">✎ 편집</button></div>
+    <div class="lb-info"><span class="lb-title" id="lb-title"></span><span class="lb-count" id="lb-count"></span><span class="lb-progress" id="lb-progress"></span><button class="lb-play" type="button" id="lb-play" title="자동재생 (Space)">▶</button><select class="lb-speed" id="lb-speed" title="자동재생 간격"></select><button class="lb-edit" type="button" id="lb-edit" title="이 카드 편집">✎ 편집</button><span class="lb-hint" id="lb-hint">←→ 이미지 · ↑↓ 카드</span></div>
   </div>
 </div>
 
@@ -639,6 +649,9 @@ const MIGRATED_KEY='loraLab.v1.migratedAt';
 const IDB_NAME='loraLab.db';
 const IDB_VERSION=1;
 const IDB_CARD_STORE='cards';
+const LB_SPEEDS=[2000,3000,4000,5000];
+const LB_SPEED_DEFAULT=3000;
+const LB_MOBILE_MQ='(max-width:760px)';
 const STATUSES=['계획','학습중','테스트중','성공','실패','보류'];
 const PURPOSES=['캐릭터','스타일','의상','그림체','포즈','기타'];
 let state={cards:[],selectedId:null,statusFilter:'전체',purposeFilter:'전체',baseFilter:'전체',query:'',selectMode:false,selected:new Set(),sort:'updatedDesc',metaFilter:'all',imgFilter:'all',favOnly:false,view:'list'};
@@ -1085,50 +1098,145 @@ function cardHtml(c){
 
 let lightboxCardId=null;
 let lightboxTouchX=0, lightboxTouchY=0;
+// === 슬라이드쇼 플레이리스트 상태 ===
+// 뷰어는 열 때 필터 결과를 [{cardId,imgIdx}] 로 납작하게 펴서 스냅샷으로 고정한다.
+// 넘기는 동작만으로는 카드 데이터(imageIndex/updatedAt)를 절대 쓰지 않는다.
+let lbPlaylist=[];
+let lbPos=-1;
+let lbTimer=null;
+let lbPlaying=false;
+let lbInterval=LB_SPEED_DEFAULT;
+
+function lbIsMobile(){try{return window.matchMedia(LB_MOBILE_MQ).matches}catch(_){return false}}
+function buildLbPlaylist(){
+  const arr=[];
+  filtered().forEach(c=>{
+    const n=getCardImages(c).length;
+    for(let i=0;i<n;i++)arr.push({cardId:c.id,imgIdx:i});
+  });
+  return arr;
+}
+function lbCardStart(pos){
+  if(pos<0||pos>=lbPlaylist.length)return 0;
+  const id=lbPlaylist[pos].cardId;
+  let s=pos;
+  while(s>0&&lbPlaylist[s-1].cardId===id)s--;
+  return s;
+}
+function lbPrefetch(){
+  if(lbPlaylist.length<2||lbPos<0)return;
+  const nx=lbPlaylist[(lbPos+1)%lbPlaylist.length];
+  const c=state.cards.find(x=>x.id===nx.cardId);
+  const imgs=getCardImages(c);
+  if(!imgs.length)return;
+  const im=imgs[Math.min(nx.imgIdx,imgs.length-1)];
+  if(im&&im.dataUrl){const p=new Image();p.src=im.dataUrl;}
+}
 function renderImageLightbox(){
   const box=$('image-lightbox');
-  if(!box||!lightboxCardId)return;
-  const c=state.cards.find(x=>x.id===lightboxCardId);
+  if(!box||lbPos<0||!lbPlaylist.length)return;
+  const ent=lbPlaylist[lbPos];
+  const c=state.cards.find(x=>x.id===ent.cardId);
   const imgs=getCardImages(c);
   if(!c||!imgs.length){closeImageLightbox(false);return;}
-  const idx=((Number(c.imageIndex)||0)%imgs.length+imgs.length)%imgs.length;
-  c.imageIndex=idx;
+  const idx=Math.min(Math.max(0,ent.imgIdx),imgs.length-1);
   const img=imgs[idx];
+  lightboxCardId=c.id;
   $('lb-img').src=img.dataUrl;
   $('lb-title').textContent=(c.title||c.fileName||'LoRA')+(img.name?' · '+img.name:'');
+  // 모바일 카운터 표기는 기존과 완전히 동일하게 유지한다 (레이아웃 폭 변화 0)
   $('lb-count').textContent=imgs.length>1?`${idx+1} / ${imgs.length}`:'1 / 1';
-  const showNav=imgs.length>1;
+  const prog=$('lb-progress');
+  if(prog)prog.textContent=lbPlaylist.length>1?`${lbPos+1} / ${lbPlaylist.length}`:'';
+  const showNav=lbPlaylist.length>1;
   $('lb-prev').style.display=showNav?'flex':'none';
   $('lb-next').style.display=showNav?'flex':'none';
+  lbPrefetch();
 }
-function openImageLightbox(id){
+function openImageLightbox(id,imgIdx){
   const c=state.cards.find(x=>x.id===id);
-  if(!c||!getCardImages(c).length)return;
+  if(!c)return;
+  const imgs=getCardImages(c);
+  if(!imgs.length)return;
+  const want=Number.isFinite(Number(imgIdx))
+    ? Math.min(Math.max(0,Number(imgIdx)),imgs.length-1)
+    : ((Number(c.imageIndex)||0)%imgs.length+imgs.length)%imgs.length;
+  let list=buildLbPlaylist();
+  let pos=list.findIndex(e=>e.cardId===id&&e.imgIdx===want);
+  if(pos<0){
+    // 필터 밖 카드(상세 패널에서 연 경우 등)는 그 카드만으로 임시 플레이리스트 구성
+    list=imgs.map((_,i)=>({cardId:id,imgIdx:i}));
+    pos=want;
+  }
+  lbPlaylist=list;
+  lbPos=pos;
   lightboxCardId=id;
-  state.selectedId=id;
   const box=$('image-lightbox');
   box.classList.add('open');
   box.setAttribute('aria-hidden','false');
   document.body.classList.add('lb-open');
+  lbSetPlaying(false);
   renderImageLightbox();
 }
 function closeImageLightbox(doRender=true){
+  lbSetPlaying(false);
+  const lastId=(lbPos>=0&&lbPlaylist[lbPos])?lbPlaylist[lbPos].cardId:lightboxCardId;
   const box=$('image-lightbox');
   if(box){box.classList.remove('open');box.setAttribute('aria-hidden','true');}
   document.body.classList.remove('lb-open');
   lightboxCardId=null;
-  if(doRender)render();
+  lbPlaylist=[];lbPos=-1;
+  // 카드 데이터를 안 건드렸으니 전체 재렌더가 필요 없다 → 마지막 본 카드만 선택/스크롤
+  if(doRender)focusCardAfterLightbox(lastId);
 }
+function focusCardAfterLightbox(id){
+  if(!id)return;
+  const c=state.cards.find(x=>x.id===id);
+  if(!c)return;
+  state.selectedId=id;
+  setActiveCardEl(id);
+  // 모바일은 #detail-panel DOM을 편집 오버레이가 재사용하므로 renderDetail()을 부르지 않는다
+  if(!useOverlayForEdit())renderDetail();
+  renderStats();
+  saveUiState();
+  const el=document.querySelector('#list .card[data-id="'+CSS.escape(id)+'"]');
+  if(el){try{el.scrollIntoView({block:'center',behavior:'smooth'})}catch(_){el.scrollIntoView()}}
+}
+// ←/→ : 이미지 단위 이동 (카드 경계를 넘어 플레이리스트 전체를 관통)
 function stepLightboxImage(delta){
-  if(!lightboxCardId)return;
-  const c=state.cards.find(x=>x.id===lightboxCardId);
-  const imgs=getCardImages(c);
-  if(!c||imgs.length<2)return;
-  c.imageIndex=((Number(c.imageIndex)||0)+delta+imgs.length)%imgs.length;
-  c.updatedAt=now();
-  save();
+  if(lbPlaylist.length<2||lbPos<0)return;
+  lbPos=(lbPos+delta+lbPlaylist.length)%lbPlaylist.length;
   renderImageLightbox();
 }
+// ↑/↓ : 카드 단위 점프 (항상 그 카드의 첫 장으로)
+function stepLightboxCard(delta){
+  if(lbPlaylist.length<2||lbPos<0)return;
+  if(delta>0){
+    const id=lbPlaylist[lbPos].cardId;
+    let p=lbPos;
+    while(p<lbPlaylist.length&&lbPlaylist[p].cardId===id)p++;
+    lbPos=(p<lbPlaylist.length)?p:0;
+  }else{
+    const s=lbCardStart(lbPos);
+    lbPos=(s>0)?lbCardStart(s-1):lbCardStart(lbPlaylist.length-1);
+  }
+  renderImageLightbox();
+}
+// 자동재생 (PC 전용)
+function lbSetPlaying(on){
+  lbPlaying=!!on&&!lbIsMobile();
+  if(lbTimer){clearInterval(lbTimer);lbTimer=null;}
+  if(lbPlaying&&lbPlaylist.length>1){
+    lbTimer=setInterval(()=>stepLightboxImage(1),lbInterval);
+  }
+  const btn=$('lb-play');
+  if(btn){
+    btn.textContent=lbPlaying?'⏸':'▶';
+    btn.title=lbPlaying?'자동재생 정지 (Space)':'자동재생 (Space)';
+    btn.classList.toggle('on',lbPlaying);
+  }
+}
+function lbTogglePlaying(){lbSetPlaying(!lbPlaying)}
 function bindImageLightbox(){
   const box=$('image-lightbox');
   if(!box)return;
@@ -1138,11 +1246,29 @@ function bindImageLightbox(){
   box.onclick=e=>{if(e.target===box)closeImageLightbox();};
   $('lb-stage').addEventListener('touchstart',e=>{const t=e.changedTouches&&e.changedTouches[0];if(!t)return;lightboxTouchX=t.clientX;lightboxTouchY=t.clientY;},{passive:true});
   $('lb-stage').addEventListener('touchend',e=>{const t=e.changedTouches&&e.changedTouches[0];if(!t)return;const dx=t.clientX-lightboxTouchX,dy=t.clientY-lightboxTouchY;if(Math.abs(dx)>42&&Math.abs(dx)>Math.abs(dy)*1.2){e.preventDefault();e.stopPropagation();stepLightboxImage(dx<0?1:-1)}},{passive:false});
+  const sp=$('lb-speed');
+  if(sp){
+    sp.innerHTML=LB_SPEEDS.map(ms=>`<option value="${ms}">${ms/1000}초</option>`).join('');
+    sp.value=String(lbInterval);
+    sp.onchange=e=>{
+      e.stopPropagation();
+      lbInterval=Number(e.target.value)||LB_SPEED_DEFAULT;
+      if(lbPlaying)lbSetPlaying(true); // 재생 중이면 새 간격으로 타이머 재시작
+    };
+  }
+  const pb=$('lb-play');
+  if(pb)pb.onclick=e=>{e.preventDefault();e.stopPropagation();lbTogglePlaying();};
   document.addEventListener('keydown',e=>{
     if(!lightboxCardId)return;
     if(e.key==='Escape'){e.preventDefault();closeImageLightbox();}
     else if(e.key==='ArrowLeft'){e.preventDefault();stepLightboxImage(-1);}
     else if(e.key==='ArrowRight'){e.preventDefault();stepLightboxImage(1);}
+    else if(e.key==='ArrowUp'){e.preventDefault();stepLightboxCard(-1);}
+    else if(e.key==='ArrowDown'){e.preventDefault();stepLightboxCard(1);}
+    else if(e.key===' '||e.code==='Space'){
+      if(lbIsMobile())return;
+      e.preventDefault();e.stopPropagation();lbTogglePlaying();
+    }
   });
 }
 
