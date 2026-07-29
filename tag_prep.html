@@ -37,8 +37,8 @@ textarea.io.small{min-height:78px}
 .opts{display:grid;grid-template-columns:1fr 1fr;gap:14px 18px}
 .opt-block{display:flex;flex-direction:column;gap:7px}
 .opt-label{font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.3px;text-transform:uppercase}
-#nai-options.dimmed .chk:not(:first-child){opacity:.48;cursor:not-allowed}
-#nai-options.dimmed .chk:not(:first-child) input{cursor:not-allowed}
+#nai-options.dimmed .chk,#n2a-options.dimmed .chk{opacity:.48;cursor:not-allowed}
+#nai-options.dimmed .chk input,#n2a-options.dimmed .chk input{cursor:not-allowed}
 .seg{display:flex;background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:3px;gap:3px}
 .seg button{flex:1 1 0;border:none;background:transparent;color:var(--text2);font-size:11.5px;font-weight:600;padding:7px 6px;border-radius:6px;cursor:pointer;transition:background .14s,color .14s;white-space:nowrap}
 .seg button:hover{color:var(--text)}
@@ -139,7 +139,7 @@ textarea.io.small{min-height:78px}
   <section class="hero">
     <div class="hero-head">
       <div class="hero-title">Tag Preprocessor</div>
-      <div class="hero-desc">태그를 붙여넣으면 실시간으로 변환돼. 콤마 기준으로 쪼갠 뒤 <b>양끝 공백 · 빈 태그 · 끝 콤마 · 콤마 앞 공백</b>은 항상 자동 정리됨. Anima용 정리, negative 분리, NAI 재정리 토글도 프리셋으로 저장해 둬.</div>
+      <div class="hero-desc">태그를 붙여넣으면 실시간으로 변환돼. 콤마 기준으로 쪼갠 뒤 <b>양끝 공백 · 빈 태그 · 끝 콤마 · 콤마 앞 공백</b>은 항상 자동 정리됨. 모드에서 <b>NAI ↔ Anima 양방향 변환</b>도 지원 — 가중치·아티스트 형식까지 자동 처리. 옵션 조합은 프리셋으로 저장해 둬.</div>
     </div>
   </section>
 
@@ -160,6 +160,15 @@ textarea.io.small{min-height:78px}
     <div class="panel-head"><div class="panel-title">▸ 옵션</div></div>
     <div class="panel-body">
       <div class="opts">
+        <div class="opt-block">
+          <div class="opt-label">모드</div>
+          <div class="seg" id="seg-mode">
+            <button data-v="plain" class="active">일반 정리</button>
+            <button data-v="n2a">NAI → Anima</button>
+            <button data-v="a2n">Anima → NAI</button>
+          </div>
+          <div class="sub" style="margin-top:4px;color:var(--text3)">일반 정리 = 기존 동작 그대로 (SDXL→Anima 등)</div>
+        </div>
         <div class="opt-block">
           <div class="opt-label">변환 방향</div>
           <div class="seg" id="seg-dir">
@@ -201,13 +210,20 @@ textarea.io.small{min-height:78px}
             <label class="chk"><input type="checkbox" id="chk-protect-weight" checked><span>(tag:1.5) 가중치 보호 <span class="sub">이스케이프 제외</span></span></label>
           </div>
         </div>
-        <div class="opt-block dimmed" id="nai-options">
-          <div class="opt-label">NAI 보정 <span class="sub" style="text-transform:none;font-weight:500">토글을 켜면 후처리 적용</span></div>
+        <div class="opt-block dimmed" id="n2a-options">
+          <div class="opt-label">NAI → Anima 보정 <span class="sub" style="text-transform:none;font-weight:500">모드 선택 시 적용</span></div>
           <div class="checks">
-            <label class="chk"><input type="checkbox" id="chk-a2n"><span>Anima → NAI 후처리 켜기 <span class="sub">공백 태그를 NAI식으로 정리</span></span></label>
+            <label class="chk"><input type="checkbox" id="chk-n2a-weight" checked><span>N::a, b:: → (a:N), (b:N) <span class="sub">양수 가중치 그룹 변환</span></span></label>
+            <label class="chk"><input type="checkbox" id="chk-n2a-artist" checked><span>artist:name → @name <span class="sub">Anima 아티스트 형식</span></span></label>
+          </div>
+        </div>
+        <div class="opt-block dimmed" id="nai-options">
+          <div class="opt-label">Anima → NAI 보정 <span class="sub" style="text-transform:none;font-weight:500">모드 선택 시 적용</span></div>
+          <div class="checks">
             <label class="chk"><input type="checkbox" id="chk-nai-score-remove"><span>score 태그 제거 <span class="sub">score_7 / score 7 제외</span></span></label>
-            <label class="chk"><input type="checkbox" id="chk-nai-artist-strip"><span>@artist의 @ 제거 <span class="sub">@name → name</span></span></label>
-            <label class="chk"><input type="checkbox" id="chk-nai-weight"><span>로컬 가중치 → NAI 강조 <span class="sub">(tag:1.3) → {tag}</span></span></label>
+            <label class="chk"><input type="checkbox" id="chk-nai-artist-add" checked><span>@name → artist:name <span class="sub">NAI 아티스트 형식</span></span></label>
+            <label class="chk"><input type="checkbox" id="chk-nai-artist-strip"><span>@artist의 @만 제거 <span class="sub">@name → name</span></span></label>
+            <label class="chk"><input type="checkbox" id="chk-nai-weight"><span>로컬 가중치 → NAI 강조 <span class="sub">(tag:1.3) → 1.3::tag:: · 연속 동일 가중치 묶음</span></span></label>
             <label class="chk"><input type="checkbox" id="chk-nai-neg-join"><span>negative도 NAI식 정리 <span class="sub">공백 → _ 적용</span></span></label>
           </div>
         </div>
@@ -328,21 +344,28 @@ textarea.io.small{min-height:78px}
 <script>
 const $=s=>document.querySelector(s);
 const PRESET_KEY='tagprep_presets_v1';
-const BUILTIN_PRESETS=[{name:'Anima',opts:{dir:'u2s',esc:'on',lower:true,score:true,dedup:true,sort:false,space:true,newline:false,normspace:true,stripNai:true,splitNeg:true,protectWeight:true,a2n:false,naiScoreRemove:false,naiArtistStrip:false,naiWeight:false,naiNegJoin:false}}];
+const BUILTIN_PRESETS=[
+{name:'Anima',opts:{mode:'plain',dir:'u2s',esc:'on',lower:true,score:true,dedup:true,sort:false,space:true,newline:false,normspace:true,stripNai:true,splitNeg:true,protectWeight:true,n2aWeight:true,n2aArtist:true,a2n:false,naiScoreRemove:false,naiArtistAdd:false,naiArtistStrip:false,naiWeight:false,naiNegJoin:false}},
+{name:'NAI → Anima',opts:{mode:'n2a',dir:'u2s',esc:'on',lower:true,score:true,dedup:true,sort:false,space:true,newline:false,normspace:true,stripNai:true,splitNeg:true,protectWeight:true,n2aWeight:true,n2aArtist:true,naiScoreRemove:false,naiArtistAdd:false,naiArtistStrip:false,naiWeight:false,naiNegJoin:false}},
+{name:'Anima → NAI',opts:{mode:'a2n',dir:'none',esc:'off',lower:true,score:true,dedup:true,sort:false,space:true,newline:false,normspace:true,stripNai:true,splitNeg:true,protectWeight:true,n2aWeight:true,n2aArtist:true,naiScoreRemove:true,naiArtistAdd:true,naiArtistStrip:false,naiWeight:true,naiNegJoin:false}}
+];
 
 /* ---------- 변환 로직 ---------- */
-function splitRaw(raw){
+function splitRaw(raw,allowPosGroup=false){
   const tokens=[];
   let buf='';
-  let inNaiNeg=false;
+  let inGroup=false;
   const push=()=>{const v=buf.trim();if(v)tokens.push(v);buf='';};
   for(let i=0;i<raw.length;i++){
     const ch=raw[i];
-    if(!inNaiNeg&&(ch===','||ch==='\n')){push();continue;}
+    if(!inGroup&&(ch===','||ch==='\n')){push();continue;}
     buf+=ch;
     const t=buf.trim();
-    if(!inNaiNeg&&/^-\d+(?:\.\d+)?::$/.test(t))inNaiNeg=true;
-    else if(inNaiNeg&&/^-\d+(?:\.\d+)?::[\s\S]+::$/.test(t))inNaiNeg=false;
+    if(!inGroup){
+      if(/^-\d+(?:\.\d+)?::$/.test(t))inGroup=true;
+      else if(allowPosGroup&&/^\d+(?:\.\d+)?::$/.test(t))inGroup=true;
+    }
+    else if(/^-?\d+(?:\.\d+)?::[\s\S]+::$/.test(t))inGroup=false;
   }
   push();
   return tokens;
@@ -368,8 +391,31 @@ function extractNaiNegative(t){
   const m=t.trim().match(/^(-\d+(?:\.\d+)?)::(.+?)::$/);
   return m?m[2].trim():null;
 }
+function extractPosWeightGroup(t){
+  const m=t.trim().match(/^(\d+(?:\.\d+)?)::([\s\S]+?)::$/);
+  return m?{weight:m[1],inner:m[2].trim()}:null;
+}
+function n2aToken(t,o){
+  let v=transformToken(t,{...o,a2n:false});
+  if(o.n2aArtist)v=v.replace(/^artist:\s*/i,'@');
+  return v.trim();
+}
+function n2aExpand(rawToken,o){
+  const g=o.n2aWeight?extractPosWeightGroup(rawToken):null;
+  if(g){
+    const w=parseFloat(g.weight);
+    return splitRaw(g.inner).map(t=>{
+      const core=n2aToken(t,o);
+      if(!core)return '';
+      return w===1?core:'('+core+':'+g.weight+')';
+    }).filter(Boolean);
+  }
+  const v=n2aToken(rawToken,o);
+  return v?[v]:[];
+}
 function parseLocalWeight(t){
-  const m=t.trim().match(/^\(([^()]+):([+-]?(?:\d+(?:\.\d+)?|\.\d+))\)$/);
+  // 태그 내부에 \( \) 이스케이프 괄호 허용 (n2a 왕복 대응)
+  const m=t.trim().match(/^\(([\s\S]+):([+-]?(?:\d+(?:\.\d+)?|\.\d+))\)$/);
   return m?{tag:m[1].trim(),weight:parseFloat(m[2])}:null;
 }
 function isScoreTag(t){return /^score[ _]\d+$/i.test(t.trim());}
@@ -378,17 +424,27 @@ function naiCoreToken(t,o){
   if(o.stripNai)v=stripNaiWrap(v);
   if(o.lower)v=v.toLowerCase();
   if(o.naiScoreRemove&&isScoreTag(v))return '';
-  if(o.naiArtistStrip&&v.startsWith('@'))v=v.slice(1).trim();
+  if(o.naiArtistAdd&&v.startsWith('@'))v='artist:'+v.slice(1).trim();
+  else if(o.naiArtistStrip&&v.startsWith('@'))v=v.slice(1).trim();
   v=unescapeParen(v);
   v=spaceToUnderscore(v);
   return v.trim();
 }
 function naiWrapByWeight(tag,weight){
   if(!tag)return '';
-  if(weight>=1.4)return '{{'+tag+'}}';
-  if(weight>1.0)return '{'+tag+'}';
-  if(weight<=0.8)return '['+tag+']';
-  return tag;
+  if(!isFinite(weight)||weight===1)return tag;
+  return weight+'::'+tag+'::';
+}
+function groupNaiWeights(tokens){
+  const out=[];
+  for(const t of tokens){
+    const m=t.match(/^(-?\d+(?:\.\d+)?)::([\s\S]+)::$/);
+    const prev=out.length?out[out.length-1]:null;
+    if(m&&prev&&prev.w===m[1])prev.tags.push(m[2]);
+    else if(m)out.push({w:m[1],tags:[m[2]]});
+    else out.push({w:null,tags:[t]});
+  }
+  return out.map(g=>g.w===null?g.tags[0]:g.w+'::'+g.tags.join(', ')+'::');
 }
 function transformAnimaToNaiToken(t,o){
   let v=o.normspace?normalizeSpaces(t):t.trim();
@@ -428,7 +484,8 @@ function joinTokens(tokens,o){return o.newline?tokens.join(',\n'):tokens.join(o.
 
 function processTags(raw,o,negRaw=''){
   // 콤마 + 줄바꿈 기준 분리 → 양끝 공백/빈 태그 자동 정리
-  const rawTokens=splitRaw(raw);
+  const useN2a=o.mode==='n2a';
+  const rawTokens=splitRaw(raw,useN2a);
   const inputCount=rawTokens.length;
   let pos=[],neg=[];
 
@@ -436,15 +493,23 @@ function processTags(raw,o,negRaw=''){
     const negInner=o.splitNeg?extractNaiNegative(rawToken):null;
     if(negInner){
       for(const negToken of splitRaw(negInner)){
-        const nt=transformNegToken(negToken,o);
+        const nt=useN2a?n2aToken(negToken,o):transformNegToken(negToken,o);
         if(nt)neg.push(nt);
       }
+      continue;
+    }
+    if(useN2a){
+      for(const t of n2aExpand(rawToken,o))pos.push(t);
       continue;
     }
     const t=transformToken(rawToken,o);
     if(t)pos.push(t);
   }
-  for(const rawToken of splitRaw(negRaw)){
+  for(const rawToken of splitRaw(negRaw,useN2a)){
+    if(useN2a){
+      for(const t of n2aExpand(rawToken,o))neg.push(t);
+      continue;
+    }
     const t=transformNegToken(rawToken,o);
     if(t)neg.push(t);
   }
@@ -458,13 +523,23 @@ function processTags(raw,o,negRaw=''){
     pos=[...pos].sort((a,b)=>a.localeCompare(b));
     neg=[...neg].sort((a,b)=>a.localeCompare(b));
   }
+  if(o.a2n&&o.naiWeight){
+    pos=groupNaiWeights(pos);
+    if(o.naiNegJoin)neg=groupNaiWeights(neg);
+  }
 
   return {text:joinTokens(pos,o),negText:joinTokens(neg,o),inputCount,outputCount:pos.length,negCount:neg.length,removed,negRemoved};
 }
 
 /* ---------- 옵션 상태 ---------- */
 function getOpts(){
+  const mode=$('#seg-mode .active').dataset.v;
   return {
+    mode,
+    a2n:mode==='a2n',
+    n2aWeight:$('#chk-n2a-weight').checked,
+    n2aArtist:$('#chk-n2a-artist').checked,
+    naiArtistAdd:$('#chk-nai-artist-add').checked,
     dir:$('#seg-dir .active').dataset.v,
     esc:$('#seg-esc .active').dataset.v,
     lower:$('#chk-lower').checked,
@@ -477,7 +552,6 @@ function getOpts(){
     stripNai:$('#chk-strip-nai').checked,
     splitNeg:$('#chk-split-neg').checked,
     protectWeight:$('#chk-protect-weight').checked,
-    a2n:$('#chk-a2n').checked,
     naiScoreRemove:$('#chk-nai-score-remove').checked,
     naiArtistStrip:$('#chk-nai-artist-strip').checked,
     naiWeight:$('#chk-nai-weight').checked,
@@ -485,6 +559,9 @@ function getOpts(){
   };
 }
 function applyOpts(o){
+  // 구버전 프리셋(mode 없음)은 a2n 체크 여부로 모드 자동 매핑
+  const mode=o.mode||(o.a2n||o.dir==='a2n'?'a2n':'plain');
+  setSeg('seg-mode',mode);
   setSeg('seg-dir',o.dir==='a2n'?'none':(o.dir||'none'));
   setSeg('seg-esc',o.esc||'none');
   $('#chk-lower').checked=!!o.lower;
@@ -497,7 +574,9 @@ function applyOpts(o){
   $('#chk-strip-nai').checked=o.stripNai!==false;
   $('#chk-split-neg').checked=o.splitNeg!==false;
   $('#chk-protect-weight').checked=o.protectWeight!==false;
-  $('#chk-a2n').checked=!!(o.a2n||o.dir==='a2n');
+  $('#chk-n2a-weight').checked=o.n2aWeight!==false;
+  $('#chk-n2a-artist').checked=o.n2aArtist!==false;
+  $('#chk-nai-artist-add').checked=!!o.naiArtistAdd;
   $('#chk-nai-score-remove').checked=!!o.naiScoreRemove;
   $('#chk-nai-artist-strip').checked=!!o.naiArtistStrip;
   $('#chk-nai-weight').checked=!!o.naiWeight;
@@ -509,14 +588,23 @@ function setSeg(id,v){
   document.querySelectorAll('#'+id+' button').forEach(b=>b.classList.toggle('active',b.dataset.v===v));
 }
 function updateModeUI(){
-  const isA2N=$('#chk-a2n')?.checked;
-  const block=$('#nai-options');
-  if(!block)return;
-  block.classList.toggle('dimmed',!isA2N);
-  ['chk-nai-score-remove','chk-nai-artist-strip','chk-nai-weight','chk-nai-neg-join'].forEach(id=>{
-    const el=$('#'+id);
-    if(el)el.disabled=!isA2N;
-  });
+  const mode=$('#seg-mode .active')?.dataset.v||'plain';
+  const naiBlock=$('#nai-options');
+  if(naiBlock){
+    naiBlock.classList.toggle('dimmed',mode!=='a2n');
+    ['chk-nai-score-remove','chk-nai-artist-add','chk-nai-artist-strip','chk-nai-weight','chk-nai-neg-join'].forEach(id=>{
+      const el=$('#'+id);
+      if(el)el.disabled=(mode!=='a2n');
+    });
+  }
+  const n2aBlock=$('#n2a-options');
+  if(n2aBlock){
+    n2aBlock.classList.toggle('dimmed',mode!=='n2a');
+    ['chk-n2a-weight','chk-n2a-artist'].forEach(id=>{
+      const el=$('#'+id);
+      if(el)el.disabled=(mode!=='n2a');
+    });
+  }
 }
 
 /* ---------- 렌더 ---------- */
@@ -534,14 +622,17 @@ function render(){
 }
 
 /* ---------- 세그먼트 클릭 ---------- */
-['seg-dir','seg-esc'].forEach(id=>{
+['seg-mode','seg-dir','seg-esc'].forEach(id=>{
   document.querySelectorAll('#'+id+' button').forEach(b=>{
     b.addEventListener('click',()=>{setSeg(id,b.dataset.v);updateModeUI();render();});
   });
 });
-['input','neg-input','chk-lower','chk-score','chk-dedup','chk-sort','chk-space','chk-newline','chk-normspace','chk-strip-nai','chk-split-neg','chk-protect-weight','chk-a2n','chk-nai-score-remove','chk-nai-artist-strip','chk-nai-weight','chk-nai-neg-join'].forEach(id=>{
-  $('#'+id).addEventListener('input',()=>{if(id==='chk-a2n')updateModeUI();render();});
+['input','neg-input','chk-lower','chk-score','chk-dedup','chk-sort','chk-space','chk-newline','chk-normspace','chk-strip-nai','chk-split-neg','chk-protect-weight','chk-n2a-weight','chk-n2a-artist','chk-nai-score-remove','chk-nai-artist-add','chk-nai-artist-strip','chk-nai-weight','chk-nai-neg-join'].forEach(id=>{
+  $('#'+id).addEventListener('input',()=>{render();});
 });
+// @ 변환 두 옵션은 상호배타
+$('#chk-nai-artist-add').addEventListener('change',()=>{if($('#chk-nai-artist-add').checked){$('#chk-nai-artist-strip').checked=false;render();}});
+$('#chk-nai-artist-strip').addEventListener('change',()=>{if($('#chk-nai-artist-strip').checked){$('#chk-nai-artist-add').checked=false;render();}});
 $('#btn-clear').addEventListener('click',()=>{$('#input').value='';render();$('#input').focus();});
 
 /* ---------- 복사 ---------- */
