@@ -169,10 +169,10 @@ body.lb-open{overflow:hidden}
 @media(max-width:720px){#app{padding:.75rem .8rem 2rem}.split{grid-template-columns:1fr}.toolbar{width:100%}.btn{padding:7px 10px}.panel-body{padding:10px}.logo{width:100%;margin-bottom:2px}#list{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.card-info{padding:8px}.row{flex-direction:column;align-items:stretch}.kv{grid-template-columns:78px 1fr}.preview-img{max-height:70vh;overflow:auto}}
 @media(max-width:380px){#list{grid-template-columns:1fr}}
 /* 커스텀 confirm/alert 모달 — 네이티브 confirm 대체 (포커스 먹통 해결) */
-#confirm-overlay{position:fixed;inset:0;z-index:10002;background:rgba(0,0,0,0.55);display:none;align-items:center;justify-content:center;padding:20px}
+#confirm-overlay{position:fixed;inset:0;z-index:10080;background:rgba(0,0,0,0.55);display:none;align-items:center;justify-content:center;padding:20px}
 #confirm-overlay.open{display:flex}
-.confirm-modal{background:var(--bg);border:.5px solid var(--border2);border-radius:var(--radius);padding:22px;width:340px;max-width:100%;display:flex;flex-direction:column;gap:18px;box-shadow:0 12px 40px rgba(0,0,0,0.3)}
-.confirm-message{font-size:14px;color:var(--text);line-height:1.6;white-space:pre-wrap;word-break:keep-all}
+.confirm-modal{background:var(--bg);border:.5px solid var(--border2);border-radius:var(--radius);padding:22px;width:min(460px,100%);max-height:min(80dvh,700px);display:flex;flex-direction:column;gap:18px;box-shadow:0 12px 40px rgba(0,0,0,0.3)}
+.confirm-message{font-size:13px;color:var(--text);line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere;word-break:normal;overflow-y:auto;min-height:0;flex:1 1 auto}
 .confirm-btn-row{display:flex;gap:8px;justify-content:flex-end}
 .cm-btn{border:0;border-radius:var(--radius-sm);padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
 .cm-btn:hover{opacity:.88}
@@ -233,6 +233,40 @@ body.eo-open{overflow:hidden}
 @media(max-width:720px){#jump-nav{right:10px;bottom:78px}#jump-nav button{width:44px;height:44px}}
 /* 전역 드래그드랍 — 갤러리 뷰 포함 화면 어디든 */
 #global-drop{position:fixed;inset:0;z-index:10060;background:rgba(136,136,204,.14);backdrop-filter:blur(2px);display:none;align-items:center;justify-content:center;pointer-events:none}
+/* 작가 조합 중복 검사 */
+#dup-scan-overlay{position:fixed;inset:0;z-index:10047;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:18px}
+#dup-scan-overlay.open{display:flex}
+.ds-shell{width:min(820px,100%);max-height:min(90dvh,880px);background:var(--bg);border:.5px solid var(--border2);border-radius:16px;display:flex;flex-direction:column;overflow:hidden}
+.ds-head{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:.5px solid var(--border);background:var(--bg2);font-size:13px;font-weight:800;color:var(--text2);flex:0 0 auto}
+.ds-body{overflow-y:auto;padding:12px 14px;display:grid;gap:12px;min-height:140px;-webkit-overflow-scrolling:touch}
+.ds-foot{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:10px 14px;border-top:.5px solid var(--border);background:var(--bg2);font-size:11px;color:var(--text3)}
+.ds-foot .grow{flex:1}
+.ds-group{border:.5px solid var(--border);border-radius:12px;padding:11px;background:var(--bg2)}
+.ds-artists{font-size:11px;color:var(--accent);font-weight:700;word-break:break-all;line-height:1.6;margin-bottom:9px}
+.ds-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
+.ds-tile{position:relative;border:.5px solid var(--border);border-radius:10px;overflow:hidden;background:var(--bg);cursor:pointer}
+.ds-tile.sel{outline:2px solid var(--danger);outline-offset:-2px}
+.ds-tile .ds-img{aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;background:var(--bg3)}
+.ds-tile .ds-img img{width:100%;height:100%;object-fit:cover;display:block}
+.ds-tile .ds-cap{padding:6px 7px;font-size:10px;color:var(--text2);line-height:1.35;word-break:break-all}
+.ds-mark{position:absolute;left:6px;top:6px;width:20px;height:20px;border-radius:999px;background:rgba(0,0,0,.42);color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center}
+.ds-tile.sel .ds-mark{background:var(--danger)}
+.ds-keep{position:absolute;right:6px;top:6px;background:var(--accent);color:#fff;border-radius:999px;font-size:9px;font-weight:800;padding:2px 7px}
+.ds-empty{text-align:center;color:var(--text3);font-size:13px;padding:3rem 1rem;line-height:1.7}
+/* 원문 대조 패널 */
+.ds-toggle{border:.5px solid var(--border2);background:var(--bg);color:var(--text2);font-size:10px;font-weight:700;border-radius:999px;padding:3px 9px;cursor:pointer;font-family:inherit;white-space:nowrap;flex:0 0 auto}
+.ds-toggle:hover{border-color:var(--accent);color:var(--accent)}
+.ds-toggle.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.ds-raw{display:none;margin-top:10px;border-top:.5px dashed var(--border2);padding-top:10px}
+.ds-raw.open{display:block}
+.ds-raw-item{margin-bottom:11px}
+.ds-raw-item:last-child{margin-bottom:0}
+.ds-raw-name{font-size:11px;font-weight:800;color:var(--text);margin-bottom:4px;word-break:break-all}
+.ds-raw-row{font-size:10px;line-height:1.55;margin-bottom:3px;display:flex;gap:6px}
+.ds-raw-key{flex:0 0 34px;color:var(--text3);font-weight:700}
+.ds-raw-parsed{color:var(--accent);word-break:break-all}
+.ds-raw-pre{color:var(--text2);font-family:Consolas,Menlo,monospace;font-size:10px;line-height:1.5;white-space:pre-wrap;word-break:break-all;background:var(--bg);border:.5px solid var(--border);border-radius:8px;padding:7px 8px;max-height:130px;overflow-y:auto;flex:1}
+.ds-mismatch{color:var(--danger);font-weight:800}
 #global-drop.on{display:flex}
 .gd-box{border:2px dashed var(--accent);background:var(--bg);color:var(--accent);border-radius:16px;padding:26px 34px;font-size:15px;font-weight:800;box-shadow:0 12px 40px rgba(0,0,0,.22);text-align:center;line-height:1.6}
 .gd-box small{display:block;font-size:11px;font-weight:400;color:var(--text3);margin-top:4px}
@@ -249,6 +283,8 @@ body.eo-open{overflow:hidden}
     <button class="btn outline" id="export-btn">내보내기</button>
     <button class="btn outline" id="import-btn">불러오기</button>
     <button class="btn ghost" id="select-mode-btn">선택</button>
+    <button class="btn ghost" id="artist-export-btn" title="사용된 작가 목록을 TXT로 뽑아 (와일드카드용)">작가 TXT</button>
+    <button class="btn ghost" id="dup-scan-btn" title="작가 조합(가중치 포함)이 같은 카드 찾기">중복 검사</button>
     <button class="btn ghost" id="clear-filter-btn">필터 초기화</button>
     <div class="view-toggle">
       <button class="vt-btn active" data-view="default" title="기본 뷰 (3분할 편집)">기본</button>
@@ -345,6 +381,20 @@ body.eo-open{overflow:hidden}
 <button id="sel-chip" type="button" title="선택 작업 열기">✓ <b id="sel-chip-count">0</b>개 선택</button>
 <div id="jump-nav"><button type="button" id="jump-top" title="맨 위로">▲</button><button type="button" id="jump-bottom" title="맨 아래로">▼</button></div>
 <div id="global-drop"><div class="gd-box" id="gd-box">📥 여기 놓으면 업로드<small>ComfyUI · NovelAI 원본 PNG는 메타데이터 자동 추출</small></div></div>
+
+<div id="dup-scan-overlay" aria-hidden="true">
+  <div class="ds-shell">
+    <div class="ds-head"><span id="ds-title">작가 조합 중복 검사</span><button class="eo-close" id="ds-close" title="닫기">×</button></div>
+    <div class="ds-body" id="ds-body"></div>
+    <div class="ds-foot">
+      <span id="ds-summary"></span>
+      <span class="grow"></span>
+      <button class="btn ghost" id="ds-auto-sel">중복분 자동 선택</button>
+      <button class="btn ghost" id="ds-clear-sel">선택 해제</button>
+      <button class="btn" id="ds-delete" disabled>선택 삭제</button>
+    </div>
+  </div>
+</div>
 
 <div id="lightbox" aria-hidden="true">
   <div class="lb-shell">
@@ -971,6 +1021,56 @@ function cardExpandedHTML(it){
   if(!h) h='<div class="ce-empty">메타 정보 없음</div>';
   return h;
 }
+/* ── 작가 태그 파서 ──
+   NAI 프롬프트에서 (작가명, 가중치)를 뽑는다. 실데이터 4건으로 원문 대조 검증함.
+     "2.14::artist:wanke, artist:sqloveraven ::"  → 그룹 가중치가 두 명 모두에 적용
+     "[artist:sqloveraven]"                       → 괄호 깊이를 [n] 으로 표기
+     "artist:aoma (xuanzexuexi)"                  → 이름 속 공백·괄호 보존
+     "-5.3::artist collaboration::"               → 콜론 없으므로 작가 아님, 무시 */
+function parseArtistTags(prompt){
+  if(!prompt||typeof prompt!=='string')return [];
+  const out=[],seen=new Set();
+  const wstack=[];let br=0,cur=0,token='',i=0;
+  const n=prompt.length;
+  const flush=()=>{
+    const t=token.trim();token='';
+    const m=/^artist:\s*(.+?)\s*$/i.exec(t);
+    if(!m)return;
+    const name=m[1].replace(/\s+/g,' ').trim().toLowerCase();
+    if(!name)return;
+    let wt;
+    if(wstack.length)wt=String(wstack[wstack.length-1]);
+    else if(br)wt='['+br+']';
+    else if(cur)wt='{'+cur+'}';
+    else wt='1';
+    const key=name+'@'+wt;
+    if(seen.has(key))return;
+    seen.add(key);out.push({name,weight:wt});
+  };
+  while(i<n){
+    const m=/^(-?\d+(?:\.\d+)?)::/.exec(prompt.slice(i));
+    if(m){flush();wstack.push(parseFloat(m[1]));i+=m[0].length;continue}
+    if(prompt.startsWith('::',i)){flush();wstack.pop();i+=2;continue}
+    const ch=prompt[i];
+    if(ch==='['){flush();br++;i++;continue}
+    if(ch===']'){flush();br=Math.max(0,br-1);i++;continue}
+    if(ch==='{'){flush();cur++;i++;continue}
+    if(ch==='}'){flush();cur=Math.max(0,cur-1);i++;continue}
+    if(ch===','||ch==='\n'){flush();i++;continue}
+    token+=ch;i++;
+  }
+  flush();
+  return out;
+}
+/* 중복 판정용 서명: 작가명 + 가중치까지 일치해야 같은 것으로 본다.
+   순서와 무관하게 비교하려고 정렬한다. 캐릭터·배경 태그는 서명에 넣지 않는다. */
+function artistSignature(prompt){
+  const a=parseArtistTags(prompt);
+  if(!a.length)return '';
+  return a.map(x=>x.name+'@'+x.weight).sort().join('|');
+}
+function itemArtists(it){return parseArtistTags(it&&it.meta&&it.meta.positive)}
+function itemArtistSig(it){return artistSignature(it&&it.meta&&it.meta.positive)}
 function tagCounts(){const m=new Map();state.items.forEach(it=>(it.tags||[]).forEach(t=>{const k=String(t).trim();if(k)m.set(k,(m.get(k)||0)+1)}));return [...m.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'ko'))}
 function loraCounts(){const m=new Map();state.items.forEach(it=>((it.meta&&it.meta.loras)||[]).forEach(l=>{const n=cleanLoraName(l.name);if(n)m.set(n,(m.get(n)||0)+1)}));return [...m.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'ko'))}
 /* 필터 토큰: 메타 없는 카드도 'none'으로 잡아낼 수 있게 통일 */
@@ -1007,6 +1107,166 @@ function renderChips(){
     if(i>=0)state.loraFilter.splice(i,1); else state.loraFilter.push(l);
     save();render();
   });
+}
+/* ── 작가 TXT 내보내기 (형식 가: 이름만, 중복 제거) ── */
+function collectArtists(items){
+  const m=new Map();
+  items.forEach(it=>itemArtists(it).forEach(a=>m.set(a.name,(m.get(a.name)||0)+1)));
+  return [...m.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]));
+}
+async function exportArtistTxt(){
+  const all=state.items, cur=filtered();
+  const scoped=(all.length===cur.length)
+    ? cur
+    : (await showConfirm(`작가 목록을 어느 범위로 뽑을까?\n\n확인 = 현재 필터 결과 ${cur.length}장\n취소 = 전체 ${all.length}장`,{confirmText:'필터 결과',cancelText:'전체'}) ? cur : all);
+  const list=collectArtists(scoped);
+  if(!list.length){toast('작가 태그를 찾지 못했어');return}
+  const txt=list.map(([n])=>n).join('\n');
+  const blob=new Blob([txt],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='artists_'+new Date().toISOString().slice(0,10)+'.txt';
+  a.click();URL.revokeObjectURL(a.href);
+  toast(`작가 ${list.length}명 · ${scoped.length}장 기준으로 뽑았어`);
+}
+
+/* ── 작가 조합 중복 검사 ── */
+let dsSelected=new Set();
+let dsOpenRaw=new Set(); // 원문 대조 패널 열림 상태 (재렌더 후에도 유지)
+function findArtistDupes(items){
+  const m=new Map();
+  items.forEach(it=>{
+    const sig=itemArtistSig(it);
+    if(!sig)return;                       // 작가 태그 없는 카드는 대상 아님
+    if(!m.has(sig))m.set(sig,[]);
+    m.get(sig).push(it);
+  });
+  return [...m.entries()].filter(([,arr])=>arr.length>1)
+    .sort((a,b)=>b[1].length-a[1].length);
+}
+function renderDupScan(){
+  const groups=findArtistDupes(state.items);
+  const body=$('#ds-body');
+  const dupTotal=groups.reduce((s,[,a])=>s+a.length,0);
+  const removable=groups.reduce((s,[,a])=>s+a.length-1,0);
+  if(!groups.length){
+    body.innerHTML='<div class="ds-empty">작가 조합이 겹치는 카드가 없어.<br><span style="font-size:11px">기준: 작가 이름 + 가중치가 모두 일치할 때만 중복으로 봐.<br>캐릭터·배경 태그는 비교하지 않아.</span></div>';
+    $('#ds-summary').textContent='중복 없음';
+  }else{
+    body.innerHTML=groups.map(([sig,arr],gi)=>{
+      const names=itemArtists(arr[0]).map(a=>`${a.name} <span style="opacity:.55">@${a.weight}</span>`).join(' · ');
+      const tiles=arr.map((it,ii)=>`<div class="ds-tile${dsSelected.has(it.id)?' sel':''}" data-id="${it.id}">
+        <div class="ds-mark">${dsSelected.has(it.id)?'✓':''}</div>
+        ${ii===0?'<div class="ds-keep">최신</div>':''}
+        <div class="ds-img">${it.thumb?`<img src="${it.thumb}" alt="">`:'<span style="font-size:10px;color:var(--text3)">이미지 없음</span>'}</div>
+        <div class="ds-cap" title="${esc(it.title||'')}">${esc(shortTitle(it.title))}<br><span style="opacity:.6">${stars(it.score)} · ${esc(it.status)}</span></div>
+      </div>`).join('');
+      // 원문 대조: 카드마다 파싱 결과와 실제 프롬프트를 같이 보여줘서 파서가 맞는지 눈으로 확인 가능
+      const raw=arr.map(it=>{
+        const mine=itemArtistSig(it);
+        const bad=mine!==sig;
+        const parsed=itemArtists(it).map(a=>`${a.name}@${a.weight}`).join(' · ')||'(작가 없음)';
+        const p=(it.meta&&it.meta.positive)||'(프롬프트 없음)';
+        return `<div class="ds-raw-item">
+          <div class="ds-raw-name" title="${esc(it.title||'')}">${esc(shortTitle(it.title))}${bad?' <span class="ds-mismatch">⚠ 서명 불일치</span>':''}</div>
+          <div class="ds-raw-row"><span class="ds-raw-key">파싱</span><span class="ds-raw-parsed${bad?' ds-mismatch':''}">${parsed}</span></div>
+          <div class="ds-raw-row"><span class="ds-raw-key">원문</span><span class="ds-raw-pre">${esc(p)}</span></div>
+        </div>`;
+      }).join('');
+      return `<div class="ds-group">
+        <div class="ds-artists" style="display:flex;gap:8px;align-items:flex-start">
+          <span style="flex:1">그룹 ${gi+1} · 작가 ${itemArtists(arr[0]).length}명 · 카드 ${arr.length}장<br>${names}</span>
+          <button class="ds-toggle" data-g="${gi}">원문 대조 ▾</button>
+        </div>
+        <div class="ds-tiles">${tiles}</div>
+        <div class="ds-raw" data-raw="${gi}">${raw}</div>
+      </div>`;
+    }).join('');
+    $('#ds-summary').textContent=`${groups.length}개 그룹 · ${dupTotal}장 중복 · 최대 ${removable}장 정리 가능`;
+    body.querySelectorAll('.ds-toggle').forEach(b=>{
+      const gi=b.dataset.g;
+      const panel=body.querySelector('.ds-raw[data-raw="'+gi+'"]');
+      if(dsOpenRaw.has(gi)){panel.classList.add('open');b.classList.add('on');b.textContent='원문 대조 ▴'}
+      b.onclick=e=>{
+        e.stopPropagation();
+        const open=panel.classList.toggle('open');
+        b.classList.toggle('on',open);
+        b.textContent=open?'원문 대조 ▴':'원문 대조 ▾';
+        if(open)dsOpenRaw.add(gi);else dsOpenRaw.delete(gi);
+      };
+    });
+    body.querySelectorAll('.ds-tile').forEach(t=>t.onclick=()=>{
+      const id=t.dataset.id;
+      if(dsSelected.has(id))dsSelected.delete(id);else dsSelected.add(id);
+      t.classList.toggle('sel',dsSelected.has(id));
+      t.querySelector('.ds-mark').textContent=dsSelected.has(id)?'✓':'';
+      updateDsFoot();
+    });
+  }
+  updateDsFoot();
+}
+function updateDsFoot(){
+  const btn=$('#ds-delete');
+  if(!btn)return;
+  btn.disabled=dsSelected.size===0;
+  btn.textContent=dsSelected.size?`선택 ${dsSelected.size}장 삭제`:'선택 삭제';
+}
+function openDupScan(){
+  dsSelected.clear();dsOpenRaw.clear();
+  $('#dup-scan-overlay').classList.add('open');
+  $('#dup-scan-overlay').setAttribute('aria-hidden','false');
+  document.body.classList.add('eo-open');
+  renderDupScan();
+}
+function closeDupScan(){
+  $('#dup-scan-overlay').classList.remove('open');
+  $('#dup-scan-overlay').setAttribute('aria-hidden','true');
+  document.body.classList.remove('eo-open');
+  dsSelected.clear();dsOpenRaw.clear();
+}
+/* 그룹마다 맨 앞(최신) 1장만 남기고 나머지를 선택한다.
+   선택만 할 뿐 삭제하지 않는다. 삭제는 여전히 명시적 확인을 거쳐야 한다. */
+function dupAutoSelect(){
+  dsSelected.clear();
+  findArtistDupes(state.items).forEach(([,arr])=>{
+    arr.slice(1).forEach(it=>dsSelected.add(it.id));
+  });
+  renderDupScan();
+  toast(dsSelected.size?`${dsSelected.size}장 선택했어 · 그룹마다 최신 1장은 남겨뒀어`:'선택할 중복분이 없어');
+}
+/* 해시 파일명이 길어서 그대로 쓰면 확인창이 터진다. 앞뒤만 남긴다. */
+function shortTitle(t){
+  t=String(t||'제목 없음');
+  return t.length<=26?t:(t.slice(0,14)+'…'+t.slice(-8));
+}
+async function dupDeleteSelected(){
+  if(!dsSelected.size)return;
+  const groups=findArtistDupes(state.items);
+  // 그룹별로 몇 장 중 몇 장이 선택됐는지 계산 → 통째로 사라지는 그룹을 찾아낸다
+  const rows=[],wiped=[];
+  groups.forEach(([,arr],gi)=>{
+    const sel=arr.filter(it=>dsSelected.has(it.id)).length;
+    if(!sel)return;
+    rows.push(`· 그룹 ${gi+1}: ${arr.length}장 중 ${sel}장 삭제`+(sel===arr.length?'  ⚠ 전멸':''));
+    if(sel===arr.length)wiped.push(gi+1);
+  });
+  const orphan=[...dsSelected].filter(id=>!groups.some(([,arr])=>arr.some(it=>it.id===id)));
+  let msg=`${dsSelected.size}장을 삭제할까? 되돌릴 수 없어.\n\n`;
+  if(wiped.length){
+    msg+=`⚠️ 경고: ${wiped.length}개 그룹이 통째로 사라져.\n`;
+    msg+=`해당 작가 조합이 한 장도 안 남아.\n\n`;
+  }
+  msg+=rows.slice(0,12).join('\n');
+  if(rows.length>12)msg+=`\n… 외 ${rows.length-12}개 그룹`;
+  if(orphan.length)msg+=`\n· 그룹 밖 ${orphan.length}장`;
+  const ok=await showConfirm(msg,{danger:true,confirmText:wiped.length?'그래도 삭제':'삭제'});
+  if(!ok)return;
+  const ids=[...dsSelected];
+  state.items=state.items.filter(it=>!dsSelected.has(it.id));
+  dsSelected.clear();
+  if(!state.items.some(x=>x.id===state.selectedId))state.selectedId=state.items[0]?.id||null;
+  save();render();renderDupScan();
+  toast(`${ids.length}장 삭제했어`);
 }
 function applyView(){
   const split=document.querySelector('.split');
@@ -1304,12 +1564,20 @@ $('#edit-overlay').addEventListener('click',e=>{if(e.target.id==='edit-overlay')
 $('#d-img').onclick=()=>openLightbox(); // 상세/오버레이 미리보기 → 뷰어 (뷰어가 z-index 10050이라 오버레이 위로 뜸)
 
 /* ③ 선택 칩 → 액션 시트 토글 */
+$('#artist-export-btn').onclick=exportArtistTxt;
+$('#dup-scan-btn').onclick=openDupScan;
+$('#ds-close').onclick=closeDupScan;
+$('#ds-auto-sel').onclick=dupAutoSelect;
+$('#ds-clear-sel').onclick=()=>{dsSelected.clear();renderDupScan()};
+$('#ds-delete').onclick=dupDeleteSelected;
+$('#dup-scan-overlay').addEventListener('click',e=>{if(e.target.id==='dup-scan-overlay')closeDupScan()});
 $('#sel-chip').onclick=()=>$('#select-bar').classList.toggle('open');
 
 /* ④ Escape 우선순위: 뷰어 → 편집 오버레이 → 선택 모드 */
 document.addEventListener('keydown',e=>{
   if(e.key!=='Escape')return;
   if($('#lightbox').classList.contains('open'))return; // 뷰어가 위에 있으면 뷰어가 처리
+  if($('#dup-scan-overlay').classList.contains('open')){closeDupScan();return}
   if($('#edit-overlay').classList.contains('open')){closeEditOverlay();return}
   if(selectMode)exitSelectMode();
 });
