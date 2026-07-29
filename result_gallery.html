@@ -416,6 +416,10 @@ const STATUSES=['전체','보류','성공','재작업','폐기'];
 const LB_SPEEDS=[2000,3000,4000,5000];
 const LB_SPEED_DEFAULT=3000;
 const LB_MOBILE_MQ='(max-width:720px)';
+/* stealth pnginfo: NAI가 알파 채널 최하위 비트에 심는 메타. 커뮤니티 WebP 재인코딩에도 살아남음
+   (WebP의 ALPH 청크는 무손실이라 RGB만 손실 압축되고 알파 비트는 보존됨) */
+const STEALTH_SIGS={'stealth_pnginfo':false,'stealth_pngcomp':true,'stealth_rgbinfo':false,'stealth_rgbcomp':true};
+const STEALTH_SIG_LEN=15;
 let state={items:[],selectedId:null,status:'전체',query:'',sort:'new',scoreFilter:'all',favOnly:false,view:'default',tagFilter:[],loraFilter:[],genFilter:[],expandedIds:[]};
 let selectMode=false;
 let selectedIds=new Set();
@@ -637,15 +641,82 @@ function pickPromptGraph(prompt){
     positive, negative
   };
 }
-/* char_captions 방어적 수집: 내부 필드명을 모르는 상태에서도 문자열만 긁어온다.
-   (검증 샘플은 단일 캐릭터라 배열이 비어 있었음 — 다중 캐릭터 구조는 미확인) */
+/* ── stealth pnginfo 리더 (알파 채널 LSB) ──
+   반드시 원본 해상도에서 읽어야 한다. 썸네일은 리샘플링돼서 LSB가 전부 깨짐. */
+function stealthBitsToBytes(bits,len){
+  const n=len>>3, out=new Uint8Array(n);
+  for(let i=0;i<n;i++){let v=0;for(let b=0;b<8;b++)v=(v<<1)|(bits[i*8+b]?1:0);out[i]=v}
+  return out;
+}
+async function stealthGunzip(bytes){
+  const ds=new DecompressionStream('gzip');
+  const stream=new Blob([bytes]).stream().pipeThrough(ds);
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+async function readStealthAlpha(data,w,h){
+  const sigBits=STEALTH_SIG_LEN*8;
+  const sbuf=new Uint8Array(sigBits);
+  let idx=0,state='sig',plen=0,payload=null,compressed=false;
+  outer:
+  for(let x=0;x<w;x++){
+    for(let y=0;y<h;y++){
+      const a=data[(y*w+x)*4+3];
+      if(state==='sig'){
+        sbuf[idx++]=a&1;
+        if(idx===sigBits){
+          const sig=new TextDecoder().decode(stealthBitsToBytes(sbuf,sigBits));
+          if(!Object.prototype.hasOwnProperty.call(STEALTH_SIGS,sig))return null; // 일반 이미지는 120픽셀만 읽고 중단
+          compressed=STEALTH_SIGS[sig];state='len';idx=0;
+        }
+      }else if(state==='len'){
+        plen=(plen<<1)|(a&1);idx++;
+        if(idx===32){
+          if(!(plen>0&&plen<=w*h))return null;
+          payload=new Uint8Array(plen);idx=0;state='data';
+        }
+      }else{
+        payload[idx++]=a&1;
+        if(idx===plen)break outer;
+      }
+    }
+  }
+  if(state!=='data'||idx!==plen)return null;
+  let raw=stealthBitsToBytes(payload,plen);
+  if(compressed){try{raw=await stealthGunzip(raw)}catch(e){return null}}
+  try{
+    const o=JSON.parse(new TextDecoder().decode(raw));
+    return (o&&typeof o==='object')?o:null;
+  }catch(e){return null}
+}
+async function readStealthFromFile(file){
+  try{
+    const bmp=await createImageBitmap(file); // 원본 해상도 유지
+    const w=bmp.width,h=bmp.height;
+    if(!w||!h||w*h>40e6){bmp.close&&bmp.close();return null}
+    let cv,ctx;
+    if(typeof OffscreenCanvas!=='undefined'){cv=new OffscreenCanvas(w,h)}
+    else{cv=document.createElement('canvas');cv.width=w;cv.height=h}
+    ctx=cv.getContext('2d',{willReadFrequently:true,alpha:true});
+    if(!ctx){bmp.close&&bmp.close();return null}
+    ctx.drawImage(bmp,0,0);
+    bmp.close&&bmp.close();
+    const img=ctx.getImageData(0,0,w,h);
+    return await readStealthAlpha(img.data,w,h);
+  }catch(e){return null}
+}
+/* char_captions 수집. 실물 검증으로 구조 확정: {char_caption:string, centers:[{x,y}]}
+   단, 향후 필드명 변경에 대비해 char_caption이 없으면 문자열 필드를 긁는 폴백을 유지한다. */
 function naiCharCaptions(capObj){
   const arr=capObj&&Array.isArray(capObj.char_captions)?capObj.char_captions:[];
   const out=[];
   for(const c of arr){
     if(typeof c==='string'){if(c.trim())out.push(c.trim());continue}
     if(!c||typeof c!=='object')continue;
-    for(const v of Object.values(c)){
+    if(typeof c.char_caption==='string'){          // 확정 경로
+      if(c.char_caption.trim())out.push(c.char_caption.trim());
+      continue;
+    }
+    for(const v of Object.values(c)){              // 폴백: 필드명이 바뀌어도 동작
       if(typeof v==='string'&&v.trim()&&v.length>1)out.push(v.trim());
     }
   }
@@ -657,7 +728,7 @@ function naiJoinPrompt(base,caps){
   caps.forEach((c,i)=>parts.push(`[캐릭터 ${i+1}] ${c}`));
   return parts.join('\n');
 }
-function parseNaiMetadata(meta){
+function parseNaiMetadata(meta,via){
   const c=safeJson(meta.Comment)||{};
   const vp=c.v4_prompt&&c.v4_prompt.caption, vn=c.v4_negative_prompt&&c.v4_negative_prompt.caption;
   // 검증 결과 Description === Comment.prompt === v4 base_caption (완전 일치) → 어느 쪽이든 안전
@@ -667,7 +738,8 @@ function parseNaiMetadata(meta){
   const negative=naiJoinPrompt(negBase,naiCharCaptions(vn));
   const num=v=>(typeof v==='number'&&isFinite(v))?v:undefined;
   return {
-    gen:'nai', source:'NovelAI', metaFound:true,
+    gen:'nai', source:via==='alpha'?'NovelAI (알파 채널 복구)':'NovelAI', metaFound:true,
+    metaVia:via||'text',
     model:meta.Source||'확인 불가',
     loras:[], // NAI엔 LoRA 개념 없음
     seed:num(c.seed), steps:num(c.steps), cfg:num(c.scale),
@@ -717,7 +789,18 @@ async function makeThumb(file){
   })
 }
 async function processFile(file){
-  const buffer=await readAsArrayBuffer(file); const meta=parseComfyMetadata(file,buffer); const img=await makeThumb(file);
+  const buffer=await readAsArrayBuffer(file); let meta=parseComfyMetadata(file,buffer);
+  // tEXt/iTXt로 아무것도 못 건졌으면 알파 채널 stealth pnginfo 폴백
+  // (커뮤니티에서 WebP로 재인코딩된 NAI 이미지가 이 경로로 살아남음)
+  if(!meta.metaFound){
+    const st=await readStealthFromFile(file);
+    if(st&&String(st.Software||'').trim()==='NovelAI'&&st.Comment){
+      const ex=parseNaiMetadata(st,'alpha');
+      ex.rawMeta=String(st.Comment||'').slice(0,META_RAW_LIMIT);
+      meta=ex;
+    }
+  }
+  const img=await makeThumb(file);
   if(!meta.width)meta.width=img.width; if(!meta.height)meta.height=img.height;
   const tags=[]; if(meta.model)tags.push(meta.model.replace(/\.(safetensors|ckpt)$/i,'')); (meta.loras||[]).slice(0,4).forEach(l=>tags.push(l.name.replace(/\.(safetensors|ckpt)$/i,'')));
   return {id:uid(),title:file.name,fileName:file.name,size:file.size,type:file.type||'',thumb:img.thumb,createdAt:Date.now(),updatedAt:Date.now(),status:'보류',score:0,fav:false,tags:uniq(tags),notes:'',meta};
@@ -753,6 +836,7 @@ async function addFiles(files){
   else toast(ok+'개 추가했어');
 }
 function filtered(){
+  normalizeStateShape(state); // Drive/Gist 복원이 정규화를 우회해도 여기서 자가 치유 (신규 필드 추가 시 사고 방지)
   let q=state.query.trim().toLowerCase();
   let list=state.items.filter(it=>{
     if(state.status!=='전체'&&it.status!==state.status)return false;
@@ -831,6 +915,7 @@ function renderDetail(){const it=current();$('#detail-empty').style.display=it?'
     if(m.naiSmea)rows.push(['SMEA',m.naiSmea]);
     if(m.denoise!=null)rows.push(['Strength',m.denoise]); // i2i일 때만
     if(m.naiGenTime)rows.push(['생성 시간',(Number(m.naiGenTime)?Number(m.naiGenTime).toFixed(2)+'초':m.naiGenTime)]);
+    if(m.metaVia==='alpha')rows.push(['메타 복구','알파 채널 (stealth pnginfo)']);
     if(m.naiSigned)rows.push(['NAI 서명','있음']);
   }else{
     rows.push(['Denoise',m.denoise??'확인 불가']);
@@ -1066,7 +1151,7 @@ function openCtxMenu(x,y,items){
 function cardMenuItems(it){return[{icon:it.fav?'★':'☆',label:it.fav?'즐겨찾기 해제':'즐겨찾기',action:()=>toggleItemFav(it)},{sep:true},{icon:'📋',label:'카드 복제',action:()=>duplicateItem(it)},{icon:'📄',label:'메타 텍스트 복사',action:()=>copyItemMeta(it)},{icon:'＋',label:'일괄 선택 모드',action:()=>enterSelectMode()},{sep:true},{icon:'🏷',label:'상태 변경',submenu:['보류','성공','재작업','폐기'].map(st=>({icon:it.status===st?'●':' ',label:st,action:()=>setItemStatus(it,st)}))},{sep:true},{icon:'🗑',label:'삭제',danger:true,action:()=>deleteItem(it)}]}
 function boardMenuItems(){return[{icon:'＋',label:'이미지 추가',action:()=>$('#file-input').click()},{icon:'☐',label:'일괄 선택 모드',action:()=>enterSelectMode()},{sep:true},{icon:'⤺',label:'필터 초기화',action:()=>{$('#clear-filter-btn').click()}},{icon:'⬆',label:'JSON 내보내기',action:()=>exportData()},{icon:'⬇',label:'JSON 불러오기',action:()=>$('#import-input').click()}]}
 
-function render(){ $('#search').value=state.query;$('#search-clear').classList.toggle('visible',!!state.query);$('#sort-select').value=state.sort;$('#score-filter').value=state.scoreFilter;$('#fav-only').checked=state.favOnly;renderStatuses();renderChips();renderList();renderDetail();renderStats()}
+function render(){ normalizeStateShape(state); $('#search').value=state.query;$('#search-clear').classList.toggle('visible',!!state.query);$('#sort-select').value=state.sort;$('#score-filter').value=state.scoreFilter;$('#fav-only').checked=state.favOnly;renderStatuses();renderChips();renderList();renderDetail();renderStats()}
 function saveDetail(){const it=current();if(!it)return;it.title=$('#d-title').value.trim()||'제목 없음';it.status=$('#d-status').value;it.score=Number($('#d-score').value)||0;it.tags=uniq($('#d-tags').value.split(','));it.notes=$('#d-notes').value.trim();it.updatedAt=Date.now();save();render();toast('저장했어')}
 function exportData(){const blob=new Blob([JSON.stringify({version:1,exportedAt:new Date().toISOString(),items:state.items},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='result_gallery_export_'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(a.href)}
 function importData(file){const r=new FileReader();r.onload=()=>{try{const data=JSON.parse(r.result);const items=Array.isArray(data)?data:data.items;if(!Array.isArray(items))throw Error('bad');state.items=[...items,...state.items];state.selectedId=state.items[0]?.id||null;save();render();toast(items.length+'개 불러왔어')}catch(e){toast('불러오기 실패')}};r.readAsText(file)}
