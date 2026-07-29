@@ -1258,6 +1258,48 @@ function closeSchema(){
 }
 function setStatus(sel,msg,type){const el=$(sel);if(!el)return;el.textContent=msg||'';el.className='status'+(type?' '+type:'');}
 
+/* 코드표 편집 전용: Enter 시 다음 코드 접두 자동 삽입.
+   숫자(40: → 41: ) + 단일 알파벳(A: → B:, Z/z에서 멈춤).
+   접두만 있고 내용이 빈 줄에서 Enter → 접두 지우고 연속 입력 종료.
+   Shift+Enter = 순수 개행. 한글 조합(IME) 중에는 개입 안 함. */
+function schemaNextPrefix(line){
+  // returns {prefix:다음 줄에 넣을 접두 | null, emptyCont:접두만 있고 내용 없음}
+  let m=line.match(/^(\s*)(\d+)\s*([:=])\s*(.*)$/);
+  if(m)return{prefix:m[1]+(parseInt(m[2],10)+1)+m[3]+' ',emptyCont:m[4]===''};
+  m=line.match(/^(\s*)([A-Za-z])\s*([:=])\s*(.*)$/);
+  if(m){
+    const ch=m[2];
+    if(ch==='Z'||ch==='z')return{prefix:null,emptyCont:m[4]===''};
+    return{prefix:m[1]+String.fromCharCode(ch.charCodeAt(0)+1)+m[3]+' ',emptyCont:m[4]===''};
+  }
+  return null;
+}
+function schemaInsertText(ta,start,end,text){
+  ta.setSelectionRange(start,end);
+  let ok=false;
+  try{ok=document.execCommand('insertText',false,text);}catch(_){ok=false;}
+  if(!ok){ // execCommand 실패 시 폴백 (undo 스택은 안 남음)
+    ta.setRangeText(text,start,end,'end');
+    ta.dispatchEvent(new Event('input',{bubbles:true}));
+  }
+}
+function schemaKeydown(e){
+  if(e.key!=='Enter'||e.shiftKey||e.isComposing||e.keyCode===229)return;
+  const ta=e.target;
+  if(ta.selectionStart!==ta.selectionEnd)return; // 범위 선택 중엔 개입 안 함
+  const pos=ta.selectionStart;
+  const val=ta.value;
+  const ls=val.lastIndexOf('\n',pos-1)+1;
+  let le=val.indexOf('\n',pos);if(le<0)le=val.length;
+  if(pos!==le)return; // 줄 끝에서만 작동 (줄 중간 Enter는 그냥 개행)
+  const info=schemaNextPrefix(val.slice(ls,le));
+  if(!info)return;
+  e.preventDefault();
+  if(info.emptyCont){schemaInsertText(ta,ls,le,'');return;} // 접두만 남은 줄 → 비우고 종료
+  if(info.prefix===null){schemaInsertText(ta,pos,pos,'\n');return;} // Z/z → 그냥 개행
+  schemaInsertText(ta,pos,pos,'\n'+info.prefix);
+}
+
 /* ---------- 출력 ---------- */
 let outTab='md',outMd='cur',outFilled=true;
 function buildMarkdown(){
@@ -1519,6 +1561,7 @@ window.save=save;window.render=render; // drive_sync.js 호환
   $('#gist-close-btn').addEventListener('click',closeGistModal);
   $('#gist-overlay').addEventListener('click',e=>{if(e.target.id==='gist-overlay')closeGistModal();});
 
+  $('#schema-text').addEventListener('keydown',schemaKeydown);
   $('#schema-check').addEventListener('click',()=>schemaCheck());
   $('#schema-save').addEventListener('click',schemaSave);
   $('#schema-close').addEventListener('click',closeSchema);
