@@ -25,7 +25,7 @@ header{display:flex;align-items:center;gap:10px;border-bottom:.5px solid var(--b
 .searchbar{display:flex;align-items:center;gap:7px;background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:7px 10px;margin-bottom:10px}.searchbar input{flex:1;min-width:0;border:0;background:transparent;outline:0;color:var(--text);font-size:13px}.searchbar button{border:0;background:transparent;color:var(--text3);cursor:pointer;display:none}.searchbar button.visible{display:block}.searchbar button:hover{color:var(--danger)}
 .cat-list{display:flex;flex-direction:column;gap:4px;margin:8px 0 12px}.cat{display:flex;align-items:center;justify-content:space-between;gap:8px;border:.5px solid transparent;background:transparent;color:var(--text2);padding:8px 10px;border-radius:var(--radius-sm);font-size:12px;cursor:pointer;text-align:left}.cat:hover{background:var(--bg2)}.cat.active{background:var(--accent);color:white}.cat .count{font-size:10px;color:inherit;opacity:.7}.stats{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px}.stat{background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:9px}.stat b{display:block;font-size:14px;color:var(--accent);margin-bottom:2px}.stat span{font-size:10px;color:var(--text3)}
 .sort-row{display:flex;gap:6px;align-items:center;margin-bottom:10px;flex-wrap:wrap}.sort-row select,.sort-row input{background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text2);font-size:12px;padding:6px 8px;outline:0}.small{font-size:11px;color:var(--text3);line-height:1.45}
-#list{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}.card{border:.5px solid var(--border);background:var(--bg);border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:.12s;position:relative}.card:hover{border-color:var(--border2);box-shadow:0 4px 16px rgba(0,0,0,.06)}.card.active{outline:2px solid var(--accent);outline-offset:-2px}.thumb{aspect-ratio:1/1;background:var(--bg2);display:flex;align-items:center;justify-content:center;overflow:hidden}.thumb img{width:100%;height:100%;object-fit:cover;display:block}.thumb .noimg{font-size:12px;color:var(--text3)}.card-info{padding:10px}.card-title{font-size:12px;font-weight:700;color:var(--text);line-height:1.35;word-break:break-all;padding-right:22px}.fav{position:absolute;right:5px;top:5px;color:#fff;background:rgba(0,0,0,.35);font-size:16px;cursor:pointer;padding:3px 6px;border-radius:999px;line-height:1;z-index:2;user-select:none}.fav.on{color:var(--accent3)}.card-meta{display:flex;gap:4px;flex-wrap:wrap;margin:7px 0}.pill{font-size:10px;padding:2px 7px;border-radius:999px;background:var(--bg2);border:.5px solid var(--border);color:var(--text2)}.pill.status-ok{background:rgba(106,200,176,.12);color:var(--ok);border-color:rgba(106,200,176,.32)}.pill.status-bad{background:rgba(187,102,136,.12);color:var(--danger);border-color:rgba(187,102,136,.28)}.pill.meta{color:white;background:var(--accent);border-color:var(--accent)}.card-note{font-size:11px;color:var(--text3);line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap}.empty{grid-column:1/-1;text-align:center;color:var(--text3);font-size:13px;padding:4rem 1rem;border:.5px dashed var(--border);border-radius:var(--radius);background:var(--bg2)}
+#list{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}.card{border:.5px solid var(--border);background:var(--bg);border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:.12s;position:relative}.card:hover{border-color:var(--border2);box-shadow:0 4px 16px rgba(0,0,0,.06)}.card.active{outline:2px solid var(--accent);outline-offset:-2px}.thumb{aspect-ratio:1/1;background:var(--bg2);display:flex;align-items:center;justify-content:center;overflow:hidden}.thumb img{width:100%;height:100%;object-fit:cover;display:block}.thumb .noimg{font-size:12px;color:var(--text3)}.card-info{padding:10px}.card-title{font-size:12px;font-weight:700;color:var(--text);line-height:1.35;word-break:break-all;padding-right:22px}.fav{position:absolute;right:5px;top:5px;color:#fff;background:rgba(0,0,0,.35);font-size:16px;cursor:pointer;padding:3px 6px;border-radius:999px;line-height:1;z-index:2;user-select:none}.fav.on{color:var(--accent3)}.card-meta{display:flex;gap:4px;flex-wrap:wrap;margin:7px 0}.pill{font-size:10px;padding:2px 7px;border-radius:999px;background:var(--bg2);border:.5px solid var(--border);color:var(--text2)}.pill.status-ok{background:rgba(106,200,176,.12);color:var(--ok);border-color:rgba(106,200,176,.32)}.pill.status-bad{background:rgba(187,102,136,.12);color:var(--danger);border-color:rgba(187,102,136,.28)}.pill.meta{color:white;background:var(--accent);border-color:var(--accent)}.pill.meta.nai{background:var(--accent2);border-color:var(--accent2);color:#5a3348}.card-note{font-size:11px;color:var(--text3);line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap}.empty{grid-column:1/-1;text-align:center;color:var(--text3);font-size:13px;padding:4rem 1rem;border:.5px dashed var(--border);border-radius:var(--radius);background:var(--bg2)}
 .form-grid{display:grid;gap:9px}.field{display:grid;gap:4px}.field label{font-size:10px;color:var(--text3);letter-spacing:.6px;text-transform:uppercase;font-weight:700}.field input,.field textarea,.field select{width:100%;background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:12px;padding:8px 9px;outline:0}.field textarea{resize:vertical;min-height:70px;line-height:1.55}.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--accent)}.row{display:flex;gap:7px;align-items:center}.row>*{flex:1}.actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.actions .btn{font-size:12px;padding:7px 10px}.preview-img{width:100%;border-radius:var(--radius-sm);border:.5px solid var(--border);background:var(--bg2);overflow:hidden}.preview-img img{width:100%;display:block}.kv{display:grid;grid-template-columns:90px 1fr;gap:5px 8px;background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:10px;font-size:11px}.kv b{color:var(--text3);font-weight:700}.kv span{color:var(--text2);word-break:break-all}.codebox{background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:10px;font-family:Consolas,Menlo,monospace;font-size:11px;color:var(--text2);line-height:1.55;white-space:pre-wrap;word-break:break-word;max-height:220px;overflow:auto}.tagline{display:flex;gap:4px;flex-wrap:wrap}.tag{font-size:11px;padding:2px 7px;background:var(--bg2);border:.5px solid var(--border);border-radius:999px;color:var(--text2)}
 #file-input,#import-input{position:absolute;width:1px;height:1px;padding:0;border:0;clip:rect(0 0 0 0);overflow:hidden;opacity:0;pointer-events:none}.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:9px 13px;border-radius:999px;font-size:12px;z-index:9999;box-shadow:0 8px 28px rgba(0,0,0,.18);opacity:0;pointer-events:none;transition:.18s}.toast.show{opacity:1}
 
@@ -47,6 +47,8 @@ header{display:flex;align-items:center;gap:10px;border-bottom:.5px solid var(--b
 .fchip:hover{border-color:var(--border2);color:var(--text)}
 .fchip.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 .fchip.active.lora{background:var(--accent3);color:#fff;border-color:var(--accent3)}
+.fchip.active.gen-nai{background:var(--accent2);color:#5a3348;border-color:var(--accent2)}
+.fchip.active.gen-none{background:#884499;color:#fff;border-color:#884499}
 .fchip .fc-count{font-size:9px;opacity:.7;font-weight:700}
 
 /* 갤러리 뷰: 사이드/상세 패널 숨김 */
@@ -270,7 +272,7 @@ body.eo-open{overflow:hidden}
   <aside class="panel">
     <div class="panel-head">필터 <span id="total-count">0</span></div>
     <div class="panel-body">
-      <div id="drop-zone">ComfyUI 원본 PNG를 드롭하거나 탭<br><span class="hint">PNG 메타데이터에서 seed · steps · CFG · sampler · prompt를 자동 추출</span></div>
+      <div id="drop-zone">ComfyUI · NovelAI 원본 PNG를 드롭하거나 탭<br><span class="hint">어느 쪽이든 자동 판별해서 seed · steps · CFG · sampler · prompt를 추출</span></div>
       <div class="cat-list" id="status-list"></div>
       <div class="hint"><strong>주의</strong><br>메신저/웹 업로드를 거친 이미지는 메타데이터가 제거될 수 있어. 이 경우 값은 확인 불가로 남겨둬.</div>
       <div class="stats">
@@ -296,6 +298,10 @@ body.eo-open{overflow:hidden}
           <div class="chip-row" id="tag-chips"></div>
         </div>
         <div class="chip-group">
+          <span class="chip-label">출처</span>
+          <div class="chip-row" id="gen-chips"></div>
+        </div>
+        <div class="chip-group">
           <span class="chip-label">LoRA</span>
           <div class="chip-row" id="lora-chips"></div>
         </div>
@@ -306,7 +312,7 @@ body.eo-open{overflow:hidden}
   <section class="panel detail-panel" id="detail-panel">
     <div class="panel-head"><span>상세 / 평가 <span id="selected-state">선택 없음</span></span><button class="detail-toggle" id="detail-toggle" title="접기">▲</button></div>
     <div class="panel-body">
-      <div id="detail-empty" class="hint">이미지를 선택해봐. 원본 ComfyUI PNG면 메타데이터를 자동으로 읽어서 채워둘게.</div>
+      <div id="detail-empty" class="hint">이미지를 선택해봐. 원본 ComfyUI · NovelAI PNG면 메타데이터를 자동으로 읽어서 채워둘게.</div>
       <div id="detail" style="display:none">
         <div class="form-grid">
           <div class="preview-img"><img id="d-img" alt=""></div>
@@ -338,7 +344,7 @@ body.eo-open{overflow:hidden}
 <input type="file" id="import-input" accept="application/json,.json">
 <button id="sel-chip" type="button" title="선택 작업 열기">✓ <b id="sel-chip-count">0</b>개 선택</button>
 <div id="jump-nav"><button type="button" id="jump-top" title="맨 위로">▲</button><button type="button" id="jump-bottom" title="맨 아래로">▼</button></div>
-<div id="global-drop"><div class="gd-box" id="gd-box">📥 여기 놓으면 업로드<small>ComfyUI 원본 PNG는 메타데이터 자동 추출</small></div></div>
+<div id="global-drop"><div class="gd-box" id="gd-box">📥 여기 놓으면 업로드<small>ComfyUI · NovelAI 원본 PNG는 메타데이터 자동 추출</small></div></div>
 
 <div id="lightbox" aria-hidden="true">
   <div class="lb-shell">
@@ -410,7 +416,7 @@ const STATUSES=['전체','보류','성공','재작업','폐기'];
 const LB_SPEEDS=[2000,3000,4000,5000];
 const LB_SPEED_DEFAULT=3000;
 const LB_MOBILE_MQ='(max-width:720px)';
-let state={items:[],selectedId:null,status:'전체',query:'',sort:'new',scoreFilter:'all',favOnly:false,view:'default',tagFilter:[],loraFilter:[],expandedIds:[]};
+let state={items:[],selectedId:null,status:'전체',query:'',sort:'new',scoreFilter:'all',favOnly:false,view:'default',tagFilter:[],loraFilter:[],genFilter:[],expandedIds:[]};
 let selectMode=false;
 let selectedIds=new Set();
 const $=s=>document.querySelector(s);
@@ -437,6 +443,7 @@ function normalizeStateShape(s){
   if(!s.view)s.view='default';
   if(!Array.isArray(s.tagFilter))s.tagFilter=[];
   if(!Array.isArray(s.loraFilter))s.loraFilter=[];
+  if(!Array.isArray(s.genFilter))s.genFilter=[];
   if(!Array.isArray(s.expandedIds))s.expandedIds=[];
   return s;
 }
@@ -452,6 +459,7 @@ function stripUiState(s){
     view:s.view||'default',
     tagFilter:Array.isArray(s.tagFilter)?s.tagFilter:[],
     loraFilter:Array.isArray(s.loraFilter)?s.loraFilter:[],
+    genFilter:Array.isArray(s.genFilter)?s.genFilter:[],
     expandedIds:Array.isArray(s.expandedIds)?s.expandedIds:[],
     savedAt:new Date().toISOString()
   };
@@ -462,6 +470,7 @@ function applyUiState(ui){
   if('favOnly' in ui)state.favOnly=!!ui.favOnly;
   if(Array.isArray(ui.tagFilter))state.tagFilter=ui.tagFilter;
   if(Array.isArray(ui.loraFilter))state.loraFilter=ui.loraFilter;
+  if(Array.isArray(ui.genFilter))state.genFilter=ui.genFilter;
   if(Array.isArray(ui.expandedIds))state.expandedIds=ui.expandedIds;
 }
 function saveUiState(){try{localStorage.setItem(UI_STORE_KEY,JSON.stringify(stripUiState(state)))}catch(e){console.warn('UI 상태 저장 실패',e)}}
@@ -628,14 +637,72 @@ function pickPromptGraph(prompt){
     positive, negative
   };
 }
+/* char_captions 방어적 수집: 내부 필드명을 모르는 상태에서도 문자열만 긁어온다.
+   (검증 샘플은 단일 캐릭터라 배열이 비어 있었음 — 다중 캐릭터 구조는 미확인) */
+function naiCharCaptions(capObj){
+  const arr=capObj&&Array.isArray(capObj.char_captions)?capObj.char_captions:[];
+  const out=[];
+  for(const c of arr){
+    if(typeof c==='string'){if(c.trim())out.push(c.trim());continue}
+    if(!c||typeof c!=='object')continue;
+    for(const v of Object.values(c)){
+      if(typeof v==='string'&&v.trim()&&v.length>1)out.push(v.trim());
+    }
+  }
+  return out;
+}
+function naiJoinPrompt(base,caps){
+  const parts=[];
+  if(base&&String(base).trim())parts.push(String(base).trim());
+  caps.forEach((c,i)=>parts.push(`[캐릭터 ${i+1}] ${c}`));
+  return parts.join('\n');
+}
+function parseNaiMetadata(meta){
+  const c=safeJson(meta.Comment)||{};
+  const vp=c.v4_prompt&&c.v4_prompt.caption, vn=c.v4_negative_prompt&&c.v4_negative_prompt.caption;
+  // 검증 결과 Description === Comment.prompt === v4 base_caption (완전 일치) → 어느 쪽이든 안전
+  const posBase=c.prompt||(vp&&vp.base_caption)||meta.Description||'';
+  const negBase=c.uc||(vn&&vn.base_caption)||'';
+  const positive=naiJoinPrompt(posBase,naiCharCaptions(vp));
+  const negative=naiJoinPrompt(negBase,naiCharCaptions(vn));
+  const num=v=>(typeof v==='number'&&isFinite(v))?v:undefined;
+  return {
+    gen:'nai', source:'NovelAI', metaFound:true,
+    model:meta.Source||'확인 불가',
+    loras:[], // NAI엔 LoRA 개념 없음
+    seed:num(c.seed), steps:num(c.steps), cfg:num(c.scale),
+    sampler:c.sampler||'', scheduler:c.noise_schedule||'',
+    denoise:num(c.strength), // i2i일 때만 존재
+    width:num(c.width), height:num(c.height),
+    positive, negative,
+    // NAI 전용
+    naiCfgRescale:num(c.cfg_rescale), naiUncondScale:num(c.uncond_scale),
+    naiSmea:(c.sm===true)?(c.sm_dyn===true?'SMEA DYN':'SMEA'):(c.sm===false?'끔':''),
+    naiGenTime:meta['Generation time']||'',
+    naiSigned:!!c.signed_hash
+  };
+}
 function parseComfyMetadata(file,buffer){
   const meta=file.type==='image/png'||file.name.toLowerCase().endsWith('.png')?parsePngText(buffer):{};
+  // ── NAI 판별: Software 청크가 NovelAI. ComfyUI의 prompt/workflow 키와 충돌하지 않음 ──
+  if(String(meta.Software||'').trim()==='NovelAI'&&meta.Comment){
+    const ex=parseNaiMetadata(meta);
+    ex.rawMeta=String(meta.Comment||'').slice(0,META_RAW_LIMIT);
+    return ex;
+  }
   const promptRaw=meta.prompt||meta.Prompt||''; const workflowRaw=meta.workflow||meta.Workflow||'';
-  const prompt=safeJson(promptRaw); let extracted={source:'확인 불가',metaFound:false,positive:'',negative:'',loras:[]};
-  if(prompt){extracted={...pickPromptGraph(prompt),source:'ComfyUI prompt',metaFound:true};}
-  else if(workflowRaw){extracted.source='workflow 감지 · prompt API 없음'; extracted.metaFound=true;}
+  const prompt=safeJson(promptRaw); let extracted={gen:'',source:'확인 불가',metaFound:false,positive:'',negative:'',loras:[]};
+  if(prompt){extracted={...pickPromptGraph(prompt),gen:'comfy',source:'ComfyUI prompt',metaFound:true};}
+  else if(workflowRaw){extracted.gen='comfy';extracted.source='workflow 감지 · prompt API 없음'; extracted.metaFound=true;}
   extracted.rawMeta=(promptRaw||workflowRaw||'').slice(0,META_RAW_LIMIT);
   return extracted;
+}
+/* 구버전 카드 호환: gen 필드가 없던 시절 데이터를 source로 역추론 */
+function genOf(it){
+  const m=it&&it.meta;if(!m)return '';
+  if(m.gen)return m.gen;
+  if(!m.metaFound)return '';
+  return String(m.source||'').startsWith('NovelAI')?'nai':'comfy';
 }
 async function makeThumb(file){
   const url=await readAsDataURL(file);
@@ -692,6 +759,7 @@ function filtered(){
     if(state.favOnly&&!it.fav)return false;
     const sf=state.scoreFilter; if(sf==='0'&&Number(it.score)!==0)return false; if(['3','4','5'].includes(sf)&&Number(it.score)<Number(sf))return false;
     if(state.tagFilter.length){const tags=(it.tags||[]); if(!state.tagFilter.every(t=>tags.includes(t)))return false;}
+    if(state.genFilter.length&&!state.genFilter.includes(genKey(it)))return false;
     if(state.loraFilter.length){const lns=(it.meta?.loras||[]).map(l=>cleanLoraName(l.name)); if(!state.loraFilter.every(l=>lns.includes(l)))return false;}
     if(q){const m=it.meta||{}; const hay=[it.title,it.fileName,it.status,(it.tags||[]).join(' '),it.notes,m.model,(m.loras||[]).map(l=>l.name).join(' '),m.positive,m.negative].join(' ').toLowerCase(); if(!hay.includes(q))return false;}
     return true;
@@ -707,12 +775,12 @@ function renderList(){
   const list=filtered(), box=$('#list');
   $('#view-info').textContent=list.length+'개 표시';
   $('#total-count').textContent=state.items.length+'개';
-  if(!list.length){box.innerHTML='<div class="empty">이미지가 없어. ComfyUI 원본 PNG를 추가해봐.</div>';return}
+  if(!list.length){box.innerHTML='<div class="empty">이미지가 없어. ComfyUI · NovelAI 원본 PNG를 추가해봐.</div>';return}
   box.innerHTML=list.map(it=>{
     const expanded=state.expandedIds.includes(it.id);
     const tagsArr=it.tags||[];
     const tagsMini=tagsArr.slice(0,5).map(t=>`<span class="tag-mini">#${esc(t)}</span>`).join('')+(tagsArr.length>5?`<span class="tag-mini">+${tagsArr.length-5}</span>`:'');
-    return `<article class="card ${it.id===state.selectedId?'active':''}${selectMode&&selectedIds.has(it.id)?' selected':''}" data-id="${it.id}"><div class="fav ${it.fav?'on':''}">${it.fav?'★':'☆'}</div><div class="thumb${it.thumbStripped?' stripped':''}">${it.thumb?`<img src="${it.thumb}" alt="">`:it.thumbStripped?'<span class="sync-noimg" title="원본 PNG를 다시 드롭하면 자동으로 채워져"><span class="sn-icon">☁</span>다른 기기에서<br>동기화됨<span class="sn-sub">원본 PNG 드롭 시 자동 매칭</span></span>':'<span class="noimg">이미지 없음</span>'}</div><div class="card-info"><div class="card-title">${esc(it.title)}</div><div class="card-meta"><span class="pill ${statusClass(it.status)}">${esc(it.status)}</span><span class="pill">${stars(it.score)}</span>${it.meta&&it.meta.metaFound?'<span class="pill meta">meta</span>':''}</div><div class="card-tags-mini">${tagsMini}</div><div class="card-note">${esc(it.notes||it.meta?.model||it.meta?.source||'메모 없음')}</div><button class="card-expand-btn" data-expand="${it.id}"><span class="ce-arrow">${expanded?'▴':'▾'}</span><span class="ce-label">${expanded?'정보 접기':'정보 보기'}</span></button><div class="card-expanded ${expanded?'open':''}" data-eid="${it.id}">${cardExpandedHTML(it)}</div></div></article>`;
+    return `<article class="card ${it.id===state.selectedId?'active':''}${selectMode&&selectedIds.has(it.id)?' selected':''}" data-id="${it.id}"><div class="fav ${it.fav?'on':''}">${it.fav?'★':'☆'}</div><div class="thumb${it.thumbStripped?' stripped':''}">${it.thumb?`<img src="${it.thumb}" alt="">`:it.thumbStripped?'<span class="sync-noimg" title="원본 PNG를 다시 드롭하면 자동으로 채워져"><span class="sn-icon">☁</span>다른 기기에서<br>동기화됨<span class="sn-sub">원본 PNG 드롭 시 자동 매칭</span></span>':'<span class="noimg">이미지 없음</span>'}</div><div class="card-info"><div class="card-title">${esc(it.title)}</div><div class="card-meta"><span class="pill ${statusClass(it.status)}">${esc(it.status)}</span><span class="pill">${stars(it.score)}</span>${(g=>g?`<span class="pill meta ${g}">${g==='nai'?'NAI':'Comfy'}</span>`:'')(genOf(it))}</div><div class="card-tags-mini">${tagsMini}</div><div class="card-note">${esc(it.notes||it.meta?.model||it.meta?.source||'메모 없음')}</div><button class="card-expand-btn" data-expand="${it.id}"><span class="ce-arrow">${expanded?'▴':'▾'}</span><span class="ce-label">${expanded?'정보 접기':'정보 보기'}</span></button><div class="card-expanded ${expanded?'open':''}" data-eid="${it.id}">${cardExpandedHTML(it)}</div></div></article>`;
   }).join('');
   box.classList.toggle('select-mode',selectMode);
   box.querySelectorAll('.card').forEach(c=>c.onclick=()=>{if(selectMode){toggleCardSelect(c.dataset.id,c);return;}openEdit(c.dataset.id)});
@@ -752,7 +820,23 @@ function renderList(){
   }
 }
 function current(){return state.items.find(i=>i.id===state.selectedId)}
-function renderDetail(){const it=current();$('#detail-empty').style.display=it?'none':'block';$('#detail').style.display=it?'block':'none';$('#selected-state').textContent=it?'편집 중':'선택 없음';if(!it)return;const m=it.meta||{};$('#d-img').src=it.thumb||'';$('#d-title').value=it.title||'';$('#d-status').value=it.status||'보류';$('#d-score').value=String(it.score||0);$('#d-tags').value=(it.tags||[]).join(', ');$('#d-notes').value=it.notes||'';$('#toggle-fav-btn').textContent=it.fav?'즐겨찾기 해제':'즐겨찾기';const loras=(m.loras||[]).map(l=>`${l.name}${l.strength_model!=null?' @'+l.strength_model:''}`).join(', ');$('#d-kv').innerHTML=[['출처',m.source||'확인 불가'],['모델',m.model||'확인 불가'],['LoRA',loras||'확인 불가'],['Seed',m.seed??'확인 불가'],['Steps',m.steps??'확인 불가'],['CFG',m.cfg??'확인 불가'],['Sampler',m.sampler||'확인 불가'],['Scheduler',m.scheduler||'확인 불가'],['Denoise',m.denoise??'확인 불가'],['크기',(m.width&&m.height)?`${m.width}×${m.height}`:'확인 불가'],['파일',bytes(it.size)]].map(([k,v])=>`<b>${esc(k)}</b><span>${esc(v)}</span>`).join('');$('#d-positive').textContent=m.positive||'확인 불가';$('#d-negative').textContent=m.negative||'확인 불가'}
+function renderDetail(){const it=current();$('#detail-empty').style.display=it?'none':'block';$('#detail').style.display=it?'block':'none';$('#selected-state').textContent=it?'편집 중':'선택 없음';if(!it)return;const m=it.meta||{};$('#d-img').src=it.thumb||'';$('#d-title').value=it.title||'';$('#d-status').value=it.status||'보류';$('#d-score').value=String(it.score||0);$('#d-tags').value=(it.tags||[]).join(', ');$('#d-notes').value=it.notes||'';$('#toggle-fav-btn').textContent=it.fav?'즐겨찾기 해제':'즐겨찾기';const loras=(m.loras||[]).map(l=>`${l.name}${l.strength_model!=null?' @'+l.strength_model:''}`).join(', ');
+  const gen=genOf(it);
+  const rows=[['출처',m.source||'확인 불가'],['모델',m.model||'확인 불가']];
+  if(gen!=='nai')rows.push(['LoRA',loras||'확인 불가']); // NAI엔 LoRA 개념 없음 → 행 자체를 뺌
+  rows.push(['Seed',m.seed??'확인 불가'],['Steps',m.steps??'확인 불가'],['CFG',m.cfg??'확인 불가'],['Sampler',m.sampler||'확인 불가'],['Scheduler',m.scheduler||'확인 불가']);
+  if(gen==='nai'){
+    if(m.naiCfgRescale!=null)rows.push(['CFG Rescale',m.naiCfgRescale]);
+    if(m.naiUncondScale!=null)rows.push(['Uncond Scale',m.naiUncondScale]);
+    if(m.naiSmea)rows.push(['SMEA',m.naiSmea]);
+    if(m.denoise!=null)rows.push(['Strength',m.denoise]); // i2i일 때만
+    if(m.naiGenTime)rows.push(['생성 시간',(Number(m.naiGenTime)?Number(m.naiGenTime).toFixed(2)+'초':m.naiGenTime)]);
+    if(m.naiSigned)rows.push(['NAI 서명','있음']);
+  }else{
+    rows.push(['Denoise',m.denoise??'확인 불가']);
+  }
+  rows.push(['크기',(m.width&&m.height)?`${m.width}×${m.height}`:'확인 불가'],['파일',bytes(it.size)]);
+  $('#d-kv').innerHTML=rows.map(([k,v])=>`<b>${esc(k)}</b><span>${esc(v)}</span>`).join('');$('#d-positive').textContent=m.positive||'확인 불가';$('#d-negative').textContent=m.negative||'확인 불가'}
 // [C단계] 무거운 용량 계산을 렌더링 경로에서 분리한다.
 // JSON.stringify(state)와 estimateGistPayloadBytes()(내부에서 state를 깊은 복제)는
 // 항목이 쌓이면 render()마다 돌리기엔 비싸다. 디바운스로 갱신 빈도를 낮춘다.
@@ -804,12 +888,28 @@ function cardExpandedHTML(it){
 }
 function tagCounts(){const m=new Map();state.items.forEach(it=>(it.tags||[]).forEach(t=>{const k=String(t).trim();if(k)m.set(k,(m.get(k)||0)+1)}));return [...m.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'ko'))}
 function loraCounts(){const m=new Map();state.items.forEach(it=>((it.meta&&it.meta.loras)||[]).forEach(l=>{const n=cleanLoraName(l.name);if(n)m.set(n,(m.get(n)||0)+1)}));return [...m.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'ko'))}
+/* 필터 토큰: 메타 없는 카드도 'none'으로 잡아낼 수 있게 통일 */
+function genKey(it){return genOf(it)||'none'}
+function genCounts(){const m=new Map();state.items.forEach(it=>{const g=genKey(it);m.set(g,(m.get(g)||0)+1)});return m}
+function renderGenChips(){
+  const box=$('#gen-chips');if(!box)return;
+  const counts=genCounts();
+  const defs=[['comfy','Comfy'],['nai','NAI'],['none','메타없음']].filter(([g])=>counts.get(g));
+  box.innerHTML=defs.length?defs.map(([g,label])=>`<button class="fchip gen-${g} ${state.genFilter.includes(g)?'active':''}" data-gen="${g}">${label}<span class="fc-count">${counts.get(g)}</span></button>`).join(''):'<span class="chip-empty">카드 없음 — ComfyUI 또는 NovelAI 원본 PNG를 추가해봐</span>';
+  box.querySelectorAll('.fchip').forEach(c=>c.onclick=()=>{
+    const g=c.dataset.gen;
+    const i=state.genFilter.indexOf(g);
+    if(i>=0)state.genFilter.splice(i,1); else state.genFilter.push(g);
+    save();render();
+  });
+}
 function renderChips(){
+  renderGenChips();
   const tagBox=$('#tag-chips'),loraBox=$('#lora-chips');
   if(!tagBox||!loraBox)return;
   const tags=tagCounts(),loras=loraCounts();
   tagBox.innerHTML=tags.length?tags.map(([t,n])=>`<button class="fchip ${state.tagFilter.includes(t)?'active':''}" data-tag="${esc(t)}">#${esc(t)}<span class="fc-count">${n}</span></button>`).join(''):'<span class="chip-empty">태그 없음 — 카드에 태그를 추가해봐</span>';
-  loraBox.innerHTML=loras.length?loras.map(([l,n])=>`<button class="fchip lora ${state.loraFilter.includes(l)?'active':''}" data-lora="${esc(l)}">${esc(l)}<span class="fc-count">${n}</span></button>`).join(''):'<span class="chip-empty">LoRA 정보 없음 — ComfyUI 원본 PNG를 추가하면 자동 감지돼</span>';
+  loraBox.innerHTML=loras.length?loras.map(([l,n])=>`<button class="fchip lora ${state.loraFilter.includes(l)?'active':''}" data-lora="${esc(l)}">${esc(l)}<span class="fc-count">${n}</span></button>`).join(''):'<span class="chip-empty">LoRA 정보 없음 — ComfyUI 원본 PNG를 추가하면 자동 감지돼 (NAI는 LoRA 개념이 없어)</span>';
   tagBox.querySelectorAll('.fchip').forEach(c=>c.onclick=()=>{
     const t=c.dataset.tag;
     const i=state.tagFilter.indexOf(t);
@@ -1110,7 +1210,7 @@ document.addEventListener('click',e=>{const m=$('#ctx-menu');if(m&&!m.contains(e
 document.addEventListener('contextmenu',e=>{if(selectMode)return;if(e.target.closest('input,textarea,select'))return;const card=e.target.closest('#list .card');const main=e.target.closest('main.panel');if(card){e.preventDefault();const it=state.items.find(x=>x.id===card.dataset.id);if(it)openCtxMenu(e.clientX,e.clientY,cardMenuItems(it))}else if(main){e.preventDefault();openCtxMenu(e.clientX,e.clientY,boardMenuItems())}});
 let lastTap={t:0,x:0,y:0};document.addEventListener('touchend',e=>{if(selectMode)return;if(!e.changedTouches||!e.changedTouches[0])return;const t=e.changedTouches[0],now=Date.now(),dt=now-lastTap.t,dx=Math.abs(t.clientX-lastTap.x),dy=Math.abs(t.clientY-lastTap.y);if(dt<350&&dx<25&&dy<25){if(t.target.closest&&t.target.closest('input,textarea,select,button,a'))return;const card=t.target.closest&&t.target.closest('#list .card');const main=t.target.closest&&t.target.closest('main.panel');if(card){const it=state.items.find(x=>x.id===card.dataset.id);if(it){e.preventDefault();openCtxMenu(t.clientX,t.clientY,cardMenuItems(it))}}else if(main){e.preventDefault();openCtxMenu(t.clientX,t.clientY,boardMenuItems())}lastTap.t=0}else lastTap={t:now,x:t.clientX,y:t.clientY}},{passive:false});
 
-$('#pick-btn').onclick=()=>$('#file-input').click();$('#file-input').onchange=e=>addFiles(e.target.files);$('#export-btn').onclick=exportData;$('#import-btn').onclick=()=>$('#import-input').click();$('#import-input').onchange=e=>{if(e.target.files[0])importData(e.target.files[0])};$('#clear-filter-btn').onclick=()=>{state.status='전체';state.query='';state.scoreFilter='all';state.favOnly=false;state.tagFilter=[];state.loraFilter=[];save();render()};
+$('#pick-btn').onclick=()=>$('#file-input').click();$('#file-input').onchange=e=>addFiles(e.target.files);$('#export-btn').onclick=exportData;$('#import-btn').onclick=()=>$('#import-input').click();$('#import-input').onchange=e=>{if(e.target.files[0])importData(e.target.files[0])};$('#clear-filter-btn').onclick=()=>{state.status='전체';state.query='';state.scoreFilter='all';state.favOnly=false;state.tagFilter=[];state.loraFilter=[];state.genFilter=[];save();render()};
 $('#search').oninput=e=>{state.query=e.target.value;save();render()};$('#search-clear').onclick=()=>{state.query='';save();render()};$('#sort-select').onchange=e=>{state.sort=e.target.value;save();render()};$('#score-filter').onchange=e=>{state.scoreFilter=e.target.value;save();render()};$('#fav-only').onchange=e=>{state.favOnly=e.target.checked;save();render()};
 $('#save-detail-btn').onclick=saveDetail;['#d-title','#d-status','#d-score','#d-tags','#d-notes'].forEach(s=>$(s).addEventListener('change',saveDetail));$('#copy-positive-btn').onclick=()=>{navigator.clipboard.writeText(current()?.meta?.positive||'');toast('Positive 복사했어')};$('#copy-negative-btn').onclick=()=>{navigator.clipboard.writeText(current()?.meta?.negative||'');toast('Negative 복사했어')};$('#toggle-fav-btn').onclick=()=>{const it=current();if(!it)return;it.fav=!it.fav;save();render()};$('#delete-btn').onclick=async()=>{const it=current();if(!it)return;if(!await showConfirm('이 결과를 삭제할까? 원본 파일은 삭제되지 않아.',{danger:true}))return;state.items=state.items.filter(x=>x.id!==it.id);state.selectedId=state.items[0]?.id||null;save();render();toast('삭제했어')};$('#open-lightbox-btn').onclick=openLightbox;bindLightbox();
 /* === patch: 오버레이 바인딩 === */
@@ -1328,6 +1428,7 @@ function showSlotPicker(slots, token, gistId){
       if(!state.view) state.view='default';
       if(!Array.isArray(state.tagFilter)) state.tagFilter=[];
       if(!Array.isArray(state.loraFilter)) state.loraFilter=[];
+      if(!Array.isArray(state.genFilter)) state.genFilter=[];
       if(!Array.isArray(state.expandedIds)) state.expandedIds=[];
       // 매칭되는 로컬 썸네일 복구
       let restored=0;
