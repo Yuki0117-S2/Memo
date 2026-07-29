@@ -267,6 +267,20 @@ body.eo-open{overflow:hidden}
 .ds-raw-parsed{color:var(--accent);word-break:break-all}
 .ds-raw-pre{color:var(--text2);font-family:Consolas,Menlo,monospace;font-size:10px;line-height:1.5;white-space:pre-wrap;word-break:break-all;background:var(--bg);border:.5px solid var(--border);border-radius:8px;padding:7px 8px;max-height:130px;overflow-y:auto;flex:1}
 .ds-mismatch{color:var(--danger);font-weight:800}
+/* 유사 작가 검토 */
+#sim-overlay{position:fixed;inset:0;z-index:10047;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:18px}
+#sim-overlay.open{display:flex}
+#sim-body{gap:7px}
+.sim-row{display:flex;align-items:center;gap:9px;border:.5px solid var(--border);border-radius:10px;padding:8px 10px;background:var(--bg2);flex-wrap:wrap}
+.sim-dist{flex:0 0 auto;font-size:10px;font-weight:800;color:var(--text3);background:var(--bg);border-radius:999px;padding:2px 8px}
+.sim-names{flex:1;display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+.sim-pick{flex:1;min-width:130px;text-align:left;border:.5px solid var(--border2);background:var(--bg);color:var(--text);font-size:11px;font-weight:700;border-radius:8px;padding:6px 9px;cursor:pointer;font-family:inherit;overflow-wrap:anywhere}
+.sim-pick:hover{border-color:var(--accent);background:var(--accent);color:#fff}
+.sim-pick:hover .sim-cnt{color:rgba(255,255,255,.8)}
+.sim-cnt{font-size:10px;font-weight:400;color:var(--text3);margin-left:4px}
+.sim-vs{flex:0 0 auto;font-size:11px;color:var(--text3)}
+.sim-ignore{flex:0 0 auto;border:.5px solid var(--border2);background:transparent;color:var(--text3);font-size:10px;border-radius:999px;padding:4px 10px;cursor:pointer;font-family:inherit;white-space:nowrap}
+.sim-ignore:hover{border-color:var(--danger);color:var(--danger)}
 #global-drop.on{display:flex}
 .gd-box{border:2px dashed var(--accent);background:var(--bg);color:var(--accent);border-radius:16px;padding:26px 34px;font-size:15px;font-weight:800;box-shadow:0 12px 40px rgba(0,0,0,.22);text-align:center;line-height:1.6}
 .gd-box small{display:block;font-size:11px;font-weight:400;color:var(--text3);margin-top:4px}
@@ -284,6 +298,7 @@ body.eo-open{overflow:hidden}
     <button class="btn outline" id="import-btn">불러오기</button>
     <button class="btn ghost" id="select-mode-btn">선택</button>
     <button class="btn ghost" id="artist-export-btn" title="사용된 작가 목록을 TXT로 뽑아 (와일드카드용)">작가 TXT</button>
+    <button class="btn ghost" id="sim-scan-btn" title="오타로 갈라진 작가명 통합">유사 작가</button>
     <button class="btn ghost" id="dup-scan-btn" title="작가 조합(가중치 포함)이 같은 카드 찾기">중복 검사</button>
     <button class="btn ghost" id="clear-filter-btn">필터 초기화</button>
     <div class="view-toggle">
@@ -381,6 +396,14 @@ body.eo-open{overflow:hidden}
 <button id="sel-chip" type="button" title="선택 작업 열기">✓ <b id="sel-chip-count">0</b>개 선택</button>
 <div id="jump-nav"><button type="button" id="jump-top" title="맨 위로">▲</button><button type="button" id="jump-bottom" title="맨 아래로">▼</button></div>
 <div id="global-drop"><div class="gd-box" id="gd-box">📥 여기 놓으면 업로드<small>ComfyUI · NovelAI 원본 PNG는 메타데이터 자동 추출</small></div></div>
+
+<div id="sim-overlay" aria-hidden="true">
+  <div class="ds-shell">
+    <div class="ds-head"><span>유사 작가 검토 (오타 통합)</span><button class="eo-close" id="sim-close" title="닫기">×</button></div>
+    <div class="ds-body" id="sim-body"></div>
+    <div class="ds-foot"><span id="sim-summary"></span><span class="grow"></span><button class="btn ghost" id="sim-reset">통합 초기화</button></div>
+  </div>
+</div>
 
 <div id="dup-scan-overlay" aria-hidden="true">
   <div class="ds-shell">
@@ -498,6 +521,8 @@ function normalizeStateShape(s){
   if(!Array.isArray(s.tagFilter))s.tagFilter=[];
   if(!Array.isArray(s.loraFilter))s.loraFilter=[];
   if(!Array.isArray(s.genFilter))s.genFilter=[];
+  if(!s.artistAliases||typeof s.artistAliases!=='object')s.artistAliases={};
+  if(!Array.isArray(s.artistPairsIgnored))s.artistPairsIgnored=[];
   if(!Array.isArray(s.expandedIds))s.expandedIds=[];
   return s;
 }
@@ -514,6 +539,8 @@ function stripUiState(s){
     tagFilter:Array.isArray(s.tagFilter)?s.tagFilter:[],
     loraFilter:Array.isArray(s.loraFilter)?s.loraFilter:[],
     genFilter:Array.isArray(s.genFilter)?s.genFilter:[],
+    artistAliases:(s.artistAliases&&typeof s.artistAliases==='object')?s.artistAliases:{},
+    artistPairsIgnored:Array.isArray(s.artistPairsIgnored)?s.artistPairsIgnored:[],
     expandedIds:Array.isArray(s.expandedIds)?s.expandedIds:[],
     savedAt:new Date().toISOString()
   };
@@ -525,6 +552,8 @@ function applyUiState(ui){
   if(Array.isArray(ui.tagFilter))state.tagFilter=ui.tagFilter;
   if(Array.isArray(ui.loraFilter))state.loraFilter=ui.loraFilter;
   if(Array.isArray(ui.genFilter))state.genFilter=ui.genFilter;
+  if(ui.artistAliases&&typeof ui.artistAliases==='object')state.artistAliases=ui.artistAliases;
+  if(Array.isArray(ui.artistPairsIgnored))state.artistPairsIgnored=ui.artistPairsIgnored;
   if(Array.isArray(ui.expandedIds))state.expandedIds=ui.expandedIds;
 }
 function saveUiState(){try{localStorage.setItem(UI_STORE_KEY,JSON.stringify(stripUiState(state)))}catch(e){console.warn('UI 상태 저장 실패',e)}}
@@ -1027,6 +1056,21 @@ function cardExpandedHTML(it){
      "[artist:sqloveraven]"                       → 괄호 깊이를 [n] 으로 표기
      "artist:aoma (xuanzexuexi)"                  → 이름 속 공백·괄호 보존
      "-5.3::artist collaboration::"               → 콜론 없으므로 작가 아님, 무시 */
+/* 표기 차이 흡수: "ningen_mame" = "ningen mame", "wagashi(dagashiya)" = "wagashi (dagashiya)"
+   실데이터 547명 중 36그룹 38명이 이 규칙으로 합쳐지는 것을 확인함 */
+function normArtistName(n){
+  return String(n||'')
+    .replace(/_/g,' ')
+    .replace(/\s*\(\s*/g,' (')
+    .replace(/\s*\)/g,')')
+    .replace(/\s+/g,' ')
+    .trim().toLowerCase();
+}
+/* 오타 통합용 별칭. 사용자가 '유사 작가 검토'에서 직접 지정한 것만 적용한다. */
+function artistAlias(n){
+  const map=(state&&state.artistAliases)||{};
+  return Object.prototype.hasOwnProperty.call(map,n)?map[n]:n;
+}
 function parseArtistTags(prompt){
   if(!prompt||typeof prompt!=='string')return [];
   const out=[],seen=new Set();
@@ -1034,18 +1078,22 @@ function parseArtistTags(prompt){
   const n=prompt.length;
   const flush=()=>{
     const t=token.trim();token='';
-    const m=/^artist:\s*(.+?)\s*$/i.exec(t);
-    if(!m)return;
-    const name=m[1].replace(/\s+/g,' ').trim().toLowerCase();
-    if(!name)return;
+    if(!/artist:/i.test(t))return;          // "artist collaboration" 처럼 콜론 없는 건 작가 아님
     let wt;
     if(wstack.length)wt=String(wstack[wstack.length-1]);
     else if(br)wt='['+br+']';
     else if(cur)wt='{'+cur+'}';
     else wt='1';
-    const key=name+'@'+wt;
-    if(seen.has(key))return;
-    seen.add(key);out.push({name,weight:wt});
+    // "artist:" 기준으로 쪼갠다. 다음 두 실데이터 케이스를 함께 처리:
+    //   "artist:artist:gawako"                  → 접두가 중복된 경우
+    //   "artist:mx2j artist:dishwasher1910"     → 쉼표 없이 두 작가가 연달아 붙은 경우
+    t.split(/artist:/i).slice(1).forEach(raw=>{
+      const name=artistAlias(normArtistName(raw));
+      if(!name)return;
+      const key=name+'@'+wt;
+      if(seen.has(key))return;
+      seen.add(key);out.push({name,weight:wt});
+    });
   };
   while(i<n){
     const m=/^(-?\d+(?:\.\d+)?)::/.exec(prompt.slice(i));
@@ -1267,6 +1315,95 @@ async function dupDeleteSelected(){
   if(!state.items.some(x=>x.id===state.selectedId))state.selectedId=state.items[0]?.id||null;
   save();render();renderDupScan();
   toast(`${ids.length}장 삭제했어`);
+}
+/* ── 유사 작가 검토 (오타 통합) ──
+   정규화로는 못 잡는 오타성 차이를 찾아 보여준다. 절대 자동 병합하지 않는다.
+   "gwan-e"와 "wanke"처럼 거리가 가까워도 완전히 다른 작가가 섞이기 때문. */
+function levenshtein(a,b){
+  if(a===b)return 0;
+  if(Math.abs(a.length-b.length)>2)return 99;
+  let prev=Array.from({length:b.length+1},(_,i)=>i);
+  for(let i=1;i<=a.length;i++){
+    const cur=[i];
+    for(let j=1;j<=b.length;j++){
+      cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(a[i-1]!==b[j-1]?1:0));
+    }
+    prev=cur;
+  }
+  return prev[b.length];
+}
+function pairKey(a,b){return a<b?a+'|'+b:b+'|'+a}
+function findSimilarArtists(items){
+  const counts=new Map();
+  items.forEach(it=>itemArtists(it).forEach(a=>counts.set(a.name,(counts.get(a.name)||0)+1)));
+  const names=[...counts.keys()].sort();
+  const ignored=new Set((state.artistPairsIgnored)||[]);
+  const pairs=[];
+  for(let i=0;i<names.length;i++){
+    for(let j=i+1;j<names.length;j++){
+      const a=names[i],b=names[j];
+      if(Math.abs(a.length-b.length)>2)continue;
+      if(Math.min(a.length,b.length)<5)continue;   // 너무 짧으면 오탐이 많음
+      const d=levenshtein(a,b);
+      if(d>2)continue;
+      if(ignored.has(pairKey(a,b)))continue;
+      pairs.push({a,b,d,ca:counts.get(a),cb:counts.get(b)});
+    }
+  }
+  return pairs.sort((x,y)=>x.d-y.d||(y.ca+y.cb)-(x.ca+x.cb));
+}
+function renderSimScan(){
+  const pairs=findSimilarArtists(state.items);
+  const body=$('#sim-body');
+  if(!pairs.length){
+    body.innerHTML='<div class="ds-empty">비슷한 작가명이 없어.<br><span style="font-size:11px">표기만 다른 건(_ · 괄호 띄어쓰기) 이미 자동으로 합쳐져 있어.</span></div>';
+    $('#sim-summary').textContent='검토할 항목 없음';
+    return;
+  }
+  body.innerHTML=pairs.map((p,i)=>`<div class="sim-row" data-i="${i}">
+    <div class="sim-dist">거리 ${p.d}</div>
+    <div class="sim-names">
+      <button class="sim-pick" data-keep="${esc(p.a)}" data-drop="${esc(p.b)}">${esc(p.a)} <span class="sim-cnt">${p.ca}장</span></button>
+      <span class="sim-vs">↔</span>
+      <button class="sim-pick" data-keep="${esc(p.b)}" data-drop="${esc(p.a)}">${esc(p.b)} <span class="sim-cnt">${p.cb}장</span></button>
+    </div>
+    <button class="sim-ignore" data-a="${esc(p.a)}" data-b="${esc(p.b)}">다른 작가</button>
+  </div>`).join('');
+  $('#sim-summary').textContent=`${pairs.length}쌍 · 남길 이름을 누르면 통합돼`;
+  body.querySelectorAll('.sim-pick').forEach(b=>b.onclick=async()=>{
+    const keep=b.dataset.keep,drop=b.dataset.drop;
+    const ok=await showConfirm(`"${drop}" 를 "${keep}" 로 통합할까?\n\n원본 프롬프트는 그대로 두고 표시·집계에만 반영돼.\n나중에 되돌릴 수 있어.`,{confirmText:'통합'});
+    if(!ok)return;
+    state.artistAliases=state.artistAliases||{};
+    state.artistAliases[drop]=keep;
+    save();render();renderSimScan();
+    toast(`"${drop}" → "${keep}" 로 통합했어`);
+  });
+  body.querySelectorAll('.sim-ignore').forEach(b=>b.onclick=()=>{
+    state.artistPairsIgnored=state.artistPairsIgnored||[];
+    state.artistPairsIgnored.push(pairKey(b.dataset.a,b.dataset.b));
+    save();renderSimScan();
+  });
+}
+function openSimScan(){
+  $('#sim-overlay').classList.add('open');
+  $('#sim-overlay').setAttribute('aria-hidden','false');
+  document.body.classList.add('eo-open');
+  renderSimScan();
+}
+function closeSimScan(){
+  $('#sim-overlay').classList.remove('open');
+  $('#sim-overlay').setAttribute('aria-hidden','true');
+  document.body.classList.remove('eo-open');
+}
+async function resetArtistMerges(){
+  const n=Object.keys(state.artistAliases||{}).length, m=(state.artistPairsIgnored||[]).length;
+  if(!n&&!m){toast('되돌릴 통합 기록이 없어');return}
+  const ok=await showConfirm(`통합 ${n}건 · 무시 ${m}건을 전부 되돌릴까?`,{danger:true,confirmText:'되돌리기'});
+  if(!ok)return;
+  state.artistAliases={};state.artistPairsIgnored=[];
+  save();render();renderSimScan();
+  toast('통합 기록을 초기화했어');
 }
 function applyView(){
   const split=document.querySelector('.split');
@@ -1566,6 +1703,10 @@ $('#d-img').onclick=()=>openLightbox(); // 상세/오버레이 미리보기 → 
 /* ③ 선택 칩 → 액션 시트 토글 */
 $('#artist-export-btn').onclick=exportArtistTxt;
 $('#dup-scan-btn').onclick=openDupScan;
+$('#sim-scan-btn').onclick=openSimScan;
+$('#sim-close').onclick=closeSimScan;
+$('#sim-reset').onclick=resetArtistMerges;
+$('#sim-overlay').addEventListener('click',e=>{if(e.target.id==='sim-overlay')closeSimScan()});
 $('#ds-close').onclick=closeDupScan;
 $('#ds-auto-sel').onclick=dupAutoSelect;
 $('#ds-clear-sel').onclick=()=>{dsSelected.clear();renderDupScan()};
@@ -1577,6 +1718,7 @@ $('#sel-chip').onclick=()=>$('#select-bar').classList.toggle('open');
 document.addEventListener('keydown',e=>{
   if(e.key!=='Escape')return;
   if($('#lightbox').classList.contains('open'))return; // 뷰어가 위에 있으면 뷰어가 처리
+  if($('#sim-overlay').classList.contains('open')){closeSimScan();return}
   if($('#dup-scan-overlay').classList.contains('open')){closeDupScan();return}
   if($('#edit-overlay').classList.contains('open')){closeEditOverlay();return}
   if(selectMode)exitSelectMode();
