@@ -867,8 +867,19 @@ async function makeThumb(file){
     }; img.onerror=()=>resolve({thumb:url,width:'',height:''}); img.src=url;
   })
 }
-async function processFile(file){
-  const buffer=await readAsArrayBuffer(file); let meta=parseComfyMetadata(file,buffer);
+/* ── 완전 동일 이미지 판별용 해시 ──
+   원본 파일 바이트를 그대로 FNV-1a(32bit)로 접고 바이트 길이를 덧붙인다.
+   길이를 붙이는 이유: 32bit 단독은 카드 수천 장 규모에서 충돌 확률이 무시 못 할 수준이라,
+   길이까지 같아야 동일로 보게 해서 오탐을 사실상 0으로 만든다.
+   재인코딩(PNG→WebP)이나 1픽셀 차이는 다른 값이 나온다 = 동일 판정 안 함. */
+function fileSigOf(buffer){
+  const b=new Uint8Array(buffer); let h=0x811c9dc5;
+  for(let i=0;i<b.length;i++){h^=b[i];h=Math.imul(h,0x01000193)>>>0;}
+  return h.toString(16).padStart(8,'0')+'-'+b.length.toString(16);
+}
+async function processFile(file,buffer){
+  if(!buffer)buffer=await readAsArrayBuffer(file);
+  const fileHash=fileSigOf(buffer); let meta=parseComfyMetadata(file,buffer);
   // tEXt/iTXt로 아무것도 못 건졌으면 알파 채널 stealth pnginfo 폴백
   // (커뮤니티에서 WebP로 재인코딩된 NAI 이미지가 이 경로로 살아남음)
   if(!meta.metaFound){
@@ -882,37 +893,77 @@ async function processFile(file){
   const img=await makeThumb(file);
   if(!meta.width)meta.width=img.width; if(!meta.height)meta.height=img.height;
   const tags=[]; if(meta.model)tags.push(meta.model.replace(/\.(safetensors|ckpt)$/i,'')); (meta.loras||[]).slice(0,4).forEach(l=>tags.push(l.name.replace(/\.(safetensors|ckpt)$/i,'')));
-  return {id:uid(),title:file.name,fileName:file.name,size:file.size,type:file.type||'',thumb:img.thumb,createdAt:Date.now(),updatedAt:Date.now(),status:'보류',score:0,fav:false,tags:uniq(tags),notes:'',meta};
+  return {id:uid(),title:file.name,fileName:file.name,size:file.size,type:file.type||'',fileHash,thumb:img.thumb,createdAt:Date.now(),updatedAt:Date.now(),status:'보류',score:0,fav:false,tags:uniq(tags),notes:'',meta};
 }
 async function addFiles(files){
   const arr=[...files].filter(f=>f && (f.type.startsWith('image/') || /\.(png|jpe?g|webp)$/i.test(f.name)));
   if(!arr.length){toast('이미지 파일이 없어');return}
-  let ok=0, filled=0;
+
+  /* 1단계 — 버퍼를 한 번만 읽어 해시를 만들고 중복 여부를 먼저 판정한다.
+     우선순위: ① 동기화 껍데기(thumbStripped) 채우기 → ② 해시 일치(확정) → ③ 파일명+크기(추정, 구버전 카드용)
+     읽기는 여기서 한 번뿐이고 processFile에 버퍼를 넘겨 재사용한다. */
+  const plan=[]; const batchSeen=new Map(); // 같은 배치 안에서 같은 파일을 두 번 드롭한 경우 대비
   for(const f of arr){
+    let buffer=null, hash='';
+    try{ buffer=await readAsArrayBuffer(f); hash=fileSigOf(buffer); }
+    catch(e){ console.error(e); }
+    const stripped=state.items.find(it=>it.thumbStripped && it.fileName===f.name && it.size===f.size);
+    let dupLabel='', dupKind='';
+    if(!stripped){
+      if(hash){
+        const hit=state.items.find(it=>it.fileHash && it.fileHash===hash);
+        if(hit){ dupLabel=hit.title||hit.fileName||'(제목 없음)'; dupKind='확정'; }
+        else if(batchSeen.has(hash)){ dupLabel=batchSeen.get(hash)+' (이번에 같이 넣은 파일)'; dupKind='확정'; }
+      }
+      if(!dupKind){
+        const hit=state.items.find(it=>!it.fileHash && !it.thumbStripped && it.fileName===f.name && it.size===f.size);
+        if(hit){ dupLabel=hit.title||hit.fileName||'(제목 없음)'; dupKind='추정'; }
+      }
+    }
+    if(hash && !batchSeen.has(hash)) batchSeen.set(hash,f.name);
+    plan.push({file:f,buffer,stripped,dupLabel,dupKind});
+  }
+
+  /* 2단계 — 중복이 있으면 반드시 사람에게 묻는다. 자동 배제 없음. */
+  let skipDups=false;
+  const dups=plan.filter(p=>p.dupKind);
+  if(dups.length){
+    const lines=dups.slice(0,8).map(p=>`· ${p.file.name}\n   → "${p.dupLabel}"${p.dupKind==='추정'?' (추정: 파일명+크기)':''}`).join('\n');
+    const more=dups.length>8?`\n\n... 외 ${dups.length-8}장`:'';
+    skipDups=await showConfirm(`이미 있는 이미지 ${dups.length}장을 발견했어.\n\n${lines}${more}\n\n이것들을 건너뛸까?`,{confirmText:'건너뛰기',cancelText:'그래도 추가'});
+  }
+
+  /* 3단계 — 실제 반영 */
+  let ok=0, filled=0, skipped=0;
+  for(const p of plan){
+    const f=p.file;
     try{
-      // 동기화로 받은 thumbStripped 아이템에 매칭 (파일명 + 크기)
-      const existing=state.items.find(it=>it.thumbStripped && it.fileName===f.name && it.size===f.size);
-      if(existing){
+      if(p.stripped){
         const img=await makeThumb(f);
-        existing.thumb=img.thumb;
-        existing.thumbStripped=false;
-        existing.updatedAt=Date.now();
-        if(existing.meta){
-          if(!existing.meta.width) existing.meta.width=img.width;
-          if(!existing.meta.height) existing.meta.height=img.height;
+        p.stripped.thumb=img.thumb;
+        p.stripped.thumbStripped=false;
+        p.stripped.updatedAt=Date.now();
+        if(p.buffer && !p.stripped.fileHash) p.stripped.fileHash=fileSigOf(p.buffer); // 동기화로 받은 카드에 해시 소급 기록
+        if(p.stripped.meta){
+          if(!p.stripped.meta.width) p.stripped.meta.width=img.width;
+          if(!p.stripped.meta.height) p.stripped.meta.height=img.height;
         }
         filled++;
+      } else if(p.dupKind && skipDups){
+        skipped++;
       } else {
-        state.items.unshift(await processFile(f));
+        state.items.unshift(await processFile(f,p.buffer));
         ok++;
       }
     }catch(e){console.error(e);toast(f.name+' 읽기 실패')}
   }
   state.selectedId=state.items[0]?.id||null;
   save();render();
-  if(filled>0 && ok>0) toast(ok+'개 추가 · '+filled+'개 썸네일 채움');
-  else if(filled>0) toast(filled+'개 썸네일 채움 ✓');
-  else toast(ok+'개 추가했어');
+  const parts=[];
+  if(ok) parts.push(ok+'개 추가');
+  if(filled) parts.push(filled+'개 썸네일 채움');
+  if(skipped) parts.push(skipped+'개 중복 건너뜀');
+  toast(parts.length?parts.join(' · '):'추가된 게 없어');
 }
 function filtered(){
   normalizeStateShape(state); // Drive/Gist 복원이 정규화를 우회해도 여기서 자가 치유 (신규 필드 추가 시 사고 방지)
@@ -1071,6 +1122,23 @@ function artistAlias(n){
   const map=(state&&state.artistAliases)||{};
   return Object.prototype.hasOwnProperty.call(map,n)?map[n]:n;
 }
+/* ── Comfy(아니마 계열) 작가 표기 파서 ──
+   실데이터 형식: "(@sqloveraven:1.00), (@taaru \(taru\):1.15), (@itzah)"
+   판별자는 "@" 이고, 바로 뒤가 영숫자일 때만 작가로 인정한다.
+   이 가드가 없으면 단부루 표정 태그 "@_@" 가 작가로 잘못 잡힌다.
+   "(1boy:2)" 처럼 @ 없는 가중치 태그는 대상 아님. */
+function parseAtArtist(token){
+  let t=String(token||'').trim();
+  if(!/^[\s(]*@[A-Za-z0-9]/.test(t))return null;
+  let weight='1';
+  const wm=/:\s*(-?\d+(?:\.\d+)?)\s*\)*\s*$/.exec(t);
+  if(wm){weight=String(parseFloat(wm[1]));t=t.slice(0,wm.index);} // "1.00" → "1" 로 정규화
+  t=t.replace(/^[\s(]*@\s*/,'');        // 앞쪽 "(" 와 "@" 제거
+  t=t.replace(/(^|[^\\])\)\s*$/,'$1');  // 이스케이프 안 된 끝 ")" 만 제거
+  t=t.replace(/\\([()])/g,'$1');        // "\(" "\)" 언이스케이프 → NAI 정규화 형태와 통일
+  const name=artistAlias(normArtistName(t));
+  return name?{name,weight}:null;
+}
 function parseArtistTags(prompt){
   if(!prompt||typeof prompt!=='string')return [];
   const out=[],seen=new Set();
@@ -1078,7 +1146,14 @@ function parseArtistTags(prompt){
   const n=prompt.length;
   const flush=()=>{
     const t=token.trim();token='';
-    if(!/artist:/i.test(t))return;          // "artist collaboration" 처럼 콜론 없는 건 작가 아님
+    if(!/artist:/i.test(t)){                // "artist collaboration" 처럼 콜론 없는 건 작가 아님
+      const at=parseAtArtist(t);            // NAI 표기가 아니면 Comfy "@이름:가중치" 표기를 시도
+      if(at){
+        const k=at.name+'@'+at.weight;
+        if(!seen.has(k)){seen.add(k);out.push(at);}
+      }
+      return;
+    }
     let wt;
     if(wstack.length)wt=String(wstack[wstack.length-1]);
     else if(br)wt='['+br+']';
@@ -1118,7 +1193,12 @@ function artistSignature(prompt){
   return a.map(x=>x.name+'@'+x.weight).sort().join('|');
 }
 function itemArtists(it){return parseArtistTags(it&&it.meta&&it.meta.positive)}
-function itemArtistSig(it){return artistSignature(it&&it.meta&&it.meta.positive)}
+/* gen 접두를 붙여 NAI끼리 / Comfy끼리만 묶는다.
+   NAI의 "2.14::" 와 Comfy의 ":1.15" 는 가중치 스케일 자체가 달라 교차 비교가 무의미하기 때문. */
+function itemArtistSig(it){
+  const sig=artistSignature(it&&it.meta&&it.meta.positive);
+  return sig?genOf(it)+'#'+sig:'';
+}
 function tagCounts(){const m=new Map();state.items.forEach(it=>(it.tags||[]).forEach(t=>{const k=String(t).trim();if(k)m.set(k,(m.get(k)||0)+1)}));return [...m.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'ko'))}
 function loraCounts(){const m=new Map();state.items.forEach(it=>((it.meta&&it.meta.loras)||[]).forEach(l=>{const n=cleanLoraName(l.name);if(n)m.set(n,(m.get(n)||0)+1)}));return [...m.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'ko'))}
 /* 필터 토큰: 메타 없는 카드도 'none'으로 잡아낼 수 있게 통일 */
