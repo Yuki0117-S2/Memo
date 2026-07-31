@@ -110,6 +110,9 @@ button.act:hover{border-color:var(--accent);color:var(--accent)}
 button.act:disabled{opacity:.4;cursor:not-allowed}
 button.act.purple{border-color:var(--purple);color:var(--purple)}
 button.act.pink{border-color:var(--danger);color:var(--danger)}
+.storeinfo{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--text3);padding:0 4px;white-space:nowrap}
+.storeinfo b{color:var(--text2);font-weight:700}
+.storeinfo .mism{color:#DDAACC;font-weight:700}
 
 .livename{font-family:var(--mono);font-size:12px;color:var(--text3);padding:0 15px 14px;line-height:1.6;word-break:break-all}
 .livename b{color:var(--accent3)}
@@ -486,6 +489,9 @@ body.lb-open{overflow:hidden}
 <script>
 const $=s=>document.querySelector(s);
 const LS_KEY='asset_coder_state';
+const IDB_NAME='asset_coder_idb';
+const IDB_VER=1;
+const IDB_STORE='images';
 const GIST_FILE_NAME='asset_coder_data.json';
 
 const DEFAULT_RAW=[
@@ -662,6 +668,125 @@ function save(){normalizeState();try{localStorage.setItem(LS_KEY,JSON.stringify(
 function load(){
   try{const raw=localStorage.getItem(LS_KEY);if(raw){const o=JSON.parse(raw);if(o&&typeof o==='object')state=o;}}catch(e){}
   normalizeState();
+}
+
+/* ---------- IndexedDB 이미지 저장소 ----------
+   1단계: 계층만 신설. 기존 동작은 아무것도 바뀌지 않는다 (호출하는 곳이 self-test 말고 없음).
+
+   핵심 원칙: File 객체를 그대로 넣지 않는다.
+   Chromium은 File을 IDB에 저장하면 디스크 참조를 유지해서, 원본이 사라지면
+   꺼낼 때 또 NotFoundError가 난다 — 지금 겪는 문제가 그대로 재현된다.
+   반드시 arrayBuffer로 읽어 새 Blob으로 감싸 '바이트 소유권'을 가져온다.
+   원본 바이트를 그대로 보관하므로 내보낼 때 webp/jpg를 자유롭게 고를 수 있다. */
+function idbOpen(){
+  return new Promise((res,rej)=>{
+    let rq;
+    try{ rq=indexedDB.open(IDB_NAME,IDB_VER); }
+    catch(e){ rej(e); return; }
+    rq.onupgradeneeded=e=>{
+      const db=e.target.result;
+      if(!db.objectStoreNames.contains(IDB_STORE))db.createObjectStore(IDB_STORE,{keyPath:'k'});
+    };
+    rq.onsuccess=()=>res(rq.result);
+    rq.onerror=()=>rej(rq.error||new Error('IndexedDB를 열 수 없어'));
+    rq.onblocked=()=>rej(new Error('IndexedDB가 다른 창에 잠겨 있어'));
+  });
+}
+function idbTx(mode,fn){
+  return idbOpen().then(db=>new Promise((res,rej)=>{
+    let tx;
+    try{ tx=db.transaction(IDB_STORE,mode); }
+    catch(e){ db.close(); rej(e); return; }
+    let val,plain;
+    try{
+      const r=fn(tx.objectStore(IDB_STORE));
+      if(r&&typeof r==='object'&&'onsuccess' in r)r.onsuccess=()=>{val=r.result;};
+      else plain=r;   // 커서로 집계하는 경우처럼 요청이 아닌 값도 돌려준다
+    }catch(e){
+      try{tx.abort();}catch(_){}
+      db.close();rej(e);return;
+    }
+    tx.oncomplete=()=>{db.close();res(plain!==undefined?plain:val);};
+    tx.onerror=()=>{db.close();rej(tx.error||new Error('저장소 작업 실패'));};
+    tx.onabort=()=>{db.close();rej(tx.error||new Error('저장소 작업이 취소됐어'));};
+  }));
+}
+/* file 은 File 이든 Blob 이든 상관없다 (둘 다 arrayBuffer 를 가짐) */
+async function idbPutImage(k,file){
+  const buf=await file.arrayBuffer();          // ★ 여기서 디스크를 읽어 바이트를 확보
+  const type=file.type||'application/octet-stream';
+  const rec={
+    k:k,
+    name:file.name||'',
+    type:type,
+    size:buf.byteLength,
+    savedAt:new Date().toISOString(),
+    blob:new Blob([buf],{type:type})           // ★ 디스크 참조가 아닌 독립 Blob
+  };
+  await idbTx('readwrite',st=>st.put(rec));
+  return rec;
+}
+function idbGetImage(k){return idbTx('readonly',st=>st.get(k));}
+function idbGetAllImages(){return idbTx('readonly',st=>st.getAll());}
+function idbDeleteImage(k){return idbTx('readwrite',st=>st.delete(k));}
+function idbClearImages(){return idbTx('readwrite',st=>st.clear());}
+function idbCountImages(){return idbTx('readonly',st=>st.count());}
+function idbAllKeys(){return idbTx('readonly',st=>st.getAllKeys());}
+/* 커서로 훑으며 개수·바이트만 집계한다. getAll 로 레코드를 통째로 들고 오지 않는다 */
+function idbStats(){
+  return idbTx('readonly',st=>{
+    const out={count:0,bytes:0};
+    const rq=st.openCursor();
+    rq.onsuccess=e=>{
+      const cur=e.target.result;
+      if(!cur)return;
+      const v=cur.value;
+      out.count++;
+      out.bytes+=(v&&(v.size||(v.blob&&v.blob.size)))||0;
+      cur.continue();
+    };
+    return out;
+  });
+}
+function fmtBytes(n){
+  if(!n)return '0B';
+  const u=['B','KB','MB','GB'];let i=0,v=n;
+  while(v>=1024&&i<u.length-1){v/=1024;i++;}
+  return (i?v.toFixed(1):String(v))+u[i];
+}
+/* 고아 이동 = 키 이름 변경. put+delete 를 한 트랜잭션에 묶어 중간 상태가 남지 않게 한다 */
+function idbRenameImage(oldK,newK){
+  return idbTx('readwrite',st=>{
+    const g=st.get(oldK);
+    g.onsuccess=()=>{
+      const rec=g.result;
+      if(!rec)return;
+      rec.k=newK;
+      st.put(rec);
+      st.delete(oldK);
+    };
+    return null;
+  });
+}
+async function idbUsedBytes(){
+  const all=await idbGetAllImages();
+  return (all||[]).reduce((s,r)=>s+(r&&(r.size||(r.blob&&r.blob.size))||0),0);
+}
+
+/* 시작 시 1회 왕복 점검. Electron엔 콘솔이 없으니 실패했을 때만 토스트로 알린다.
+   성공하면 완전히 조용하다. 2단계 이후 안정되면 떼어내도 되는 임시 장치. */
+async function idbSelfTest(){
+  const K='__selftest__',sig=[137,80,78,71,13,10,26,10];
+  try{
+    await idbPutImage(K,new Blob([new Uint8Array(sig)],{type:'image/png'}));
+    const got=await idbGetImage(K);
+    if(!got||!got.blob){await idbDeleteImage(K);return '읽은 결과가 비어 있어';}
+    const back=new Uint8Array(await got.blob.arrayBuffer());
+    if(back.length!==sig.length||sig.some((v,i)=>back[i]!==v)){await idbDeleteImage(K);return '바이트가 왕복 중에 변형됐어';}
+    await idbDeleteImage(K);
+    if(await idbGetImage(K))return '삭제가 반영되지 않았어';
+    return null;
+  }catch(e){return (e&&e.message)||String(e);}
 }
 
 /* ---------- 렌더 ---------- */
@@ -905,6 +1030,8 @@ function renderControls(){
   html+='<button class="act" id="rcguide">☁ 업로드 가이드</button>';
   html+='<button class="act purple" id="presetMenu">프리셋 관리</button>';
   html+='<button class="act pink" id="clearImgs">이미지 비우기</button>';
+  html+='<button class="act" id="reconcileStore" title="저장소를 화면 기준으로 다시 씁니다">⟳ 저장소 정리</button>';
+  html+='<span class="storeinfo" id="storeinfo">저장소 …</span>';
   c.innerHTML=html;
 
   $('#presetSel').addEventListener('change',e=>{state.active=e.target.value;save();render();});
@@ -928,12 +1055,21 @@ function renderControls(){
   $('#bulk').addEventListener('click',pickBulk);
   $('#rcguide').addEventListener('click',openRc);
   $('#presetMenu').addEventListener('click',presetMenu);
-  $('#clearImgs').addEventListener('click',()=>{
+  $('#reconcileStore').addEventListener('click',reconcileStore);
+  $('#clearImgs').addEventListener('click',async()=>{
     const n=Object.keys(images).length;
-    if(!n){toast('비울 이미지가 없어');return;}
-    if(!confirm(`넣은 이미지 ${n}장을 전부 비울까? (코드표는 유지)`))return;
-    Object.values(images).forEach(im=>URL.revokeObjectURL(im.url));images={};render();toast('이미지 비움');
+    let stored=0;
+    try{ stored=await idbCountImages(); }catch(_){}
+    const total=Math.max(n,stored);          // 껐다 켠 직후엔 화면이 비어도 저장소엔 남아 있다
+    if(!total){toast('비울 이미지가 없어');return;}
+    const extra=stored>n?`\n(화면엔 ${n}장이지만 저장소에 ${stored}장이 남아 있어)`:'';
+    if(!confirm(`넣은 이미지 ${total}장을 전부 비울까? (코드표는 유지)${extra}`))return;
+    Object.values(images).forEach(im=>URL.revokeObjectURL(im.url));images={};
+    try{ await idbClearImages(); }
+    catch(e){ toast('⚠ 저장소 비우기 실패 — '+((e&&e.message)||e)); }
+    render();toast('이미지 비움');
   });
+  refreshStoreInfo();
 }
 
 function renderPreview(){
@@ -1049,7 +1185,7 @@ function renderOrphans(){
     e.stopPropagation();
     const k=e.currentTarget.dataset.k;
     if(!confirm(`'${k}' 이미지를 버릴까?`))return;
-    if(images[k]){URL.revokeObjectURL(images[k].url);delete images[k];}
+    if(images[k]){URL.revokeObjectURL(images[k].url);delete images[k];dropStored(k);}
     if(movingKey===k)cancelMove();
     render();
   }));
@@ -1089,6 +1225,7 @@ function moveOrphanTo(oldKey,code){
   if(images[nk])URL.revokeObjectURL(images[nk].url);
   images[nk]=images[oldKey];
   delete images[oldKey];
+  idbRenameImage(oldKey,nk).catch(e=>toast('⚠ 저장소 이동 실패 — '+((e&&e.message)||e)));
   cancelMove();
   render();
   toast(`${oldKey} → ${nk}`);
@@ -1209,7 +1346,7 @@ function bindBoard(){
   root.querySelectorAll('.rm').forEach(b=>b.addEventListener('click',e=>{
     e.stopPropagation();
     const k=keyOf(e.currentTarget.dataset.code);
-    if(images[k]){URL.revokeObjectURL(images[k].url);delete images[k];}
+    if(images[k]){URL.revokeObjectURL(images[k].url);delete images[k];dropStored(k);}
     render();
   }));
   root.querySelectorAll('.mv').forEach(b=>b.addEventListener('click',e=>{
@@ -1268,31 +1405,45 @@ function codeFromFilename(name,codeSet){
   }
   return null;
 }
-function bulkImport(fileList){
+async function bulkImport(fileList){
   const ss=slotSection();
   if(!ss){toast('코드표를 먼저 만들어줘');return;}
   const files=Array.from(fileList||[]).filter(f=>f&&f.type&&f.type.startsWith('image/'));
   if(!files.length){toast('이미지 파일이 없어');return;}
   const codeSet=new Set(sectionItems(ss).map(it=>it.code));
   const fp=frontPath();
-  let placed=0,replaced=0,miss=0;
-  files.forEach(f=>{
-    const code=codeFromFilename(f.name,codeSet);
-    let k;
-    if(code){
-      k=keyOf(code);
-      if(images[k])replaced++;else placed++;
-    }else{
-      miss++;
-      const stem=String(f.name).replace(/\.[^.]+$/,'').trim()||('미매칭_'+(uid+1));
-      k=(fp?fp+'/':'')+stem;
+  let placed=0,replaced=0,miss=0,failed=0,saveWarn=0;
+  const btn=$('#bulk');const orig=btn?btn.textContent:'';
+  if(btn)btn.disabled=true;
+  try{
+    /* B-1: 한꺼번에가 아니라 한 장씩. 느리지만 메모리가 튀지 않는다 */
+    for(let i=0;i<files.length;i++){
+      const f=files[i];
+      if(btn)btn.textContent=`저장 중 ${i+1}/${files.length}`;
+      const code=codeFromFilename(f.name,codeSet);
+      let k,wasMiss=false;
+      if(code){k=keyOf(code);}
+      else{
+        wasMiss=true;
+        const stem=String(f.name).replace(/\.[^.]+$/,'').trim()||('미매칭_'+(uid+1));
+        k=(fp?fp+'/':'')+stem;
+      }
+      const had=!!images[k];
+      let warn;
+      try{ warn=await adoptImage(k,f); }
+      catch(e){ failed++; continue; }
+      if(warn)saveWarn++;
+      if(wasMiss)miss++;else if(had)replaced++;else placed++;
     }
-    if(images[k])URL.revokeObjectURL(images[k].url);
-    images[k]={id:++uid,file:f,url:URL.createObjectURL(f)};
-  });
+  }finally{
+    if(btn){btn.textContent=orig;btn.disabled=false;}
+  }
   if(miss)orphanOpen=true;
   render();
-  toast(`${placed+replaced}장 배치${replaced?' (교체 '+replaced+')':''}${miss?' · 미매칭 '+miss+'장':''}`);
+  let msg=`${placed+replaced}장 배치${replaced?' (교체 '+replaced+')':''}${miss?' · 미매칭 '+miss+'장':''}`;
+  if(failed)msg+=` · 읽기 실패 ${failed}장`;
+  if(saveWarn)msg+=` · 저장 실패 ${saveWarn}장`;
+  toast(msg);
   if(miss)setTimeout(()=>toast('미매칭 '+miss+'장은 아래 "경로 안 맞는 이미지"에 있어. 끌어서 넣으면 돼'),1800);
 }
 function pickBulk(){
@@ -1304,14 +1455,91 @@ function pickBulk(){
   inp.click();
 }
 
-function setImage(code,file){
+/* ---------- 저장소 상태 표시 / 정리 ---------- */
+async function refreshStoreInfo(){
+  const el=$('#storeinfo');
+  if(!el)return;
+  try{
+    const s=await idbStats();
+    const mem=Object.keys(images).length;
+    el.innerHTML=`저장소 <b>${s.count}장</b> · ${fmtBytes(s.bytes)}`
+      +(s.count!==mem?` <span class="mism">화면 ${mem}장</span>`:'');
+    el.title=s.count!==mem
+      ? '저장소와 화면이 어긋나 있어. "저장소 정리"를 누르면 화면 기준으로 맞춰져'
+      : '저장소와 화면이 일치해';
+  }catch(e){
+    el.innerHTML='<span class="mism">저장소 확인 불가</span>';
+    el.title=(e&&e.message)||String(e);
+  }
+}
+
+/* 저장소를 '화면 기준'으로 다시 쓴다.
+   화면에 있는 이미지는 이미 메모리 소유 File 이라 디스크를 안 읽는다 → 재저장이 실패할 여지가 없다.
+   따라서 눈에 보이는 것을 잃는 경우는 발생하지 않는다. 사라지는 건 화면에 없는 유령 레코드뿐. */
+async function reconcileStore(){
+  const btn=$('#reconcileStore');
+  let storedKeys;
+  try{ storedKeys=await idbAllKeys(); }
+  catch(e){ toast('저장소를 읽을 수 없어 — '+((e&&e.message)||e)); return; }
+  storedKeys=storedKeys||[];
+  const keys=Object.keys(images);
+  if(!storedKeys.length&&!keys.length){toast('저장소도 화면도 비어 있어');return;}
+  const gone=storedKeys.filter(k=>!Object.prototype.hasOwnProperty.call(images,k)).length;
+  if(!confirm(
+    `저장소 ${storedKeys.length}장 → 화면 ${keys.length}장에 맞춰 다시 씁니다.\n\n`
+    +`· 화면에 없는 ${gone}장이 사라져\n`
+    +`· 화면의 ${keys.length}장은 그대로 저장돼 (하나도 안 잃어)`
+  ))return;
+  const orig=btn?btn.textContent:'';
+  if(btn)btn.disabled=true;
+  let fail=0;
+  try{
+    await idbClearImages();
+    for(let i=0;i<keys.length;i++){
+      if(btn)btn.textContent=`정리 중 ${i+1}/${keys.length}`;
+      try{ await idbPutImage(keys[i],images[keys[i]].file); }
+      catch(e){ fail++; }
+    }
+  }catch(e){
+    toast('⚠ 저장소 정리 실패 — '+((e&&e.message)||e));
+  }finally{
+    if(btn){btn.textContent=orig;btn.disabled=false;}
+  }
+  await refreshStoreInfo();
+  toast(fail?`정리했지만 ${fail}장은 저장 실패 (화면엔 그대로 있어)`:`저장소 정리 완료 — ${keys.length}장`);
+}
+
+/* 삭제는 동기 호출부가 많아 fire-and-forget. 실패해도 화면은 이미 정리된 뒤라 알림만 띄운다 */
+function dropStored(k){
+  idbDeleteImage(k).catch(e=>toast('⚠ 저장소에서 지우지 못했어 — '+((e&&e.message)||e)));
+}
+
+/* ---------- 이미지 투입 단일 관문 ----------
+   디스크의 File 을 바이트로 읽어 '메모리 소유 File' 로 바꾼 뒤 메모리와 IDB 양쪽에 앉힌다.
+   new File([buf],...) 은 디스크를 가리키지 않으므로, 이 시점 이후 원본이 사라지거나
+   이름이 바뀌어도 내보내기가 죽지 않는다. 하위 코드는 .name/.type/.arrayBuffer() 를
+   그대로 쓰므로 바꿀 필요가 없다.
+   반환: null = 정상, 문자열 = IDB 저장 실패 사유(메모리엔 남아 있음, A-1 정책)
+   던짐: 원본 읽기 자체가 실패한 경우 (보관할 바이트가 없으니 호출부가 거절해야 함) */
+async function adoptImage(k,file){
+  const buf=await file.arrayBuffer();
+  const owned=new File([buf],file.name||'image',{type:file.type||'image/png'});
+  if(images[k])URL.revokeObjectURL(images[k].url);
+  images[k]={id:++uid,file:owned,url:URL.createObjectURL(owned)};
+  try{ await idbPutImage(k,owned); return null; }
+  catch(e){ return (e&&e.message)||String(e); }
+}
+
+async function setImage(code,file){
   if(!file||!file.type.startsWith('image/')){toast('이미지 파일이 아니야');return;}
   const k=keyOf(code);
   const had=!!images[k];
-  if(had)URL.revokeObjectURL(images[k].url);
-  images[k]={id:++uid,file,url:URL.createObjectURL(file)};
+  let warn;
+  try{ warn=await adoptImage(k,file); }
+  catch(e){ toast('원본을 읽을 수 없어 — '+((e&&e.message)||e)); return; }
   render();
-  if(had)toast(code+'번 교체됨');
+  if(warn)toast('⚠ 저장 실패, 이번 세션에만 유지돼 — '+warn);
+  else if(had)toast(code+'번 교체됨');
 }
 
 function updateStat(){
@@ -1536,17 +1764,34 @@ function toWebp(file,q){
   if(!isFinite(n))n=92;
   const quality=Math.min(100,Math.max(1,n))/100;
   return new Promise((res,rej)=>{
+    const u=URL.createObjectURL(file);   // ★ 아래 두 경로에서 반드시 revoke (예전엔 새고 있었음)
     const img=new Image();
     img.onload=()=>{
-      const cv=document.createElement('canvas');cv.width=img.naturalWidth;cv.height=img.naturalHeight;
-      cv.getContext('2d').drawImage(img,0,0);
-      cv.toBlob(b=>b?res(b):rej(new Error('webp 변환 실패')),'image/webp',quality);
+      URL.revokeObjectURL(u);            // 디코드 끝났으니 여기서 해제해도 안전
+      try{
+        const cv=document.createElement('canvas');cv.width=img.naturalWidth;cv.height=img.naturalHeight;
+        cv.getContext('2d').drawImage(img,0,0);
+        cv.toBlob(b=>b?res(b):rej(new Error('webp 변환 실패')),'image/webp',quality);
+      }catch(e){rej(e);}
     };
-    img.onerror=()=>rej(new Error('이미지 로드 실패'));img.src=URL.createObjectURL(file);
+    img.onerror=()=>{URL.revokeObjectURL(u);rej(new Error('이미지 로드 실패'));};
+    img.src=u;
   });
 }
 
 /* ---------- ZIP ---------- */
+/* 경로키 → {code,label} 역인덱스. 실패 보고를 아가씨가 알아볼 이름으로 찍기 위함 */
+function slotInfoByKey(){
+  const m={};
+  try{
+    const ss=slotSection();
+    if(ss&&ss.groups)ss.groups.forEach(g=>(g.items||[]).forEach(it=>{
+      m[keyOf(it.code)]={code:it.code,label:it.label||''};
+    }));
+  }catch(_){}
+  return m;
+}
+
 $('#download').addEventListener('click',async()=>{
   const btn=$('#download');
   const keys=Object.keys(images).sort();
@@ -1554,20 +1799,55 @@ $('#download').addEventListener('click',async()=>{
   const useWebp=state.webp;
   const webpQ=state.webpQ;
   btn.disabled=true;const orig=btn.textContent;const zip=new JSZip();
+  const info=slotInfoByKey();
+  const tagOf=k=>{const it=info[k];return it?(it.label?it.code+' · '+it.label:it.code):k;};
+  const dead=[],degraded=[];
+  let ok=0;
   try{
     for(let i=0;i<keys.length;i++){
       btn.textContent=useWebp?`변환 중 ${i+1}/${keys.length} (${webpQ}%)`:`처리 중 ${i+1}/${keys.length}`;
-      const im=images[keys[i]];
-      const e=useWebp?'webp':(schema.ext||ext(im.file.name)||'png');
-      const blob=useWebp?await toWebp(im.file,webpQ):im.file;
-      zip.file(keys[i]+'.'+e,blob);
+      const k=keys[i];const im=images[k];
+
+      /* ★ 여기서 디스크를 실제로 읽는다.
+         예전엔 File 참조를 JSZip에 그대로 넘겨서, 원본이 사라진 게 압축 단계에서야 터지고
+         그 한 장 때문에 ZIP 전체가 취소됐다. 이제 장별로 걸러낸다. */
+      let raw;
+      try{ raw=await im.file.arrayBuffer(); }
+      catch(err){ dead.push(tagOf(k)); continue; }
+
+      const mime=im.file.type||'image/png';
+      const src=new Blob([raw],{type:mime});
+      let blob=src, e=schema.ext||ext(im.file.name)||'png';
+      if(useWebp){
+        try{ blob=await toWebp(src,webpQ); e='webp'; }
+        catch(err){ blob=src; degraded.push(tagOf(k)); }   // 변환만 실패 → 원본으로라도 넣는다
+      }
+      zip.file(k+'.'+e,blob);ok++;
     }
+
+    if(!ok){
+      alert(`묶을 수 있는 이미지가 하나도 없어.\n\n원본 파일이 사라진 칸 ${dead.length}개:\n`
+        +dead.slice(0,20).join(', ')+(dead.length>20?' …':''));
+      return;
+    }
+
     btn.textContent='압축 중...';
     const out=await zip.generateAsync({type:'blob'},m=>{btn.textContent=`압축 중 ${Math.round(m.percent)}%`;});
     const a=document.createElement('a');a.href=URL.createObjectURL(out);
     a.download=(activePreset().name.replace(/[\\/:*?"<>|]/g,'_')||'assets')+'_assets.zip';a.click();
     setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-    toast(`${keys.length}장 묶어서 내보냈어`);
+
+    let msg=`${ok}장 묶어서 내보냈어`;
+    if(degraded.length)msg+=` · webp 실패 ${degraded.length}장은 원본으로`;
+    if(dead.length)msg+=` · 누락 ${dead.length}장`;
+    toast(msg);
+    if(dead.length||degraded.length){
+      alert([
+        dead.length?`원본 파일을 못 찾아서 ZIP에서 빠진 칸 ${dead.length}개:\n`+dead.join(', ')
+          +'\n\n→ 파일이 옮겨졌거나 이름이 바뀌었거나 지워졌어. 해당 칸만 다시 넣어줘.':'',
+        degraded.length?`webp 변환에 실패해서 원본 그대로 넣은 칸 ${degraded.length}개:\n`+degraded.join(', '):''
+      ].filter(Boolean).join('\n\n'));
+    }
   }catch(err){alert('오류: '+err.message);}
   finally{btn.textContent=orig;btn.disabled=false;updateStat();}
 });
@@ -1766,6 +2046,7 @@ window.save=save;window.render=render; // drive_sync.js 호환
   $('#input-overlay').addEventListener('click',e=>{if(e.target.id==='input-overlay')closeInput();});
 
   bindViewer();
+  idbSelfTest().then(err=>{if(err)toast('⚠ 이미지 저장소 점검 실패 — '+err);});
   startAutoSave();
 })();
 </script>
