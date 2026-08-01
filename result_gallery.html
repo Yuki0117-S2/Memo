@@ -25,7 +25,7 @@ header{display:flex;align-items:center;gap:10px;border-bottom:.5px solid var(--b
 .searchbar{display:flex;align-items:center;gap:7px;background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:7px 10px;margin-bottom:10px}.searchbar input{flex:1;min-width:0;border:0;background:transparent;outline:0;color:var(--text);font-size:13px}.searchbar button{border:0;background:transparent;color:var(--text3);cursor:pointer;display:none}.searchbar button.visible{display:block}.searchbar button:hover{color:var(--danger)}
 .cat-list{display:flex;flex-direction:column;gap:4px;margin:8px 0 12px}.cat{display:flex;align-items:center;justify-content:space-between;gap:8px;border:.5px solid transparent;background:transparent;color:var(--text2);padding:8px 10px;border-radius:var(--radius-sm);font-size:12px;cursor:pointer;text-align:left}.cat:hover{background:var(--bg2)}.cat.active{background:var(--accent);color:white}.cat .count{font-size:10px;color:inherit;opacity:.7}.stats{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px}.stat{background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:9px}.stat b{display:block;font-size:14px;color:var(--accent);margin-bottom:2px}.stat span{font-size:10px;color:var(--text3)}
 .sort-row{display:flex;gap:6px;align-items:center;margin-bottom:10px;flex-wrap:wrap}.sort-row select,.sort-row input{background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text2);font-size:12px;padding:6px 8px;outline:0}.small{font-size:11px;color:var(--text3);line-height:1.45}
-#list{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}.card{border:.5px solid var(--border);background:var(--bg);border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:.12s;position:relative}.card:hover{border-color:var(--border2);box-shadow:0 4px 16px rgba(0,0,0,.06)}.card.active{outline:2px solid var(--accent);outline-offset:-2px}.thumb{aspect-ratio:1/1;background:var(--bg2);display:flex;align-items:center;justify-content:center;overflow:hidden}.thumb img{width:100%;height:100%;object-fit:cover;display:block}.thumb .noimg{font-size:12px;color:var(--text3)}.card-info{padding:10px}.card-title{font-size:12px;font-weight:700;color:var(--text);line-height:1.35;word-break:break-all;padding-right:22px}.fav{position:absolute;right:5px;top:5px;color:#fff;background:rgba(0,0,0,.35);font-size:16px;cursor:pointer;padding:3px 6px;border-radius:999px;line-height:1;z-index:2;user-select:none}.fav.on{color:var(--accent3)}.card-meta{display:flex;gap:4px;flex-wrap:wrap;margin:7px 0}.pill{font-size:10px;padding:2px 7px;border-radius:999px;background:var(--bg2);border:.5px solid var(--border);color:var(--text2)}.pill.status-ok{background:rgba(106,200,176,.12);color:var(--ok);border-color:rgba(106,200,176,.32)}.pill.status-bad{background:rgba(187,102,136,.12);color:var(--danger);border-color:rgba(187,102,136,.28)}.pill.meta{color:white;background:var(--accent);border-color:var(--accent)}.pill.meta.nai{background:var(--accent2);border-color:var(--accent2);color:#5a3348}.card-note{font-size:11px;color:var(--text3);line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap}.empty{grid-column:1/-1;text-align:center;color:var(--text3);font-size:13px;padding:4rem 1rem;border:.5px dashed var(--border);border-radius:var(--radius);background:var(--bg2)}
+#list{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}.card{border:.5px solid var(--border);background:var(--bg);border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:.12s;position:relative}.card:hover{border-color:var(--border2);box-shadow:0 4px 16px rgba(0,0,0,.06)}.card.active{outline:2px solid var(--accent);outline-offset:-2px}.thumb{aspect-ratio:1/1;background:var(--bg2);display:flex;align-items:center;justify-content:center;overflow:hidden}.thumb img{width:100%;height:100%;object-fit:cover;display:block}.thumb .noimg{font-size:12px;color:var(--text3)}.card-info{padding:10px}.card-title{font-size:12px;font-weight:700;color:var(--text);line-height:1.35;word-break:break-all;padding-right:22px}.fav{position:absolute;right:5px;top:5px;color:#fff;background:rgba(0,0,0,.35);font-size:16px;cursor:pointer;padding:3px 6px;border-radius:999px;line-height:1;z-index:2;user-select:none}.fav.on{color:var(--accent3)}.card-meta{display:flex;gap:4px;flex-wrap:wrap;margin:7px 0}.pill{font-size:10px;padding:2px 7px;border-radius:999px;background:var(--bg2);border:.5px solid var(--border);color:var(--text2)}.pill.status-ok{background:rgba(106,200,176,.12);color:var(--ok);border-color:rgba(106,200,176,.32)}.pill.status-bad{background:rgba(187,102,136,.12);color:var(--danger);border-color:rgba(187,102,136,.28)}.pill.meta{color:white;background:var(--accent);border-color:var(--accent)}.pill.meta.nai{background:var(--accent2);border-color:var(--accent2);color:#5a3348}.pill.imgs{color:var(--text2)}.pill.imgs.multi{background:#CCAA88;border-color:#CCAA88;color:#fff;font-weight:700}.ce-subs{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}.ce-sub{position:relative;width:64px;height:64px;border:.5px solid var(--border);border-radius:8px;overflow:hidden;background:var(--bg2)}.ce-sub img{width:100%;height:100%;object-fit:cover;display:block}.ce-sub-noimg{display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:16px;color:var(--text3)}.ce-sub-acts{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-between;background:rgba(0,0,0,.38)}.ce-sub-btn{background:none;border:0;color:#fff;font-size:12px;cursor:pointer;padding:2px 7px;line-height:1.3}.ce-sub-btn:hover{color:#DDAACC}#confirm-visual{margin:0;flex:0 1 auto;overflow-y:auto;max-height:44vh}.cmv{display:grid;gap:10px}.cmv-label{font-size:10px;font-weight:800;letter-spacing:.4px;margin-bottom:5px}.cmv-grid{display:flex;gap:6px;flex-wrap:wrap}.cmv-item{width:72px;height:72px;border:.5px solid var(--border);border-radius:8px;overflow:hidden;background:var(--bg2);position:relative;display:flex;align-items:center;justify-content:center;flex:0 0 auto}.cmv-item img{width:100%;height:100%;object-fit:cover;display:block}.cmv-noimg{font-size:16px;color:var(--text3)}.cmv-more{font-size:12px;font-weight:700;color:var(--text2)}.cmv-cap{position:absolute;left:0;right:0;bottom:0;font-size:8px;background:rgba(0,0,0,.45);color:#fff;padding:1px 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.card-note{font-size:11px;color:var(--text3);line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap}.empty{grid-column:1/-1;text-align:center;color:var(--text3);font-size:13px;padding:4rem 1rem;border:.5px dashed var(--border);border-radius:var(--radius);background:var(--bg2)}
 .form-grid{display:grid;gap:9px}.field{display:grid;gap:4px}.field label{font-size:10px;color:var(--text3);letter-spacing:.6px;text-transform:uppercase;font-weight:700}.field input,.field textarea,.field select{width:100%;background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:12px;padding:8px 9px;outline:0}.field textarea{resize:vertical;min-height:70px;line-height:1.55}.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--accent)}.row{display:flex;gap:7px;align-items:center}.row>*{flex:1}.actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.actions .btn{font-size:12px;padding:7px 10px}.preview-img{width:100%;border-radius:var(--radius-sm);border:.5px solid var(--border);background:var(--bg2);overflow:hidden}.preview-img img{width:100%;display:block}.kv{display:grid;grid-template-columns:90px 1fr;gap:5px 8px;background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:10px;font-size:11px}.kv b{color:var(--text3);font-weight:700}.kv span{color:var(--text2);word-break:break-all}.codebox{background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:10px;font-family:Consolas,Menlo,monospace;font-size:11px;color:var(--text2);line-height:1.55;white-space:pre-wrap;word-break:break-word;max-height:220px;overflow:auto}.tagline{display:flex;gap:4px;flex-wrap:wrap}.tag{font-size:11px;padding:2px 7px;background:var(--bg2);border:.5px solid var(--border);border-radius:999px;color:var(--text2)}
 #file-input,#import-input{position:absolute;width:1px;height:1px;padding:0;border:0;clip:rect(0 0 0 0);overflow:hidden;opacity:0;pointer-events:none}.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:9px 13px;border-radius:999px;font-size:12px;z-index:9999;box-shadow:0 8px 28px rgba(0,0,0,.18);opacity:0;pointer-events:none;transition:.18s}.toast.show{opacity:1}
 
@@ -300,6 +300,7 @@ body.eo-open{overflow:hidden}
     <button class="btn ghost" id="artist-export-btn" title="사용된 작가 목록을 TXT로 뽑아 (와일드카드용)">작가 TXT</button>
     <button class="btn ghost" id="sim-scan-btn" title="오타로 갈라진 작가명 통합">유사 작가</button>
     <button class="btn ghost" id="dup-scan-btn" title="작가 조합(가중치 포함)이 같은 카드 찾기">중복 검사</button>
+    <button class="btn ghost" id="merge-scan-btn" title="같은 조합(NAI: 작가+가중치 / Comfy: 프롬프트+LoRA) 카드를 한 카드로 묶기">소급 병합</button>
     <button class="btn ghost" id="clear-filter-btn">필터 초기화</button>
     <div class="view-toggle">
       <button class="vt-btn active" data-view="default" title="기본 뷰 (3분할 편집)">기본</button>
@@ -341,6 +342,7 @@ body.eo-open{overflow:hidden}
       <div class="sort-row">
         <select id="sort-select"><option value="new">최신순</option><option value="old">오래된순</option><option value="score">점수순</option><option value="name">이름순</option></select>
         <select id="score-filter"><option value="all">전체 점수</option><option value="5">★★★★★</option><option value="4">★★★★ 이상</option><option value="3">★★★ 이상</option><option value="0">미평가</option></select>
+        <select id="imgcount-filter" title="카드의 이미지 수(대표+보조)로 거르기"><option value="all">전체 이미지 수</option><option value="1">1장만</option><option value="2">2장 이상</option><option value="3">3장 이상</option><option value="5">5장 이상</option></select>
         <label class="small"><input type="checkbox" id="fav-only"> 즐겨찾기만</label>
       </div>
       <div class="chip-filters" id="chip-filters">
@@ -471,6 +473,7 @@ body.eo-open{overflow:hidden}
 <div id="confirm-overlay">
   <div class="confirm-modal">
     <div class="confirm-message" id="confirm-message"></div>
+    <div id="confirm-visual" style="display:none"></div>
     <div class="confirm-btn-row">
       <button class="cm-btn cm-ghost" id="confirm-cancel">취소</button>
       <button class="cm-btn cm-accent" id="confirm-ok">확인</button>
@@ -493,7 +496,7 @@ const LB_MOBILE_MQ='(max-width:720px)';
    (WebP의 ALPH 청크는 무손실이라 RGB만 손실 압축되고 알파 비트는 보존됨) */
 const STEALTH_SIGS={'stealth_pnginfo':false,'stealth_pngcomp':true,'stealth_rgbinfo':false,'stealth_rgbcomp':true};
 const STEALTH_SIG_LEN=15;
-let state={items:[],selectedId:null,status:'전체',query:'',sort:'new',scoreFilter:'all',favOnly:false,view:'default',tagFilter:[],loraFilter:[],genFilter:[],expandedIds:[]};
+let state={items:[],selectedId:null,status:'전체',query:'',sort:'new',scoreFilter:'all',imgCountFilter:'all',favOnly:false,view:'default',tagFilter:[],loraFilter:[],genFilter:[],expandedIds:[]};
 let selectMode=false;
 let selectedIds=new Set();
 const $=s=>document.querySelector(s);
@@ -504,18 +507,20 @@ function utf8Bytes(s){try{return new Blob([s]).size}catch(e){return new TextEnco
 function estimateGistPayloadBytes(){try{return utf8Bytes(JSON.stringify({version:1,slots:[{savedAt:new Date().toISOString(),device:'예상',state:stripStateForSync(state)}]},null,2))}catch(e){return 0}}
 function uniq(a){return [...new Set((a||[]).map(x=>String(x).trim()).filter(Boolean))]}
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),1700)}
-function showModal({message,danger,confirmText,cancelText,alert}){return new Promise(resolve=>{const ov=$('#confirm-overlay'),msgEl=$('#confirm-message'),okBtn=$('#confirm-ok'),cancelBtn=$('#confirm-cancel');msgEl.textContent=message;okBtn.textContent=confirmText||'확인';okBtn.className='cm-btn '+(danger?'cm-danger':'cm-accent');cancelBtn.textContent=cancelText||'취소';cancelBtn.style.display=alert?'none':'';ov.classList.add('open');okBtn.focus();function done(val){ov.classList.remove('open');okBtn.onclick=null;cancelBtn.onclick=null;ov.onclick=null;document.removeEventListener('keydown',onKey,true);resolve(val)}function onKey(e){if(e.key==='Enter'){e.preventDefault();e.stopPropagation();done(true)}else if(e.key==='Escape'){e.preventDefault();e.stopPropagation();done(alert?true:false)}}okBtn.onclick=()=>done(true);cancelBtn.onclick=()=>done(false);ov.onclick=e=>{if(e.target===ov)done(alert?true:false)};document.addEventListener('keydown',onKey,true)})}
-function showConfirm(message,opts={}){return showModal({message,danger:opts.danger,confirmText:opts.confirmText,cancelText:opts.cancelText})}
+function showModal({message,danger,confirmText,cancelText,alert,visualHTML}){return new Promise(resolve=>{const ov=$('#confirm-overlay'),msgEl=$('#confirm-message'),okBtn=$('#confirm-ok'),cancelBtn=$('#confirm-cancel');msgEl.textContent=message;const visEl=$('#confirm-visual');if(visEl){visEl.innerHTML=visualHTML||'';visEl.style.display=visualHTML?'':'none';}okBtn.textContent=confirmText||'확인';okBtn.className='cm-btn '+(danger?'cm-danger':'cm-accent');cancelBtn.textContent=cancelText||'취소';cancelBtn.style.display=alert?'none':'';ov.classList.add('open');okBtn.focus();function done(val){ov.classList.remove('open');if(visEl){visEl.innerHTML='';visEl.style.display='none';}okBtn.onclick=null;cancelBtn.onclick=null;ov.onclick=null;document.removeEventListener('keydown',onKey,true);resolve(val)}function onKey(e){if(e.key==='Enter'){e.preventDefault();e.stopPropagation();done(true)}else if(e.key==='Escape'){e.preventDefault();e.stopPropagation();done(alert?true:false)}}okBtn.onclick=()=>done(true);cancelBtn.onclick=()=>done(false);ov.onclick=e=>{if(e.target===ov)done(alert?true:false)};document.addEventListener('keydown',onKey,true)})}
+function showConfirm(message,opts={}){return showModal({message,danger:opts.danger,confirmText:opts.confirmText,cancelText:opts.cancelText,visualHTML:opts.visualHTML})}
 function showAlert(message,opts={}){return showModal({message,alert:true,confirmText:opts.confirmText||'확인'})}
 
 function normalizeStateShape(s){
   s=s&&typeof s==='object'?s:{};
   if(!Array.isArray(s.items))s.items=[];
+  s.items.forEach(it=>{ if(it&&!Array.isArray(it.subs))it.subs=[]; }); // 보조 이미지 배열 (같은 작가/프롬프트 조합 묶음)
   if(!s.selectedId&&s.items[0])s.selectedId=s.items[0].id;
   if(!s.status)s.status='전체';
   if(typeof s.query!=='string')s.query='';
   if(!s.sort)s.sort='new';
   if(!s.scoreFilter)s.scoreFilter='all';
+  if(!s.imgCountFilter)s.imgCountFilter='all';
   s.favOnly=!!s.favOnly;
   if(!s.view)s.view='default';
   if(!Array.isArray(s.tagFilter))s.tagFilter=[];
@@ -534,6 +539,7 @@ function stripUiState(s){
     query:s.query||'',
     sort:s.sort||'new',
     scoreFilter:s.scoreFilter||'all',
+    imgCountFilter:s.imgCountFilter||'all',
     favOnly:!!s.favOnly,
     view:s.view||'default',
     tagFilter:Array.isArray(s.tagFilter)?s.tagFilter:[],
@@ -547,7 +553,7 @@ function stripUiState(s){
 }
 function applyUiState(ui){
   if(!ui||typeof ui!=='object')return;
-  ['selectedId','status','query','sort','scoreFilter','view'].forEach(k=>{if(ui[k]!=null)state[k]=ui[k]});
+  ['selectedId','status','query','sort','scoreFilter','imgCountFilter','view'].forEach(k=>{if(ui[k]!=null)state[k]=ui[k]});
   if('favOnly' in ui)state.favOnly=!!ui.favOnly;
   if(Array.isArray(ui.tagFilter))state.tagFilter=ui.tagFilter;
   if(Array.isArray(ui.loraFilter))state.loraFilter=ui.loraFilter;
@@ -908,10 +914,17 @@ async function addFiles(files){
     try{ buffer=await readAsArrayBuffer(f); hash=fileSigOf(buffer); }
     catch(e){ console.error(e); }
     const stripped=state.items.find(it=>it.thumbStripped && it.fileName===f.name && it.size===f.size);
+    let strippedSub=null;
+    if(!stripped){ // 동기화로 받은 카드의 '보조 이미지' 껍데기도 채울 수 있게 검색
+      for(const it of state.items){
+        const s=(it.subs||[]).find(sb=>sb&&sb.thumbStripped&&sb.fileName===f.name&&sb.size===f.size);
+        if(s){strippedSub=s;break;}
+      }
+    }
     let dupLabel='', dupKind='';
-    if(!stripped){
+    if(!stripped&&!strippedSub){
       if(hash){
-        const hit=state.items.find(it=>it.fileHash && it.fileHash===hash);
+        const hit=state.items.find(it=>(it.fileHash&&it.fileHash===hash)||(it.subs||[]).some(sb=>sb&&sb.fileHash===hash));
         if(hit){ dupLabel=hit.title||hit.fileName||'(제목 없음)'; dupKind='확정'; }
         else if(batchSeen.has(hash)){ dupLabel=batchSeen.get(hash)+' (이번에 같이 넣은 파일)'; dupKind='확정'; }
       }
@@ -921,7 +934,7 @@ async function addFiles(files){
       }
     }
     if(hash && !batchSeen.has(hash)) batchSeen.set(hash,f.name);
-    plan.push({file:f,buffer,stripped,dupLabel,dupKind});
+    plan.push({file:f,buffer,stripped,strippedSub,dupLabel,dupKind});
   }
 
   /* 2단계 — 중복이 있으면 반드시 사람에게 묻는다. 자동 배제 없음. */
@@ -933,8 +946,8 @@ async function addFiles(files){
     skipDups=await showConfirm(`이미 있는 이미지 ${dups.length}장을 발견했어.\n\n${lines}${more}\n\n이것들을 건너뛸까?`,{confirmText:'건너뛰기',cancelText:'그래도 추가'});
   }
 
-  /* 3단계 — 실제 반영 */
-  let ok=0, filled=0, skipped=0;
+  /* 3단계 — 실제 반영 (신규 카드는 바로 넣지 않고 모아서 4단계 병합 판정으로 넘긴다) */
+  let ok=0, filled=0, skipped=0; const newItems=[];
   for(const p of plan){
     const f=p.file;
     try{
@@ -949,18 +962,63 @@ async function addFiles(files){
           if(!p.stripped.meta.height) p.stripped.meta.height=img.height;
         }
         filled++;
+      } else if(p.strippedSub){
+        const img=await makeThumb(f);
+        p.strippedSub.thumb=img.thumb;
+        p.strippedSub.thumbStripped=false;
+        if(p.buffer && !p.strippedSub.fileHash) p.strippedSub.fileHash=fileSigOf(p.buffer);
+        filled++;
       } else if(p.dupKind && skipDups){
         skipped++;
       } else {
-        state.items.unshift(await processFile(f,p.buffer));
-        ok++;
+        newItems.push(await processFile(f,p.buffer));
       }
     }catch(e){console.error(e);toast(f.name+' 읽기 실패')}
   }
+
+  /* 4단계 — 같은 조합(NAI: 작가+가중치 / Comfy: positive+LoRA) 병합 판정.
+     자동 병합 없음: 그룹마다 반드시 사람에게 묻는다. 서명 없는 카드는 무조건 새 카드. */
+  const sigGroups=new Map(); const singles=[];
+  for(const ni of newItems){
+    const sig=mergeSigOfItem(ni);
+    if(!sig){singles.push(ni);continue}
+    if(!sigGroups.has(sig))sigGroups.set(sig,[]);
+    sigGroups.get(sig).push(ni);
+  }
+  let merged=0;
+  for(const [sig,list] of sigGroups){
+    const target=state.items.find(it=>mergeSigOfItem(it)===sig);
+    if(target){
+      const names=list.slice(0,6).map(x=>'· '+x.fileName).join('\n')+(list.length>6?`\n... 외 ${list.length-6}장`:'');
+      const attach=await showConfirm(`${list.length}장이 기존 카드 "${target.title||target.fileName}" 와 같은 조합이야.\n그림체가 맞는지 아래에서 눈으로 대조해봐.\n\n${names}\n\n이 카드에 이어서 붙일까?`,{confirmText:'붙이기',cancelText:'새 카드로',visualHTML:mergeVisualHTML([
+        {label:'기존 카드 (대표+보조)',color:'#8888CC',thumbs:cardVisualThumbs(target)},
+        {label:`붙일 이미지 ${list.length}장`,color:'#BB6688',thumbs:list.map(x=>({t:x.thumb,cap:x.fileName}))}
+      ])});
+      if(attach){
+        target.subs=target.subs||[];
+        list.forEach(x=>{target.subs.push(itemToSub(x));merged++;});
+        target.updatedAt=Date.now();
+        continue;
+      }
+      singles.push(...list);
+    } else if(list.length>1){
+      const bundle=await showConfirm(`이번에 넣은 ${list.length}장이 서로 같은 조합이야.\n한 카드로 묶을까? (첫 장이 대표가 돼)`,{confirmText:'한 카드로',cancelText:'각각 새 카드',visualHTML:mergeVisualHTML([
+        {label:`묶일 이미지 ${list.length}장 (첫 장이 대표)`,color:'#8888CC',thumbs:list.map((x,i)=>({t:x.thumb,cap:i===0?'대표':x.fileName}))}
+      ])});
+      if(bundle){
+        const head=list[0];
+        head.subs=list.slice(1).map(itemToSub);
+        merged+=list.length-1;
+        singles.push(head);
+      } else singles.push(...list);
+    } else singles.push(...list);
+  }
+  for(const ni of singles){state.items.unshift(ni);ok++;}
   state.selectedId=state.items[0]?.id||null;
   save();render();
   const parts=[];
   if(ok) parts.push(ok+'개 추가');
+  if(merged) parts.push(merged+'개 기존 카드에 붙임');
   if(filled) parts.push(filled+'개 썸네일 채움');
   if(skipped) parts.push(skipped+'개 중복 건너뜀');
   toast(parts.length?parts.join(' · '):'추가된 게 없어');
@@ -972,6 +1030,7 @@ function filtered(){
     if(state.status!=='전체'&&it.status!==state.status)return false;
     if(state.favOnly&&!it.fav)return false;
     const sf=state.scoreFilter; if(sf==='0'&&Number(it.score)!==0)return false; if(['3','4','5'].includes(sf)&&Number(it.score)<Number(sf))return false;
+    const icf=state.imgCountFilter; if(icf&&icf!=='all'){const n=imgCountOf(it); if(icf==='1'){if(n!==1)return false;} else if(n<Number(icf))return false;}
     if(state.tagFilter.length){const tags=(it.tags||[]); if(!state.tagFilter.every(t=>tags.includes(t)))return false;}
     if(state.genFilter.length&&!state.genFilter.includes(genKey(it)))return false;
     if(state.loraFilter.length){const lns=(it.meta?.loras||[]).map(l=>cleanLoraName(l.name)); if(!state.loraFilter.every(l=>lns.includes(l)))return false;}
@@ -994,7 +1053,7 @@ function renderList(){
     const expanded=state.expandedIds.includes(it.id);
     const tagsArr=it.tags||[];
     const tagsMini=tagsArr.slice(0,5).map(t=>`<span class="tag-mini">#${esc(t)}</span>`).join('')+(tagsArr.length>5?`<span class="tag-mini">+${tagsArr.length-5}</span>`:'');
-    return `<article class="card ${it.id===state.selectedId?'active':''}${selectMode&&selectedIds.has(it.id)?' selected':''}" data-id="${it.id}"><div class="fav ${it.fav?'on':''}">${it.fav?'★':'☆'}</div><div class="thumb${it.thumbStripped?' stripped':''}">${it.thumb?`<img src="${it.thumb}" alt="">`:it.thumbStripped?'<span class="sync-noimg" title="원본 PNG를 다시 드롭하면 자동으로 채워져"><span class="sn-icon">☁</span>다른 기기에서<br>동기화됨<span class="sn-sub">원본 PNG 드롭 시 자동 매칭</span></span>':'<span class="noimg">이미지 없음</span>'}</div><div class="card-info"><div class="card-title">${esc(it.title)}</div><div class="card-meta"><span class="pill ${statusClass(it.status)}">${esc(it.status)}</span><span class="pill">${stars(it.score)}</span>${(g=>g?`<span class="pill meta ${g}">${g==='nai'?'NAI':'Comfy'}</span>`:'')(genOf(it))}</div><div class="card-tags-mini">${tagsMini}</div><div class="card-note">${esc(it.notes||it.meta?.model||it.meta?.source||'메모 없음')}</div><button class="card-expand-btn" data-expand="${it.id}"><span class="ce-arrow">${expanded?'▴':'▾'}</span><span class="ce-label">${expanded?'정보 접기':'정보 보기'}</span></button><div class="card-expanded ${expanded?'open':''}" data-eid="${it.id}">${cardExpandedHTML(it)}</div></div></article>`;
+    return `<article class="card ${it.id===state.selectedId?'active':''}${selectMode&&selectedIds.has(it.id)?' selected':''}" data-id="${it.id}"><div class="fav ${it.fav?'on':''}">${it.fav?'★':'☆'}</div><div class="thumb${it.thumbStripped?' stripped':''}">${it.thumb?`<img src="${it.thumb}" alt="">`:it.thumbStripped?'<span class="sync-noimg" title="원본 PNG를 다시 드롭하면 자동으로 채워져"><span class="sn-icon">☁</span>다른 기기에서<br>동기화됨<span class="sn-sub">원본 PNG 드롭 시 자동 매칭</span></span>':'<span class="noimg">이미지 없음</span>'}</div><div class="card-info"><div class="card-title">${esc(it.title)}</div><div class="card-meta"><span class="pill ${statusClass(it.status)}">${esc(it.status)}</span><span class="pill">${stars(it.score)}</span>${(g=>g?`<span class="pill meta ${g}">${g==='nai'?'NAI':'Comfy'}</span>`:'')(genOf(it))}${(n=>`<span class="pill imgs${n>1?' multi':''}" title="이미지 수 (대표+보조)">${n}장</span>`)(imgCountOf(it))}</div><div class="card-tags-mini">${tagsMini}</div><div class="card-note">${esc(it.notes||it.meta?.model||it.meta?.source||'메모 없음')}</div><button class="card-expand-btn" data-expand="${it.id}"><span class="ce-arrow">${expanded?'▴':'▾'}</span><span class="ce-label">${expanded?'정보 접기':'정보 보기'}</span></button><div class="card-expanded ${expanded?'open':''}" data-eid="${it.id}">${cardExpandedHTML(it)}</div></div></article>`;
   }).join('');
   box.classList.toggle('select-mode',selectMode);
   box.querySelectorAll('.card').forEach(c=>c.onclick=()=>{if(selectMode){toggleCardSelect(c.dataset.id,c);return;}openEdit(c.dataset.id)});
@@ -1030,6 +1089,25 @@ function renderList(){
       if(!it)return;
       const t=which==='negative'?(it.meta?.negative||''):(it.meta?.positive||'');
       navigator.clipboard.writeText(t).then(()=>toast(which==='negative'?'Negative 복사됨':'Positive 복사됨'),()=>toast('복사 실패'));
+    });
+    box.querySelectorAll('[data-sub-promote]').forEach(b=>b.onclick=async e=>{
+      e.stopPropagation();
+      const card=b.closest('.card'); const it=state.items.find(x=>x.id===card?.dataset.id);
+      const idx=Number(b.dataset.subPromote);
+      if(!it||!(it.subs||[])[idx])return;
+      if(!await showConfirm('이 보조 이미지를 대표로 승격할까?\n기존 대표는 보조 이미지로 내려가.',{confirmText:'승격'}))return;
+      promoteSub(it,idx);
+      save();render();toast('대표 이미지를 교체했어');
+    });
+    box.querySelectorAll('[data-sub-del]').forEach(b=>b.onclick=async e=>{
+      e.stopPropagation();
+      const card=b.closest('.card'); const it=state.items.find(x=>x.id===card?.dataset.id);
+      const idx=Number(b.dataset.subDel);
+      if(!it||!(it.subs||[])[idx])return;
+      if(!await showConfirm(`보조 이미지 "${(it.subs[idx].fileName||'이름 없음')}" 를 삭제할까?\n원본 파일은 삭제되지 않아.`,{danger:true,confirmText:'삭제'}))return;
+      it.subs.splice(idx,1);
+      it.updatedAt=Date.now();
+      save();render();toast('보조 이미지 삭제했어');
     });
   }
 }
@@ -1098,8 +1176,24 @@ function cardExpandedHTML(it){
   if(kv.length) h+='<div class="ce-kv">'+kv.map(([k,v])=>`<b>${esc(k)}</b><span>${esc(v)}</span>`).join('')+'</div>';
   if(m.positive) h+=`<div class="ce-prompt-label"><span>POSITIVE</span><button class="ce-prompt-copy" data-which="positive">복사</button></div><div class="ce-prompt">${esc(m.positive)}</div>`;
   if(m.negative) h+=`<div class="ce-prompt-label"><span>NEGATIVE</span><button class="ce-prompt-copy" data-which="negative">복사</button></div><div class="ce-prompt">${esc(m.negative)}</div>`;
+  if(it.subs&&it.subs.length){
+    h+=`<div class="ce-prompt-label"><span>보조 이미지 ${it.subs.length}장 (같은 조합)</span></div><div class="ce-subs">`+
+      it.subs.map((s,i)=>`<div class="ce-sub" title="${esc(s.fileName||'')}">${s.thumb?`<img src="${s.thumb}" alt="">`:'<span class="ce-sub-noimg" title="다른 기기에서 동기화됨 · 원본 PNG 드롭 시 자동 매칭">☁</span>'}<div class="ce-sub-acts"><button class="ce-sub-btn" data-sub-promote="${i}" title="이 이미지를 대표로 승격">★</button><button class="ce-sub-btn" data-sub-del="${i}" title="보조 이미지 삭제">×</button></div></div>`).join('')+'</div>';
+  }
   if(!h) h='<div class="ce-empty">메타 정보 없음</div>';
   return h;
+}
+/* 보조 이미지 ↔ 대표 교환. 카드 정체성(id·상태·점수·태그·메모)은 유지하고 이미지 관련 필드만 맞바꾼다. */
+function promoteSub(it,idx){
+  const s=(it.subs||[])[idx]; if(!s)return;
+  const old={id:uid(),thumb:it.thumb,fileName:it.fileName,size:it.size,fileHash:it.fileHash,meta:it.meta,addedAt:Date.now()};
+  if(it.thumbStripped){old.thumbStripped=true;delete old.thumb;}
+  const titleWasFileName=(it.title===it.fileName);
+  it.thumb=s.thumb; it.thumbStripped=!!s.thumbStripped;
+  it.fileName=s.fileName; it.size=s.size; it.fileHash=s.fileHash; it.meta=s.meta;
+  if(titleWasFileName&&s.fileName)it.title=s.fileName;
+  it.subs[idx]=old;
+  it.updatedAt=Date.now();
 }
 /* ── 작가 태그 파서 ──
    NAI 프롬프트에서 (작가명, 가중치)를 뽑는다. 실데이터 4건으로 원문 대조 검증함.
@@ -1199,8 +1293,97 @@ function itemArtistSig(it){
   const sig=artistSignature(it&&it.meta&&it.meta.positive);
   return sig?genOf(it)+'#'+sig:'';
 }
+/* ── 카드 병합 판정용 서명 ──
+   NAI  : 작가 조합 + 가중치 (기존 itemArtistSig와 같은 키)
+   Comfy: positive 전문(공백 정규화) + LoRA(이름@가중치, 정렬)
+   서명이 빈 문자열이면(작가 없는 NAI 등) 병합 대상에서 자동 제외 → 항상 새 카드. */
+function comfyMergeSig(m){
+  const pos=String((m&&m.positive)||'').replace(/\s+/g,' ').trim();
+  if(!pos)return '';
+  const loras=((m&&m.loras)||[]).map(l=>cleanLoraName(l.name)+'@'+(l.strength_model!=null?l.strength_model:'1')).sort().join('|');
+  return pos+'##'+loras;
+}
+function mergeSigOfMeta(m){
+  if(!m)return '';
+  const gen=m.gen||(String(m.source||'').startsWith('NovelAI')?'nai':(m.metaFound?'comfy':''));
+  if(gen==='nai'){const sig=artistSignature(m.positive);return sig?'nai#'+sig:'';}
+  if(gen==='comfy'){const sig=comfyMergeSig(m);return sig?'comfy#'+sig:'';}
+  return '';
+}
+function mergeSigOfItem(it){return mergeSigOfMeta(it&&it.meta)}
+/* ── 병합 확인 모달용 썸네일 비교 HTML ──
+   groups: [{label, color?, thumbs:[{t, cap?}]}]  · t 없으면 ☁(동기화 껍데기) 표시
+   그림체가 실제로 같은지 눈으로 대조하고 결정하라는 용도. 최대 12칸 + "+N" 표기. */
+function mergeVisualHTML(groups){
+  return '<div class="cmv">'+groups.map(g=>{
+    const thumbs=g.thumbs||[];
+    const shown=thumbs.slice(0,12);
+    const more=thumbs.length-shown.length;
+    return `<div class="cmv-group"><div class="cmv-label" style="color:${g.color||'#8888CC'}">${esc(g.label)}</div><div class="cmv-grid">${shown.map(x=>`<div class="cmv-item"${x.cap?` title="${esc(x.cap)}"`:''}>${x.t?`<img src="${x.t}" alt="">`:'<span class="cmv-noimg" title="다른 기기에서 동기화됨">☁</span>'}${x.cap?`<span class="cmv-cap">${esc(x.cap)}</span>`:''}</div>`).join('')}${more>0?`<div class="cmv-item cmv-more">+${more}</div>`:''}</div></div>`;
+  }).join('')+'</div>';
+}
+function cardVisualThumbs(it){ // 카드의 대표 + 보조 전부
+  return [{t:it.thumb,cap:''},...(it.subs||[]).map(s=>({t:s&&s.thumb,cap:''}))];
+}
+/* 신규 아이템(또는 기존 카드)을 다른 카드의 보조 이미지로 변환.
+   thumbStripped 승계: 동기화 껍데기 카드를 소급 병합해도 나중에 원본 드롭으로 채울 수 있게. */
+function itemToSub(x){
+  const sub={id:x.id,thumb:x.thumb,fileName:x.fileName,size:x.size,fileHash:x.fileHash,meta:x.meta,addedAt:Date.now()};
+  if(x.thumbStripped){sub.thumbStripped=true;delete sub.thumb;}
+  return sub;
+}
+/* ── 소급 병합: 이미 쌓인 카드들을 같은 조합끼리 묶는다 ──
+   규칙: 자동 병합 없음, 그룹마다 반드시 확인.
+   대표 = 가장 먼저 만든 카드(createdAt 최소). 묶이는 카드의 태그는 합집합, 메모는 이어붙임,
+   즐겨찾기는 하나라도 켜져 있으면 유지. 상태·점수는 대표 카드 것을 따른다. */
+async function runMergeScan(){
+  const groups=new Map();
+  state.items.forEach(it=>{
+    const sig=mergeSigOfItem(it); if(!sig)return;
+    if(!groups.has(sig))groups.set(sig,[]);
+    groups.get(sig).push(it);
+  });
+  const targets=[...groups.values()].filter(g=>g.length>1);
+  if(!targets.length){toast('같은 조합으로 묶일 카드가 없어');return}
+  const total=targets.reduce((a,g)=>a+g.length,0);
+  const start=await showConfirm(
+    `같은 조합 그룹 ${targets.length}개 (카드 ${total}장) 발견.\n그룹마다 하나씩 물어볼게.\n\n· 가장 먼저 만든 카드가 대표가 돼\n· 묶이는 카드의 태그는 대표에 합쳐지고, 메모는 이어 붙여져\n· 묶이는 카드의 상태·점수는 사라지고 대표 것을 따라가`,
+    {confirmText:'시작',cancelText:'취소'});
+  if(!start)return;
+  let mergedCards=0, mergedGroups=0, skippedGroups=0;
+  for(const g of targets){
+    g.sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+    const head=g[0], rest=g.slice(1);
+    const names=rest.slice(0,6).map(x=>'· '+(x.title||x.fileName||'(제목 없음)')).join('\n')+(rest.length>6?`\n... 외 ${rest.length-6}장`:'');
+    const ok=await showConfirm(`대표: "${head.title||head.fileName||'(제목 없음)'}"\n그림체가 맞는지 아래에서 눈으로 대조해봐.\n\n다음 ${rest.length}장을 이 카드의 보조로 붙일까?\n${names}`,{confirmText:'붙이기',cancelText:'건너뛰기',visualHTML:mergeVisualHTML([
+      {label:'대표 카드 (대표+보조)',color:'#8888CC',thumbs:cardVisualThumbs(head)},
+      {label:`붙일 카드 ${rest.length}장`,color:'#BB6688',thumbs:rest.map(x=>({t:x.thumb,cap:x.title||x.fileName||''}))}
+    ])});
+    if(!ok){skippedGroups++;continue}
+    head.subs=head.subs||[];
+    rest.forEach(x=>{
+      head.subs.push(itemToSub(x));
+      (x.subs||[]).forEach(sb=>{if(sb)head.subs.push(sb)}); // 묶이는 카드가 이미 보조를 갖고 있으면 그대로 승계
+      head.fav=head.fav||!!x.fav;
+      head.tags=[...new Set([...(head.tags||[]),...(x.tags||[])])];
+      if(x.notes&&String(x.notes).trim())head.notes=(head.notes?head.notes+'\n':'')+x.notes;
+      mergedCards++;
+    });
+    const ids=new Set(rest.map(x=>x.id));
+    state.items=state.items.filter(x=>!ids.has(x.id));
+    head.updatedAt=Date.now();
+    mergedGroups++;
+  }
+  if(mergedGroups){
+    if(state.selectedId&&!state.items.some(x=>x.id===state.selectedId))state.selectedId=state.items[0]?.id||null;
+    save();render();
+  }
+  toast(mergedGroups?`${mergedGroups}그룹 병합 · 카드 ${mergedCards}장을 보조로 묶었어${skippedGroups?` · ${skippedGroups}그룹 건너뜀`:''}`:'묶은 카드 없음');
+}
 function tagCounts(){const m=new Map();state.items.forEach(it=>(it.tags||[]).forEach(t=>{const k=String(t).trim();if(k)m.set(k,(m.get(k)||0)+1)}));return [...m.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'ko'))}
 function loraCounts(){const m=new Map();state.items.forEach(it=>((it.meta&&it.meta.loras)||[]).forEach(l=>{const n=cleanLoraName(l.name);if(n)m.set(n,(m.get(n)||0)+1)}));return [...m.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'ko'))}
+/* 카드의 총 이미지 수 = 대표 1 + 보조 (동기화 껍데기도 이미지로 센다) */
+function imgCountOf(it){return 1+((it&&it.subs)||[]).length}
 /* 필터 토큰: 메타 없는 카드도 'none'으로 잡아낼 수 있게 통일 */
 function genKey(it){return genOf(it)||'none'}
 function genCounts(){const m=new Map();state.items.forEach(it=>{const g=genKey(it);m.set(g,(m.get(g)||0)+1)});return m}
@@ -1628,7 +1811,7 @@ function openCtxMenu(x,y,items){
 function cardMenuItems(it){return[{icon:it.fav?'★':'☆',label:it.fav?'즐겨찾기 해제':'즐겨찾기',action:()=>toggleItemFav(it)},{sep:true},{icon:'📋',label:'카드 복제',action:()=>duplicateItem(it)},{icon:'📄',label:'메타 텍스트 복사',action:()=>copyItemMeta(it)},{icon:'＋',label:'일괄 선택 모드',action:()=>enterSelectMode()},{sep:true},{icon:'🏷',label:'상태 변경',submenu:['보류','성공','재작업','폐기'].map(st=>({icon:it.status===st?'●':' ',label:st,action:()=>setItemStatus(it,st)}))},{sep:true},{icon:'🗑',label:'삭제',danger:true,action:()=>deleteItem(it)}]}
 function boardMenuItems(){return[{icon:'＋',label:'이미지 추가',action:()=>$('#file-input').click()},{icon:'☐',label:'일괄 선택 모드',action:()=>enterSelectMode()},{sep:true},{icon:'⤺',label:'필터 초기화',action:()=>{$('#clear-filter-btn').click()}},{icon:'⬆',label:'JSON 내보내기',action:()=>exportData()},{icon:'⬇',label:'JSON 불러오기',action:()=>$('#import-input').click()}]}
 
-function render(){ normalizeStateShape(state); $('#search').value=state.query;$('#search-clear').classList.toggle('visible',!!state.query);$('#sort-select').value=state.sort;$('#score-filter').value=state.scoreFilter;$('#fav-only').checked=state.favOnly;renderStatuses();renderChips();renderList();renderDetail();renderStats()}
+function render(){ normalizeStateShape(state); $('#search').value=state.query;$('#search-clear').classList.toggle('visible',!!state.query);$('#sort-select').value=state.sort;$('#score-filter').value=state.scoreFilter;$('#imgcount-filter').value=state.imgCountFilter||'all';$('#fav-only').checked=state.favOnly;renderStatuses();renderChips();renderList();renderDetail();renderStats()}
 function saveDetail(){const it=current();if(!it)return;it.title=$('#d-title').value.trim()||'제목 없음';it.status=$('#d-status').value;it.score=Number($('#d-score').value)||0;it.tags=uniq($('#d-tags').value.split(','));it.notes=$('#d-notes').value.trim();it.updatedAt=Date.now();save();render();toast('저장했어')}
 function exportData(){const blob=new Blob([JSON.stringify({version:1,exportedAt:new Date().toISOString(),items:state.items},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='result_gallery_export_'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(a.href)}
 function importData(file){const r=new FileReader();r.onload=()=>{try{const data=JSON.parse(r.result);const items=Array.isArray(data)?data:data.items;if(!Array.isArray(items))throw Error('bad');state.items=[...items,...state.items];state.selectedId=state.items[0]?.id||null;save();render();toast(items.length+'개 불러왔어')}catch(e){toast('불러오기 실패')}};r.readAsText(file)}
@@ -1644,20 +1827,35 @@ let lbPlaying=false;
 let lbInterval=LB_SPEED_DEFAULT;
 
 function lbIsMobile(){try{return window.matchMedia(LB_MOBILE_MQ).matches}catch(_){return false}}
-function buildLbPlaylist(){return filtered().filter(it=>!!it.thumb).map(it=>it.id)}
+/* 재생목록 엔트리: {id, sub}. sub=-1 이면 대표, 0 이상이면 subs[sub] 보조 이미지 */
+function buildLbPlaylist(){
+  const out=[];
+  filtered().forEach(it=>{
+    if(it.thumb)out.push({id:it.id,sub:-1});
+    (it.subs||[]).forEach((s,i)=>{if(s&&s.thumb)out.push({id:it.id,sub:i})});
+  });
+  return out;
+}
+function lbEntryThumb(e){
+  if(!e)return '';
+  const it=state.items.find(x=>x.id===e.id); if(!it)return '';
+  return e.sub<0?(it.thumb||''):(((it.subs||[])[e.sub]||{}).thumb||'');
+}
 function lbPrefetch(){
   if(lbPlaylist.length<2||lbPos<0)return;
-  const nx=state.items.find(x=>x.id===lbPlaylist[(lbPos+1)%lbPlaylist.length]);
-  if(nx&&nx.thumb){const p=new Image();p.src=nx.thumb;}
+  const t=lbEntryThumb(lbPlaylist[(lbPos+1)%lbPlaylist.length]);
+  if(t){const p=new Image();p.src=t;}
 }
 function renderLightbox(){
   const box=$('#lightbox');
   if(!box||lbPos<0||!lbPlaylist.length)return;
-  const it=state.items.find(x=>x.id===lbPlaylist[lbPos]);
-  if(!it||!it.thumb){closeLightbox(false);return;}
+  const entry=lbPlaylist[lbPos];
+  const it=state.items.find(x=>x.id===entry.id);
+  const thumb=lbEntryThumb(entry);
+  if(!it||!thumb){closeLightbox(false);return;}
   lightboxItemId=it.id;
-  $('#lb-img').src=it.thumb;
-  $('#lb-title').textContent=it.title||'결과';
+  $('#lb-img').src=thumb;
+  $('#lb-title').textContent=(it.title||'결과')+(entry.sub>=0?` · 보조 ${entry.sub+1}/${(it.subs||[]).length}`:'');
   $('#lb-count').textContent=stars(it.score);
   const prog=$('#lb-progress');
   if(prog)prog.textContent=lbPlaylist.length>1?`${lbPos+1} / ${lbPlaylist.length}`:'';
@@ -1670,8 +1868,8 @@ function openLightbox(){
   const it=current();
   if(!it||!it.thumb)return;
   let list=buildLbPlaylist();
-  let pos=list.indexOf(it.id);
-  if(pos<0){list=[it.id];pos=0;} // 필터 밖 아이템(상세에서 연 경우)은 단독 재생
+  let pos=list.findIndex(e=>e.id===it.id&&e.sub===-1);
+  if(pos<0){list=[{id:it.id,sub:-1}];pos=0;} // 필터 밖 아이템(상세에서 연 경우)은 단독 재생
   lbPlaylist=list;
   lbPos=pos;
   lightboxItemId=it.id;
@@ -1684,7 +1882,7 @@ function openLightbox(){
 }
 function closeLightbox(doFocus=true){
   lbSetPlaying(false);
-  const lastId=(lbPos>=0&&lbPlaylist[lbPos])?lbPlaylist[lbPos]:lightboxItemId;
+  const lastId=(lbPos>=0&&lbPlaylist[lbPos])?lbPlaylist[lbPos].id:lightboxItemId;
   const box=$('#lightbox');
   if(box){box.classList.remove('open');box.setAttribute('aria-hidden','true');}
   document.body.classList.remove('lb-open');
@@ -1772,8 +1970,8 @@ document.addEventListener('click',e=>{const m=$('#ctx-menu');if(m&&!m.contains(e
 document.addEventListener('contextmenu',e=>{if(selectMode)return;if(e.target.closest('input,textarea,select'))return;const card=e.target.closest('#list .card');const main=e.target.closest('main.panel');if(card){e.preventDefault();const it=state.items.find(x=>x.id===card.dataset.id);if(it)openCtxMenu(e.clientX,e.clientY,cardMenuItems(it))}else if(main){e.preventDefault();openCtxMenu(e.clientX,e.clientY,boardMenuItems())}});
 let lastTap={t:0,x:0,y:0};document.addEventListener('touchend',e=>{if(selectMode)return;if(!e.changedTouches||!e.changedTouches[0])return;const t=e.changedTouches[0],now=Date.now(),dt=now-lastTap.t,dx=Math.abs(t.clientX-lastTap.x),dy=Math.abs(t.clientY-lastTap.y);if(dt<350&&dx<25&&dy<25){if(t.target.closest&&t.target.closest('input,textarea,select,button,a'))return;const card=t.target.closest&&t.target.closest('#list .card');const main=t.target.closest&&t.target.closest('main.panel');if(card){const it=state.items.find(x=>x.id===card.dataset.id);if(it){e.preventDefault();openCtxMenu(t.clientX,t.clientY,cardMenuItems(it))}}else if(main){e.preventDefault();openCtxMenu(t.clientX,t.clientY,boardMenuItems())}lastTap.t=0}else lastTap={t:now,x:t.clientX,y:t.clientY}},{passive:false});
 
-$('#pick-btn').onclick=()=>$('#file-input').click();$('#file-input').onchange=e=>addFiles(e.target.files);$('#export-btn').onclick=exportData;$('#import-btn').onclick=()=>$('#import-input').click();$('#import-input').onchange=e=>{if(e.target.files[0])importData(e.target.files[0])};$('#clear-filter-btn').onclick=()=>{state.status='전체';state.query='';state.scoreFilter='all';state.favOnly=false;state.tagFilter=[];state.loraFilter=[];state.genFilter=[];save();render()};
-$('#search').oninput=e=>{state.query=e.target.value;save();render()};$('#search-clear').onclick=()=>{state.query='';save();render()};$('#sort-select').onchange=e=>{state.sort=e.target.value;save();render()};$('#score-filter').onchange=e=>{state.scoreFilter=e.target.value;save();render()};$('#fav-only').onchange=e=>{state.favOnly=e.target.checked;save();render()};
+$('#pick-btn').onclick=()=>$('#file-input').click();$('#file-input').onchange=e=>addFiles(e.target.files);$('#export-btn').onclick=exportData;$('#import-btn').onclick=()=>$('#import-input').click();$('#import-input').onchange=e=>{if(e.target.files[0])importData(e.target.files[0])};$('#clear-filter-btn').onclick=()=>{state.status='전체';state.query='';state.scoreFilter='all';state.imgCountFilter='all';state.favOnly=false;state.tagFilter=[];state.loraFilter=[];state.genFilter=[];save();render()};
+$('#search').oninput=e=>{state.query=e.target.value;save();render()};$('#search-clear').onclick=()=>{state.query='';save();render()};$('#sort-select').onchange=e=>{state.sort=e.target.value;save();render()};$('#score-filter').onchange=e=>{state.scoreFilter=e.target.value;save();render()};$('#imgcount-filter').onchange=e=>{state.imgCountFilter=e.target.value;save();render()};$('#fav-only').onchange=e=>{state.favOnly=e.target.checked;save();render()};
 $('#save-detail-btn').onclick=saveDetail;['#d-title','#d-status','#d-score','#d-tags','#d-notes'].forEach(s=>$(s).addEventListener('change',saveDetail));$('#copy-positive-btn').onclick=()=>{navigator.clipboard.writeText(current()?.meta?.positive||'');toast('Positive 복사했어')};$('#copy-negative-btn').onclick=()=>{navigator.clipboard.writeText(current()?.meta?.negative||'');toast('Negative 복사했어')};$('#toggle-fav-btn').onclick=()=>{const it=current();if(!it)return;it.fav=!it.fav;save();render()};$('#delete-btn').onclick=async()=>{const it=current();if(!it)return;if(!await showConfirm('이 결과를 삭제할까? 원본 파일은 삭제되지 않아.',{danger:true}))return;state.items=state.items.filter(x=>x.id!==it.id);state.selectedId=state.items[0]?.id||null;save();render();toast('삭제했어')};$('#open-lightbox-btn').onclick=openLightbox;bindLightbox();
 /* === patch: 오버레이 바인딩 === */
 $('#eo-close').onclick=()=>closeEditOverlay();
@@ -1783,6 +1981,7 @@ $('#d-img').onclick=()=>openLightbox(); // 상세/오버레이 미리보기 → 
 /* ③ 선택 칩 → 액션 시트 토글 */
 $('#artist-export-btn').onclick=exportArtistTxt;
 $('#dup-scan-btn').onclick=openDupScan;
+$('#merge-scan-btn').onclick=runMergeScan;
 $('#sim-scan-btn').onclick=openSimScan;
 $('#sim-close').onclick=closeSimScan;
 $('#sim-reset').onclick=resetArtistMerges;
@@ -1853,6 +2052,12 @@ function stripStateForSync(s){
       // rawMeta는 디버깅용(ComfyUI 워크플로우 JSON 원본). positive/negative/model/loras 등은 이미 별도 추출돼 있음.
       // 아이템당 최대 20KB라 동기화에서 빼면 70~80% 절감.
       if(it.meta && it.meta.rawMeta) delete it.meta.rawMeta;
+      (it.subs||[]).forEach(sb=>{ // 보조 이미지도 대표와 같은 규칙으로 strip
+        if(!sb)return;
+        delete sb.thumb;
+        sb.thumbStripped=true;
+        if(sb.meta && sb.meta.rawMeta) delete sb.meta.rawMeta;
+      });
     });
   }
   return cloned;
@@ -1996,7 +2201,10 @@ function showSlotPicker(slots, token, gistId){
       overlay.remove();
       // 로컬 썸네일 백업 (파일명+크기 기준)
       const localThumbs=new Map();
-      (state.items||[]).forEach(it=>{ if(it.thumb && it.fileName){ localThumbs.set(it.fileName+'|'+it.size, it.thumb); } });
+      (state.items||[]).forEach(it=>{
+        if(it.thumb && it.fileName){ localThumbs.set(it.fileName+'|'+it.size, it.thumb); }
+        (it.subs||[]).forEach(sb=>{ if(sb&&sb.thumb&&sb.fileName){ localThumbs.set(sb.fileName+'|'+sb.size, sb.thumb); } });
+      });
       // 새 state 적용
       state=slot.state;
       // 마이그레이션 (download된 state에 새 필드 없을 수 있음)
@@ -2013,6 +2221,12 @@ function showSlotPicker(slots, token, gistId){
           const t=localThumbs.get(k);
           if(t){ it.thumb=t; it.thumbStripped=false; restored++; }
         }
+        (it.subs||[]).forEach(sb=>{
+          if(sb&&sb.thumbStripped){
+            const t=localThumbs.get(sb.fileName+'|'+sb.size);
+            if(t){ sb.thumb=t; sb.thumbStripped=false; restored++; }
+          }
+        });
       });
       state.selectedId=state.items?.[0]?.id||null;
       save();
