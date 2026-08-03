@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>✦ H3 Prompt</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#ffffff;--bg2:#f7f6f3;--bg3:#eeeeee;--text:#1a1a1a;--text2:#555;--text3:#999;--border:rgba(0,0,0,.10);--border2:rgba(0,0,0,.20);--accent:#884499;--accent2:#DDAACC;--accent3:#CCAA88;--danger:#BB6688;--blue:#8888CC;--ok:#6AC8B0;--radius:12px;--radius-sm:8px;--mono:'JetBrains Mono',Consolas,Menlo,monospace}
+@media(prefers-color-scheme:dark){:root{--bg:#1e1e1e;--bg2:#272727;--bg3:#313131;--text:#f0f0f0;--text2:#aaa;--text3:#666;--border:rgba(255,255,255,.10);--border2:rgba(255,255,255,.22)}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+button,input,textarea,select{font-family:inherit}
+#app{width:100%;max-width:920px;margin:0 auto;padding:1rem 1.25rem 3rem}
+
+header{display:flex;align-items:center;gap:10px;border-bottom:.5px solid var(--border);padding-bottom:.75rem;margin-bottom:.85rem;flex-wrap:wrap}
+.back{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;color:var(--text3);text-decoration:none;border-radius:var(--radius-sm);font-size:18px;flex:0 0 auto}
+.back:hover{background:var(--bg2);color:var(--accent)}
+.logo{font-size:15px;font-weight:700;color:var(--accent);letter-spacing:-.2px;margin-right:8px;display:flex;align-items:center;gap:8px}
+.logo-dot{width:8px;height:8px;border-radius:999px;background:var(--accent);box-shadow:0 0 10px rgba(136,68,153,.6);animation:pulse 2.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.42}}
+@media(prefers-reduced-motion:reduce){.logo-dot{animation:none}}
+.toolbar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;flex:1;color:var(--text3);font-size:12px;line-height:1.55}
+.toolbar strong{color:var(--text2);font-weight:600}
+
+.hero{background:var(--bg);border:.5px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:12px}
+.hero-head{padding:14px 15px;background:var(--bg2)}
+.hero-title{font-size:13px;font-weight:800;color:var(--text);margin-bottom:3px}
+.hero-desc{font-size:12px;color:var(--text3);line-height:1.55}
+.hero-desc b{color:var(--accent3);font-weight:700}
+
+.panel{background:var(--bg);border:.5px solid var(--border);border-radius:var(--radius);margin-bottom:12px;overflow:hidden}
+.panel-head{padding:11px 14px;border-bottom:.5px solid var(--border);background:var(--bg2);display:flex;align-items:center;justify-content:space-between;gap:10px}
+.panel-title{font-size:12px;font-weight:800;color:var(--text2);letter-spacing:.2px}
+.panel-body{padding:13px 14px}
+
+.opt-block{margin-bottom:14px}
+.opt-block:last-child{margin-bottom:0}
+.opt-label{font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.9px;margin-bottom:6px}
+.sub{font-size:11px;color:var(--text3);font-weight:400}
+
+.seg{display:flex;flex-wrap:wrap;gap:5px}
+.seg button{border:.5px solid var(--border);background:var(--bg2);color:var(--text2);font-size:12px;padding:6px 11px;border-radius:999px;cursor:pointer;transition:.15s}
+.seg button:hover{border-color:var(--border2)}
+.seg button.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.seg button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+select.pick{width:100%;padding:8px 10px;border:.5px solid var(--border);border-radius:var(--radius-sm);background:var(--bg2);color:var(--text);font-size:12.5px}
+input.tx,textarea.tx{width:100%;padding:8px 10px;border:.5px solid var(--border);border-radius:var(--radius-sm);background:var(--bg2);color:var(--text);font-size:12.5px;line-height:1.6;resize:vertical}
+textarea.tx{min-height:52px}
+
+.chks{display:flex;flex-wrap:wrap;gap:5px}
+.chk{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);border:.5px solid var(--border);background:var(--bg2);padding:5px 10px;border-radius:999px;cursor:pointer}
+.chk input{accent-color:var(--accent)}
+.chk:has(input:checked){border-color:var(--accent);color:var(--accent);font-weight:600}
+
+.shot{border:.5px solid var(--border);border-radius:var(--radius-sm);padding:11px 12px;margin-bottom:9px;background:var(--bg2)}
+.shot:last-child{margin-bottom:0}
+.shot-h{font-size:10.5px;font-weight:800;letter-spacing:.5px;color:var(--accent2);text-transform:uppercase;margin-bottom:8px}
+.row{display:grid;grid-template-columns:1fr;gap:8px}
+@media(min-width:640px){.row.two{grid-template-columns:1fr 1fr}}
+
+.out-grid{display:grid;grid-template-columns:1fr;gap:10px}
+@media(min-width:820px){.out-grid{grid-template-columns:1fr 1fr}}
+.out-box{border:.5px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;display:flex;flex-direction:column}
+.out-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;background:var(--bg2);border-bottom:.5px solid var(--border)}
+.out-tag{font-size:10px;font-weight:800;letter-spacing:.8px;text-transform:uppercase}
+.out-tag.en{color:var(--accent)}
+.out-tag.ko{color:var(--accent3)}
+.out-box textarea{width:100%;min-height:290px;border:0;background:var(--bg);color:var(--text);padding:11px;font-size:12px;line-height:1.65;resize:vertical;font-family:var(--mono)}
+.out-box textarea:focus{outline:none}
+.out-box textarea.kotext{font-family:inherit;font-size:12.5px}
+
+.btn{border:.5px solid var(--border2);background:var(--bg2);color:var(--text2);font-size:11.5px;font-weight:600;padding:5px 11px;border-radius:999px;cursor:pointer;transition:.15s}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.solid{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.spec{display:grid;grid-template-columns:1fr;gap:7px}
+@media(min-width:640px){.spec{grid-template-columns:1fr 1fr}}
+.spec-i{border:.5px solid var(--border);border-left:3px solid var(--blue);border-radius:var(--radius-sm);padding:8px 11px;background:var(--bg2)}
+.spec-k{font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px}
+.spec-v{font-size:12px;color:var(--text2);line-height:1.55}
+.spec-v code{font-family:var(--mono);font-size:11.5px;color:var(--accent)}
+
+.note{font-size:11.5px;color:var(--text3);line-height:1.6;margin-top:9px}
+.note b{color:var(--danger)}
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(12px);background:var(--text);color:var(--bg);font-size:12px;font-weight:600;padding:9px 16px;border-radius:999px;opacity:0;pointer-events:none;transition:.22s;z-index:99}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+footer{margin-top:2rem;font-size:11px;color:var(--text3);text-align:center;letter-spacing:.3px}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <a class="back" href="index.html" title="작업실로">‹</a>
+    <div class="logo"><span class="logo-dot"></span>✦ H3 Prompt</div>
+    <div class="toolbar"><strong>MiniMax H3 프롬프트 조립</strong> 블록 고르면 영어·한국어 동시 출력</div>
+  </header>
+
+  <section class="hero">
+    <div class="hero-head">
+      <div class="hero-title">Prompt Builder</div>
+      <div class="hero-desc">H3는 danbooru 태그가 아니라 <b>자연어 문장</b>을 먹는다. 공식 구조는 <b>전체 장면 → 시간순 샷 → 오디오 한 블록</b>. 아래에서 블록을 고르면 그 구조대로 조립돼. 오른쪽 한국어판은 대조용 — 직접 쓴 한국어를 번역기 돌려 영어 칸에 붙여도 된다.</div>
+    </div>
+  </section>
+
+  <!-- 모드 -->
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">▸ 모드</div>
+      <button class="btn" id="btn-reset">초기화</button>
+    </div>
+    <div class="panel-body">
+      <div class="opt-block">
+        <div class="opt-label">생성 방식</div>
+        <div class="seg" id="seg-mode">
+          <button data-v="t2v">T2V 텍스트만</button>
+          <button data-v="i2v" class="active">I2V 이미지 시작</button>
+          <button data-v="r2v">R2V 레퍼런스</button>
+        </div>
+        <div class="sub" style="margin-top:5px" id="mode-hint"></div>
+      </div>
+      <div class="opt-block" id="ref-block">
+        <div class="opt-label">레퍼런스 역할 배정 <span class="sub">· 연결한 순서대로 태그가 매겨진다</span></div>
+        <div class="chks" id="chk-refs"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 장면 -->
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">▸ 장면</div></div>
+    <div class="panel-body">
+      <div class="row two">
+        <div class="opt-block"><div class="opt-label">조명</div><select class="pick" id="p-light"></select></div>
+        <div class="opt-block"><div class="opt-label">색감</div><select class="pick" id="p-grade"></select></div>
+      </div>
+      <div class="row two">
+        <div class="opt-block"><div class="opt-label">구도 · 렌즈</div><select class="pick" id="p-lens"></select></div>
+        <div class="opt-block"><div class="opt-label">공간</div><select class="pick" id="p-space"></select></div>
+      </div>
+      <div class="opt-block">
+        <div class="opt-label">고정 지시 <span class="sub">· 배경이 흔들리는 걸 막는다</span></div>
+        <div class="chks" id="chk-lock"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 샷 -->
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">▸ 샷 구성</div>
+      <span class="sub">3박자 권장 · 5초(124프레임) 기준</span>
+    </div>
+    <div class="panel-body" id="shots"></div>
+  </div>
+
+  <!-- 대사 -->
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">▸ 대사</div></div>
+    <div class="panel-body">
+      <div class="row two">
+        <div class="opt-block"><div class="opt-label">언어</div><select class="pick" id="p-lang"></select></div>
+        <div class="opt-block"><div class="opt-label">전달 방식</div><select class="pick" id="p-delivery"></select></div>
+      </div>
+      <div class="opt-block">
+        <div class="opt-label">대사 원문 <span class="sub">· 원어 그대로. 로마자 표기는 발음이 틀어진다</span></div>
+        <input class="tx" id="t-line" placeholder="なに？">
+      </div>
+      <div class="opt-block">
+        <div class="opt-label">대사 뜻 <span class="sub">· 한국어판에만 들어감. 비워도 됨</span></div>
+        <input class="tx" id="t-line-ko" placeholder="뭐야?">
+      </div>
+    </div>
+  </div>
+
+  <!-- 오디오 -->
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">▸ 오디오</div></div>
+    <div class="panel-body">
+      <div class="opt-block">
+        <div class="opt-label">목소리</div>
+        <select class="pick" id="p-voice"></select>
+        <div class="sub" style="margin-top:5px">성별·음역을 안 쓰면 모델이 알아서 고른다. 원하는 게 있으면 반드시 지정할 것.</div>
+      </div>
+      <div class="opt-block">
+        <div class="opt-label">환경음</div>
+        <div class="chks" id="chk-amb"></div>
+      </div>
+      <div class="opt-block">
+        <div class="opt-label">음악</div>
+        <div class="seg" id="seg-music">
+          <button data-v="none" class="active">No music</button>
+          <button data-v="soft">잔잔한 배경음</button>
+          <button data-v="free">지정 안 함</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 출력 -->
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">▸ 출력</div>
+      <div style="display:flex;gap:6px">
+        <button class="btn" id="btn-copy-ko">한국어 복사</button>
+        <button class="btn solid" id="btn-copy-en">영어 복사</button>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div class="out-grid">
+        <div class="out-box">
+          <div class="out-head"><span class="out-tag en">English · 붙여넣을 것</span></div>
+          <textarea id="out-en" spellcheck="false"></textarea>
+        </div>
+        <div class="out-box">
+          <div class="out-head"><span class="out-tag ko">한국어 · 대조용</span></div>
+          <textarea id="out-ko" class="kotext" spellcheck="false"></textarea>
+        </div>
+      </div>
+      <div class="note">영어 칸은 직접 고쳐도 된다. 블록을 다시 건드리면 다시 쓰여지니 편집본은 먼저 복사해 둘 것. <b>«번역해서 넣기»</b> 표시는 한국어로 적은 추가 묘사가 아직 영어로 안 바뀐 자리다.</div>
+    </div>
+  </div>
+
+  <!-- 스펙 -->
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">▸ H3 하드 스펙</div><span class="sub">ComfyUI 공식 문서 기준</span></div>
+    <div class="panel-body">
+      <div class="spec">
+        <div class="spec-i"><div class="spec-k">해상도</div><div class="spec-v">짧은 변 768px, 최대 <code>768×1344</code>, <code>32</code>의 배수로 반올림</div></div>
+        <div class="spec-i"><div class="spec-k">길이</div><div class="spec-v">24fps, <code>17k+5</code> 프레임 격자로 스냅. 최대 약 15초</div></div>
+        <div class="spec-i"><div class="spec-k">레퍼런스 한도</div><div class="spec-v">이미지 9개 · 영상 3개 · 독립 오디오 3개</div></div>
+        <div class="spec-i"><div class="spec-k">태그 문법</div><div class="spec-v"><code>&lt;Picture N&gt;</code> <code>&lt;Video N&gt;</code> <code>&lt;Audio N&gt;</code> — 연결 순서대로</div></div>
+        <div class="spec-i"><div class="spec-k">스케줄러</div><div class="spec-v">레퍼런스 많으면 <code>beta</code>/<code>normal</code>이 <code>simple</code>보다 낫다</div></div>
+        <div class="spec-i"><div class="spec-k">ref_image_size</div><div class="spec-v"><code>match</code>는 빠르고, <code>max</code>는 얼굴 재현이 강하다</div></div>
+      </div>
+      <div class="note">R2V는 <code style="font-family:var(--mono)">ref2va</code>, T2V·I2V는 <code style="font-family:var(--mono)">fl2va</code> — <b>서로 다른 가중치 파일</b>이다.</div>
+    </div>
+  </div>
+
+  <footer>✦ 작업실 · 본인 전용</footer>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---------- 어휘 사전 ---------- */
+const N = {ko:'— 지정 안 함 —', en:null};
+const V = {
+  light:[N,
+    {ko:'창가 자연광, 부드럽게', en:'soft natural window light'},
+    {ko:'해질녘 따뜻한 역광', en:'warm late-afternoon backlight'},
+    {ko:'흐린 날 고른 확산광', en:'flat diffused overcast light'},
+    {ko:'어두운 스튜디오 + 림라이트', en:'a dark studio void with dramatic rim lighting'},
+    {ko:'네온 사인 반사광', en:'reflected neon signage light'},
+    {ko:'촛불 하나, 흔들리는 빛', en:'a single flickering candle as the only source'},
+    {ko:'창문 블라인드 줄무늬 그림자', en:'hard venetian-blind shadows across the frame'}],
+  grade:[N,
+    {ko:'따뜻하고 부드러운 톤', en:'gentle warm color grade'},
+    {ko:'차갑고 채도 낮은 톤', en:'muted cool color grade'},
+    {ko:'푸른색·주황색 듀오톤', en:'duotone blue and warm orange palette'},
+    {ko:'필름 그레인, 빛바랜 색', en:'faded film-stock look with visible grain'},
+    {ko:'고대비 흑백', en:'high-contrast black and white'},
+    {ko:'파스텔, 낮은 대비', en:'soft pastel palette with low contrast'}],
+  lens:[N,
+    {ko:'클로즈업, 얕은 심도', en:'intimate character close-up, shallow depth of field'},
+    {ko:'상반신, 표준 렌즈', en:'medium shot at a standard focal length'},
+    {ko:'전신, 넓은 화각', en:'full-body wide shot'},
+    {ko:'극단적 매크로', en:'extreme macro detail shot'},
+    {ko:'로우앵글 올려다보기', en:'low-angle shot looking up at the subject'},
+    {ko:'하이앵글 내려다보기', en:'high-angle shot looking down at the subject'}],
+  space:[N,
+    {ko:'조용한 실내', en:'quiet indoor setting'},
+    {ko:'밤의 도시 옥상', en:'a city rooftop at night'},
+    {ko:'좁은 방, 어질러진', en:'a small cluttered room'},
+    {ko:'빈 복도', en:'an empty corridor'},
+    {ko:'창가 자리', en:'a seat beside a window'},
+    {ko:'아무것도 없는 검은 공간', en:'a featureless black void'}],
+  camera:[N,
+    {ko:'고정, 미세한 손떨림', en:'Camera is static with a very slight handheld drift'},
+    {ko:'아주 천천히 밀어넣기', en:'The camera pushes in a few centimeters, almost imperceptibly'},
+    {ko:'천천히 빼기', en:'The camera pulls back slowly'},
+    {ko:'옆으로 미끄러지듯 이동', en:'The camera glides slowly sideways along the subject'},
+    {ko:'느리게 궤도 회전', en:'The camera orbits the subject in a slow, precise arc'},
+    {ko:'완전 고정, 삼각대', en:'Camera stays locked on a tripod'}],
+  action:[N,
+    {ko:'정면을 계속 바라본다', en:'holding steady eye contact with the camera, expression soft and unguarded'},
+    {ko:'고개를 돌려 눈을 마주친다', en:'slowly turning their head toward the camera and meeting the lens directly'},
+    {ko:'시선을 옆으로 피한다', en:'eyes flicking away to the side, a brief restless glance at nothing in particular'},
+    {ko:'다시 시선을 되돌린다', en:'turning their eyes back to the camera, steadier now'},
+    {ko:'고개를 푹 숙인다', en:'dropping their head, chin tucking toward the chest, hair falling forward to partially veil the face'},
+    {ko:'얼굴이 붉어진다', en:'a faint blush blooming across the cheeks and the bridge of the nose'},
+    {ko:'어깨가 움츠러든다', en:'shoulders drawing inward slightly'},
+    {ko:'눈썹이 아주 살짝 올라간다', en:'one eyebrow lifting a millimeter, the faintest dry amusement at the corner of the mouth'},
+    {ko:'다른 데를 보며 무심하다', en:'turned slightly away, attention elsewhere — composed, unhurried, faintly bored'},
+    {ko:'숨을 한 번 고른다', en:'taking a single steadying breath'}],
+  voice:[N,
+    {ko:'밝은 청년 테너 (가볍고 연극적)', en:'a young adult male voice — a light, clear tenor with a soft airy edge, gentle and slightly theatrical in cadence, not deep or gravelly'},
+    {ko:'낮고 무심한 청년 (허스키)', en:'a young adult male voice — a low, smooth, slightly husky tone with a cool detached edge, restrained and unhurried, not bright or boyish'},
+    {ko:'또렷한 소년 목소리', en:"a boy's voice — high, clear and unaffected, with a light natural brightness"},
+    {ko:'부드러운 여성 목소리', en:'a young adult female voice — soft and warm in the mid register, unhurried, not shrill or breathy'},
+    {ko:'차분한 중년 남성', en:'a middle-aged male voice — deep, measured and calm, with weight behind each word'},
+    {ko:'속삭이는 저음', en:'a hushed low voice, barely above a whisper, close and confiding'}],
+  delivery:[N,
+    {ko:'조용히, 당황해서 얼버무리듯', en:'hushed and flustered, trailing off at the end'},
+    {ko:'조용하지만 또박또박, 마음먹고', en:'quietly but deliberately, each word placed with intent'},
+    {ko:'평이하게, 사무적으로', en:'evenly and matter-of-factly, at conversational volume'},
+    {ko:'건조한 빈정거림을 살짝', en:'flat and even, with a faint trace of dry irony'},
+    {ko:'숨이 걸린 채, 간신히', en:'breath catching, barely managing the words'}],
+  lang:[N,
+    {ko:'일본어', en:'Japanese'},
+    {ko:'한국어', en:'Korean'},
+    {ko:'영어', en:'English'}]
+};
+const REFS=[
+  {id:'identity', ko:'정체성 (얼굴·머리·복장)', en:'the character identity — keep the face, hairstyle, and outfit consistent throughout'},
+  {id:'style',    ko:'그림체 · 스타일',        en:'the overall visual style and rendering'},
+  {id:'motion',   ko:'동작 · 모션',            en:'the motion and body language'},
+  {id:'cam',      ko:'카메라 움직임',          en:'the camera move'},
+  {id:'voice',    ko:'목소리',                 en:'the speaking voice and timbre'}
+];
+const LOCKS=[
+  {id:'env',   ko:'배경 고정', en:'The environment stays constant throughout'},
+  {id:'open',  ko:'1번 이미지에서 시작', en:'The scene opens exactly on image 1'},
+  {id:'noback',ko:'끝까지 시선 안 피함', en:'They do not look away afterward'},
+  {id:'hold',  ko:'마지막 컷 붙잡기', en:'Hold on the final framing as the shot settles'}
+];
+const AMB=[
+  {id:'room',  ko:'조용한 룸톤', en:'quiet room tone with soft air'},
+  {id:'cloth', ko:'옷깃 스치는 소리', en:'a faint rustle of fabric'},
+  {id:'breath',ko:'대사 전 숨소리', en:'a single soft breath before the line'},
+  {id:'rain',  ko:'창밖 빗소리', en:'muffled rain against the window'},
+  {id:'city',  ko:'멀리 도시 소음', en:'distant city ambience'},
+  {id:'clock', ko:'시계 초침', en:'a slow ticking clock'}
+];
+const MODE_HINT={
+  t2v:'텍스트만으로 생성. 레퍼런스 태그를 쓰지 않는다. 모델은 fl2va.',
+  i2v:'입력 이미지가 첫 프레임이 된다. first_frame / last_frame 사용. 모델은 fl2va.',
+  r2v:'이미지는 첫 프레임이 아니라 참조 대상이다. 역할을 명시할수록 잘 먹는다. 모델은 ref2va.'
+};
+
+/* ---------- 상태 ---------- */
+const S={mode:'i2v',refs:[],locks:['env'],amb:['room','cloth','breath'],music:'none',
+  light:0,grade:0,lens:0,space:0,lang:0,delivery:0,voice:0,line:'',lineKo:'',
+  shots:[{cam:0,acts:[],free:''},{cam:0,acts:[],free:''},{cam:0,acts:[],free:''}]};
+
+/* ---------- 렌더 헬퍼 ---------- */
+const $=id=>document.getElementById(id);
+function fillSelect(el,list,key){
+  el.innerHTML=list.map((o,i)=>`<option value="${i}">${o.ko}</option>`).join('');
+  el.value=S[key];
+  el.onchange=()=>{S[key]=+el.value;build();};
+}
+function chipRow(el,items,stateKey){
+  el.innerHTML=items.map(o=>`<label class="chk"><input type="checkbox" value="${o.id}"${S[stateKey].includes(o.id)?' checked':''}><span>${o.ko}</span></label>`).join('');
+  el.querySelectorAll('input').forEach(inp=>inp.onchange=()=>{
+    S[stateKey]=[...el.querySelectorAll('input:checked')].map(i=>i.value);build();
+  });
+}
+function seg(el,key,cb){
+  el.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+    el.querySelectorAll('button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');S[key]=b.dataset.v;if(cb)cb();build();
+  });
+}
+
+function renderShots(){
+  $('shots').innerHTML=S.shots.map((s,i)=>`
+   <div class="shot">
+     <div class="shot-h">Shot ${i+1}</div>
+     <div class="row two">
+       <div><div class="opt-label">카메라</div><select class="pick" data-shot="${i}" data-f="cam"></select></div>
+       <div><div class="opt-label">추가 묘사 <span class="sub">· 한국어 가능</span></div><input class="tx" data-shot="${i}" data-f="free" value="${s.free.replace(/"/g,'&quot;')}" placeholder="직접 적을 내용"></div>
+     </div>
+     <div style="margin-top:8px"><div class="opt-label">동작 · 표정 <span class="sub">· 여러 개 선택 가능, 고른 순서대로</span></div>
+       <div class="chks" data-shot="${i}" data-f="acts"></div></div>
+   </div>`).join('');
+  S.shots.forEach((s,i)=>{
+    const sel=document.querySelector(`select[data-shot="${i}"][data-f="cam"]`);
+    sel.innerHTML=V.camera.map((o,k)=>`<option value="${k}">${o.ko}</option>`).join('');
+    sel.value=s.cam;sel.onchange=()=>{s.cam=+sel.value;build();};
+    const box=document.querySelector(`div[data-shot="${i}"][data-f="acts"]`);
+    box.innerHTML=V.action.map((o,k)=>k===0?'':`<label class="chk"><input type="checkbox" value="${k}"${s.acts.includes(k)?' checked':''}><span>${o.ko}</span></label>`).join('');
+    box.querySelectorAll('input').forEach(inp=>inp.onchange=()=>{
+      if(inp.checked){if(!s.acts.includes(+inp.value))s.acts.push(+inp.value);}
+      else s.acts=s.acts.filter(x=>x!==+inp.value);
+      build();
+    });
+    const fr=document.querySelector(`input[data-shot="${i}"][data-f="free"]`);
+    fr.oninput=()=>{s.free=fr.value;build();};
+  });
+}
+
+/* ---------- 조립 ---------- */
+function joinList(arr,lang){
+  arr=arr.filter(Boolean);
+  if(!arr.length)return '';
+  if(arr.length===1)return arr[0];
+  if(lang==='ko')return arr.join(', ');
+  return arr.slice(0,-1).join(', ')+', and '+arr[arr.length-1];
+}
+function build(){
+  const g=(k,f)=>V[k][S[k]] ? V[k][S[k]][f] : null;
+  const EN=[],KO=[];
+
+  /* 1. 장면 */
+  const sceneEn=joinList([g('lens','en'),g('light','en'),g('grade','en'),g('space','en')],'en');
+  const sceneKo=joinList([g('lens','ko'),g('light','ko'),g('grade','ko'),g('space','ko')],'ko');
+  let openEn=sceneEn?sceneEn.charAt(0).toUpperCase()+sceneEn.slice(1)+'.':'';
+  let openKo=sceneKo?sceneKo+'.':'';
+
+  if(S.mode!=='t2v'&&S.refs.length){
+    const jobs=REFS.filter(r=>S.refs.includes(r.id));
+    const en=jobs.map((r,i)=>`Use <Picture ${i+1}> for ${r.en}`).join('. ');
+    const ko=jobs.map((r,i)=>`<Picture ${i+1}>은 ${r.ko}`).join(', ');
+    openEn+=(openEn?' ':'')+en+'.';
+    openKo+=(openKo?' ':'')+ko+'을(를) 담당.';
+  }
+  const lockEn=LOCKS.filter(l=>S.locks.includes(l.id)&&l.id==='env').map(l=>l.en);
+  const lockKo=LOCKS.filter(l=>S.locks.includes(l.id)&&l.id==='env').map(l=>l.ko);
+  if(lockEn.length){openEn+=' '+lockEn.join('. ')+'.';openKo+=' '+lockKo.join(', ')+'.';}
+  if(openEn.trim()){EN.push(openEn.trim());KO.push(openKo.trim());}
+
+  /* 2. 샷 */
+  S.shots.forEach((s,i)=>{
+    const actsEn=s.acts.map(k=>V.action[k].en);
+    const actsKo=s.acts.map(k=>V.action[k].ko);
+    const camEn=V.camera[s.cam]?V.camera[s.cam].en:null;
+    const camKo=V.camera[s.cam]?V.camera[s.cam].ko:null;
+    if(!actsEn.length&&!camEn&&!s.free)return;
+    let en=`SHOT ${i+1}: `,ko=`SHOT ${i+1}: `;
+    if(i===0&&S.locks.includes('open')){en+='The scene opens exactly on image 1. ';ko+='1번 이미지에서 그대로 시작. ';}
+    if(actsEn.length){en+='The subject is '+joinList(actsEn,'en')+'. ';ko+=joinList(actsKo,'ko')+'. ';}
+    if(camEn){en+=camEn+'. ';ko+=camKo+'. ';}
+    if(i===2){
+      const line=S.line.trim();
+      if(line){
+        const lang=g('lang','en')||'Japanese', langKo=g('lang','ko')||'일본어';
+        const dEn=g('delivery','en'), dKo=g('delivery','ko');
+        en+=`After a short pause they speak, in ${lang}: "${line}"${dEn?' — '+dEn:''}. Their lips move minimally on the line. `;
+        ko+=`잠깐 뒤 ${langKo}로 "${line}"${S.lineKo?`(${S.lineKo})`:''}라고 말한다${dKo?' — '+dKo:''}. 입술은 최소한으로만 움직인다. `;
+      }
+      const tail=LOCKS.filter(l=>S.locks.includes(l.id)&&(l.id==='noback'||l.id==='hold'));
+      if(tail.length){en+=tail.map(t=>t.en).join('. ')+'. ';ko+=tail.map(t=>t.ko).join(', ')+'. ';}
+    }
+    if(s.free){en+=`«번역해서 넣기: ${s.free}» `;ko+=s.free+'. ';}
+    EN.push(en.trim());KO.push(ko.trim());
+  });
+
+  /* 3. 오디오 */
+  const ambEn=AMB.filter(a=>S.amb.includes(a.id)).map(a=>a.en);
+  const ambKo=AMB.filter(a=>S.amb.includes(a.id)).map(a=>a.ko);
+  let aEn='Audio: ',aKo='Audio: ';
+  if(ambEn.length){aEn+=joinList(ambEn,'en')+'. ';aKo+=joinList(ambKo,'ko')+'. ';}
+  if(S.line.trim()){
+    const lang=g('lang','en')||'Japanese', langKo=g('lang','ko')||'일본어';
+    const vEn=g('voice','en'), vKo=g('voice','ko');
+    const dEn=g('delivery','en'), dKo=g('delivery','ko');
+    aEn+=`Dialogue is one short spoken ${lang} line, "${S.line.trim()}"`;
+    aKo+=`대사는 짧은 ${langKo} 한 마디, "${S.line.trim()}"${S.lineKo?`(${S.lineKo})`:''}`;
+    if(vEn){aEn+=`, spoken by ${vEn}`;aKo+=`, 목소리는 ${vKo}`;}
+    if(dEn){aEn+=`, delivered ${dEn}`;aKo+=`, ${dKo}`;}
+    aEn+=', close-mic and intimate at low volume. ';aKo+='. 마이크 가까이, 낮은 음량. ';
+  }
+  if(S.music==='none'){aEn+='No music.';aKo+='음악 없음.';}
+  else if(S.music==='soft'){aEn+='A soft, sparse musical bed sits low under the scene.';aKo+='잔잔하고 성긴 배경음이 아래에 깔린다.';}
+  if(aEn.trim()!=='Audio:'){EN.push(aEn.trim());KO.push(aKo.trim());}
+
+  $('out-en').value=EN.join('\n\n');
+  $('out-ko').value=KO.join('\n\n');
+}
+
+/* ---------- 초기화 ---------- */
+function syncMode(){
+  $('mode-hint').textContent=MODE_HINT[S.mode];
+  $('ref-block').style.display=S.mode==='t2v'?'none':'';
+}
+['light','grade','lens','space','lang','delivery','voice'].forEach(k=>fillSelect($('p-'+k),V[k],k));
+chipRow($('chk-refs'),REFS,'refs');
+chipRow($('chk-lock'),LOCKS,'locks');
+chipRow($('chk-amb'),AMB,'amb');
+seg($('seg-mode'),'mode',syncMode);
+seg($('seg-music'),'music');
+renderShots();syncMode();
+
+$('t-line').oninput=e=>{S.line=e.target.value;build();};
+$('t-line-ko').oninput=e=>{S.lineKo=e.target.value;build();};
+
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),1500);}
+function copy(id,label){
+  const v=$(id).value;if(!v.trim()){toast('아직 조립된 내용이 없다');return;}
+  navigator.clipboard.writeText(v).then(()=>toast(label+' 복사됨')).catch(()=>{
+    $(id).select();document.execCommand('copy');toast(label+' 복사됨');
+  });
+}
+$('btn-copy-en').onclick=()=>copy('out-en','영어');
+$('btn-copy-ko').onclick=()=>copy('out-ko','한국어');
+$('btn-reset').onclick=()=>{location.reload();};
+
+/* 기본 예시 한 세트 */
+S.lens=1;S.light=1;S.grade=1;S.space=1;
+S.shots[0]={cam:1,acts:[2],free:''};
+S.shots[1]={cam:2,acts:[3,6],free:''};
+S.shots[2]={cam:1,acts:[4],free:''};
+S.lang=1;S.voice=1;S.delivery=1;S.line='なに？';S.lineKo='뭐야?';
+['light','grade','lens','space','lang','delivery','voice'].forEach(k=>$('p-'+k).value=S[k]);
+renderShots();build();
+</script>
+</body>
+</html>
