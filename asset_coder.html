@@ -126,6 +126,8 @@ button.act.pink{border-color:var(--danger);color:var(--danger)}
 .cat-toggle:hover{background:var(--bg3)}
 .cat-name{flex:1;min-width:0;color:var(--text);font-weight:800;font-size:14px;padding:3px 4px}
 .cat-badge{font-size:10.5px;font-weight:800;border-radius:999px;padding:2px 8px;background:var(--bg3);color:var(--text2);flex:none}
+.cat-sort{flex:none;border:.5px solid var(--border2);background:transparent;color:var(--text3);font-family:inherit;font-size:10.5px;font-weight:700;border-radius:999px;padding:3px 9px;cursor:pointer}
+.cat-sort:hover{border-color:var(--accent);color:var(--accent)}
 .cat-body.collapsed{display:none}
 
 /* 코드 슬롯 */
@@ -179,6 +181,11 @@ body.moving .barwrap{display:none}
 
 /* 모달 공용 */
 .ov{position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:20px}
+/* 겹쳐 뜨는 모달은 층을 못박는다 — DOM 순서에 기대면 새 모달을 어디 꽂느냐로 가려진다.
+   ov-2  : 다른 모달 위에서 여는 2차 모달 (편집 → JSON/파일명)
+   ov-top: 언제나 맨 위여야 하는 확인·입력 */
+.ov.ov-2{z-index:10006}
+.ov.ov-top{z-index:10020}
 .ov.open{display:flex}
 .modal{background:var(--bg);border:.5px solid var(--border2);border-radius:var(--radius);padding:20px;width:520px;max-width:100%;display:flex;flex-direction:column;gap:12px;box-shadow:0 12px 40px rgba(0,0,0,.3);max-height:88vh;overflow:auto}
 .modal.narrow{width:400px}
@@ -201,6 +208,8 @@ textarea.inp{min-height:260px;line-height:1.6;resize:vertical;white-space:pre;ov
 .mbtn-go{background:var(--accent);color:#fff}.mbtn-go:hover{opacity:.88}
 .mbtn-alt{background:var(--bg2);border:.5px solid var(--accent);color:var(--accent)}.mbtn-alt:hover{background:var(--accent);color:#fff}
 .mbtn-cancel{background:transparent;border:.5px solid var(--border2);color:var(--text2)}.mbtn-cancel:hover{border-color:var(--danger);color:var(--danger)}
+.mbtn-danger{background:var(--danger);color:#fff}.mbtn-danger:hover{opacity:.88}
+.ask-body{font-size:12.5px;line-height:1.65;color:var(--text2);white-space:pre-wrap;word-break:break-word;max-height:52vh;overflow:auto}
 .tabs{display:flex;gap:6px;border-bottom:.5px solid var(--border);padding-bottom:8px}
 .tab{padding:6px 12px;border-radius:var(--radius-sm);border:.5px solid var(--border2);background:transparent;color:var(--text2);font-size:12px;font-weight:700;cursor:pointer}
 .tab.on{background:var(--accent);border-color:var(--accent);color:#fff}
@@ -261,7 +270,79 @@ body.lb-open{overflow:hidden}
 .btn-dl:disabled{opacity:.4;cursor:not-allowed}
 
 .toast{position:fixed;left:50%;bottom:86px;transform:translateX(-50%);background:var(--text);color:var(--bg);font-size:12.5px;font-weight:600;padding:9px 16px;border-radius:999px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:9999}
+/* 파일명 대조 */
+.fm-cmds{display:flex;flex-direction:column;gap:5px;margin-bottom:9px}
+.fm-cmd{display:flex;align-items:center;gap:8px;padding:7px 9px;border:.5px solid var(--border);border-radius:6px;background:var(--bg2)}
+.fm-cmd .fk{font-size:10.5px;font-weight:800;color:var(--text3);flex:0 0 86px}
+.fm-cmd code{flex:1;min-width:0;font-family:var(--mono);font-size:11.5px;color:var(--accent3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fm-sum{font-size:11.5px;color:var(--text3);font-family:var(--mono);margin-top:10px}
+.fm-res{max-height:40vh;overflow:auto;display:flex;flex-direction:column;gap:4px;margin-top:7px}
+.fm-res:empty{display:none}
+.fm-head{font-size:11.5px;font-weight:800;padding:7px 4px 3px;position:sticky;top:0;background:var(--bg)}
+.fm-head.r{color:var(--danger)}.fm-head.y{color:var(--accent3)}.fm-head.g{color:var(--ok)}
+.fm-row{display:flex;align-items:center;gap:9px;padding:7px 10px;border:.5px solid var(--border);border-radius:6px;background:var(--bg2);font-size:12.5px}
+.fm-row.pick{cursor:pointer}
+.fm-row.pick:hover{border-color:var(--accent)}
+.fm-row input{accent-color:var(--accent);flex:none;margin:0}
+.fm-row .fn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.fm-row .fx{font-size:10.5px;font-family:var(--mono);color:var(--text3);flex:none}
+.fm-more{font-size:11px;color:var(--text3);text-align:center;padding:5px}
+
+/* 라이브러리 JSON 가져오기 */
+.jl-file{display:flex;align-items:center;gap:10px;padding:12px;border:.5px dashed var(--border2);border-radius:var(--radius-sm);background:var(--bg2)}
+.jl-file.on{border-color:var(--accent);background:var(--bg3)}
+.jl-name{font-size:11.5px;color:var(--text3);font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.jl-opts{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:10px 12px;border:.5px solid var(--border);border-radius:var(--radius-sm);background:var(--bg2)}
+.jl-opts label{font-size:11.5px;font-weight:700;color:var(--text2);display:flex;align-items:center;gap:6px}
+.jl-opts select,.jl-opts input[type=text]{background:var(--bg);border:.5px solid var(--border2);color:var(--text);border-radius:6px;padding:5px 8px;font-family:var(--mono);font-size:12px;width:110px}
+.jl-opts .jl-chk{font-weight:600}
+.jl-opts code{font-family:var(--mono);color:var(--accent3)}
+.jl-count{font-size:11px;color:var(--accent3);font-family:var(--mono);font-weight:700}
+.jl-list{max-height:34vh;overflow:auto;display:flex;flex-direction:column;gap:3px;border:.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--bg2);padding:7px;margin-top:8px}
+.jl-item{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:6px;background:var(--bg);border:.5px solid var(--border);cursor:pointer;font-size:12.5px}
+.jl-item:hover{border-color:var(--accent)}
+.jl-item.on{border-color:var(--accent);background:var(--bg3)}
+.jl-item input{accent-color:var(--accent);flex:none;margin:0}
+.jl-item .jn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.jl-item .jc{font-size:10.5px;font-family:var(--mono);color:var(--text3);flex:none}
+.jl-bar{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.jl-mini{border:.5px solid var(--border2);background:transparent;color:var(--text3);font-family:inherit;font-size:11px;font-weight:700;border-radius:999px;padding:4px 10px;cursor:pointer}
+.jl-mini:hover{border-color:var(--accent);color:var(--accent)}
+
 .toast.show{opacity:.95}
+
+/* 코드표 검색 */
+.find-sum{font-size:11.5px;color:var(--text3);font-family:var(--mono)}
+.find-list{max-height:46vh;overflow:auto;display:flex;flex-direction:column;gap:5px;border:.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--bg2);padding:7px}
+.find-empty{font-size:12px;color:var(--text3);padding:14px 6px;text-align:center}
+.find-row{display:flex;align-items:center;gap:9px;width:100%;border:.5px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);padding:8px 10px;cursor:pointer;text-align:left;font-family:inherit;color:var(--text)}
+.find-row:hover{border-color:var(--accent);background:var(--bg3)}
+.find-row .fcode{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--accent3);flex:none;min-width:34px}
+.find-row .fmain{flex:1;min-width:0}
+.find-row .flabel{font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.find-row .fpath{font-size:10.5px;color:var(--text3);font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px}
+.find-row .fpre{font-size:10.5px;font-weight:700;color:var(--purple);flex:none}
+.find-row.here .fpre{color:var(--accent)}
+.find-dup{font-size:11px;font-weight:700;color:var(--danger);padding:3px 2px 1px}
+.find-dupbtn{width:100%;border:.5px dashed var(--border2);border-radius:var(--radius-sm);background:transparent;color:var(--text3);font-family:inherit;font-size:11.5px;font-weight:700;padding:8px 10px;cursor:pointer;text-align:left;margin-top:3px}
+.find-dupbtn:hover{border-color:var(--danger);color:var(--danger)}
+.find-list mark{background:var(--accent2);color:var(--text);border-radius:3px;padding:0 1px}
+@keyframes slotflash{0%,100%{box-shadow:none}25%,75%{box-shadow:0 0 0 3px var(--accent2)}}
+.slot.flash{animation:slotflash 1.5s ease-in-out}
+
+/* 점프 내비 — 스크롤 중에만 표시. 모달이 열려 있으면 모달을, 아니면 페이지를 대상으로 함 */
+#jump-nav{position:fixed;right:14px;bottom:96px;z-index:10010;display:flex;flex-direction:column;gap:8px;opacity:0;pointer-events:none;transform:translateX(8px);transition:opacity .18s,transform .18s}
+#jump-nav.show{opacity:1;pointer-events:auto;transform:none}
+#jump-nav button{width:40px;height:40px;border:.5px solid var(--border2);border-radius:999px;background:var(--bg);color:var(--accent);font-size:14px;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.18);font-family:inherit;display:flex;align-items:center;justify-content:center;padding:0}
+#jump-nav button:hover{background:var(--accent);color:#fff}
+#jump-nav #jump-toc{position:absolute;right:0;bottom:calc(100% + 8px);min-width:172px;max-width:246px;max-height:46vh;overflow:auto;background:var(--bg);border:.5px solid var(--border2);border-radius:var(--radius-sm);box-shadow:0 10px 28px rgba(0,0,0,.22);padding:5px;display:none}
+#jump-nav #jump-toc.open{display:block}
+#jump-nav #jump-toc button{width:100%;height:auto;display:flex;align-items:center;justify-content:space-between;gap:9px;border:0;border-radius:6px;background:transparent;color:var(--text);font-size:12.5px;font-weight:600;padding:8px 9px;text-align:left;box-shadow:none}
+#jump-nav #jump-toc button:hover{background:var(--bg2);color:var(--text)}
+#jump-nav #jump-toc button.cur{background:var(--bg2);color:var(--accent)}
+#jump-nav #jump-toc .tocn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#jump-nav #jump-toc .tocb{font-family:var(--mono);font-size:10.5px;color:var(--text3);flex:none}
+@media(max-width:720px){#jump-nav{right:10px;bottom:90px}#jump-nav button{width:44px;height:44px}}
 
 @media(max-width:720px){
   #app{padding:.75rem .8rem 7rem}
@@ -291,6 +372,7 @@ body.lb-open{overflow:hidden}
     <a class="back" href="index.html" title="작업실로">‹</a>
     <div class="logo"><span class="logo-dot"></span>✦ Asset Coder</div>
     <div class="toolbar">
+      <button class="btn outline" id="find-btn" title="모든 프리셋의 코드표에서 찾기">🔍 검색</button>
       <button class="btn outline" id="sync-btn" title="Gist 동기화"><span style="display:inline-flex;align-items:center;gap:4px">☁ 동기화 <span class="sync-indicator" id="sync-indicator"></span></span></button>
     </div>
   </header>
@@ -312,6 +394,91 @@ body.lb-open{overflow:hidden}
 
 <div id="movebar"></div>
 
+<!-- 파일명 대조 -->
+<div class="ov ov-2" id="fm-ov">
+  <div class="modal">
+    <div class="modal-title">🗂 파일명 대조 <span style="color:var(--text3);font-size:11px;font-weight:400" id="fm-target"></span></div>
+    <div class="tabs">
+      <button class="tab on" data-ft="folder">폴더 넣기</button>
+      <button class="tab" data-ft="text">파일명 붙여넣기</button>
+    </div>
+
+    <div id="fm-tab-folder">
+      <div class="jl-file" id="fm-drop">
+        <input type="file" id="fm-file" webkitdirectory directory multiple style="display:none">
+        <button class="mbtn mbtn-alt" id="fm-pick" style="flex:0 0 auto">📂 폴더 고르기</button>
+        <span class="jl-name" id="fm-name">폴더를 통째로 끌어다 놔 — 파일 이름만 읽고 이미지는 안 건드려</span>
+      </div>
+    </div>
+
+    <div id="fm-tab-text" style="display:none">
+      <div class="fm-cmds" id="fm-cmds"></div>
+      <textarea class="inp" id="fm-text" spellcheck="false" placeholder="파일 이름을 한 줄에 하나씩 붙여넣어" style="min-height:110px"></textarea>
+      <div class="brow"><button class="mbtn mbtn-alt" id="fm-read">읽기</button></div>
+    </div>
+
+    <div class="fm-sum" id="fm-sum"></div>
+    <div class="fm-res" id="fm-res"></div>
+    <div class="brow" id="fm-actions" style="display:none">
+      <button class="mbtn mbtn-go" id="fm-add">▼ 고른 것 편집창에 추가</button>
+    </div>
+    <div class="hint">💡 <code>_00001_</code> 같은 꼬리 번호는 떼고, <b>같은 이름은 한 번만</b> 세. 코드표의 <b>이름</b>이 먼저고 없으면 <b>코드</b>로 맞춰봐. 여기서도 저장은 안 해 — 편집창에 붙이기만 해.</div>
+    <div class="brow"><button class="mbtn mbtn-cancel" id="fm-close">닫기</button></div>
+  </div>
+</div>
+
+<!-- 라이브러리 JSON 가져오기 -->
+<div class="ov ov-2" id="jl-ov">
+  <div class="modal">
+    <div class="modal-title">📥 라이브러리 JSON 가져오기</div>
+    <div class="jl-file" id="jl-drop">
+      <input type="file" id="jl-file" accept=".json,application/json" style="display:none">
+      <button class="mbtn mbtn-alt" id="jl-pick" style="flex:0 0 auto">📂 JSON 고르기</button>
+      <span class="jl-name" id="jl-name">파일을 고르거나 여기로 끌어다 놔</span>
+    </div>
+    <div id="jl-main" style="display:none;flex-direction:column;gap:12px">
+      <div class="tabs">
+        <button class="tab on" data-jt="lib">작품 · 카테고리</button>
+        <button class="tab" data-jt="pre">저장된 프리셋</button>
+      </div>
+      <div id="jl-body"></div>
+      <div class="jl-opts">
+        <label>코드
+          <select id="jl-mode"><option value="num">번호 자동</option><option value="name">이름 그대로</option></select>
+        </label>
+        <label>시작 번호
+          <input type="text" id="jl-start" value="1" autocomplete="off">
+        </label>
+        <label class="jl-chk"><input type="checkbox" id="jl-grp" checked> 카테고리를 <code>--- 그룹 ---</code>으로</label>
+        <label class="jl-chk"><input type="checkbox" id="jl-lab" checked> 이름도 <code>_</code>로 정리</label>
+      </div>
+      <div class="lab" style="display:flex;justify-content:space-between;align-items:baseline">
+        <span>미리보기</span><span class="jl-count" id="jl-count"></span>
+      </div>
+      <textarea class="inp" id="jl-out" spellcheck="false" readonly style="min-height:150px"></textarea>
+      <div class="brow">
+        <button class="mbtn mbtn-go" id="jl-append">▼ 편집창 끝에 추가</button>
+        <button class="mbtn mbtn-alt" id="jl-copy">📋 복사</button>
+      </div>
+    </div>
+    <div class="status" id="jl-status"></div>
+    <div class="hint">💡 <b>편집창에 붙이기만</b> 해. 저장은 코드표 편집에서 네가 눌러야 반영돼 — 마음에 안 들면 그냥 닫으면 그만이야.</div>
+    <div class="brow"><button class="mbtn mbtn-cancel" id="jl-close">닫기</button></div>
+  </div>
+</div>
+
+<!-- 코드표 검색 -->
+<div class="ov" id="find-ov">
+  <div class="modal">
+    <div class="modal-title">🔍 코드표 검색 <span style="color:var(--text3);font-size:11px;font-weight:400">모든 프리셋</span></div>
+    <input class="inp" type="text" id="find-q" placeholder="코드·이름·섹션·그룹 아무거나 (예: OA, 폐가, 카시안)" autocomplete="off" spellcheck="false">
+    <div class="find-sum" id="find-sum"></div>
+    <div class="find-list" id="find-list"></div>
+    <div class="hint">💡 결과를 누르면 그리로 이동해. <b>다른 프리셋이면 물어보고 나서</b> 바꿔. 검색어를 비우면 프리셋 목록이 뜨고, 겹치는 <b>경로 코드</b>가 있으면 접힌 채로 알려줘. (감정 번호처럼 슬롯축 코드가 겹치는 건 정상이라 안 세)</div>
+    <div class="brow"><button class="mbtn mbtn-cancel" id="find-close">닫기</button></div>
+  </div>
+</div>
+
 <!-- 코드표 편집 -->
 <div class="ov" id="schema-ov">
   <div class="modal">
@@ -321,6 +488,10 @@ body.lb-open{overflow:hidden}
     <div class="hint">
       <b>규칙</b> ① <code>## 섹션</code> 적은 순서 = URL 경로 순서 · ② <b>맨 마지막 섹션이 슬롯축</b>(이미지 넣는 칸) · ③ 안 쓰는 단계는 섹션째로 지우면 경로에서 빠짐 · ④ <code>--- 이름 ---</code> 은 접이식 그룹, 빈 줄은 무시<br>
       상단 지시자: <code>#베이스</code> <code>#확장자</code> <code>#꼬리</code> (꼬리는 URL 맨 끝에 붙는 문자, 비워도 됨)
+    </div>
+    <div class="brow">
+      <button class="mbtn mbtn-alt" id="schema-json">📥 JSON 가져오기</button>
+      <button class="mbtn mbtn-alt" id="schema-files">🗂 파일명 대조</button>
     </div>
     <div class="brow">
       <button class="mbtn mbtn-alt" id="schema-check">검사만</button>
@@ -377,8 +548,20 @@ body.lb-open{overflow:hidden}
   </div>
 </div>
 
+<!-- 확인/알림 모달 (Electron confirm·alert 대체) -->
+<div class="ov ov-top" id="ask-overlay">
+  <div class="modal narrow" style="width:380px">
+    <div class="modal-title" id="ask-title">확인</div>
+    <div class="ask-body" id="ask-body"></div>
+    <div class="brow">
+      <button class="mbtn mbtn-cancel" id="ask-no">취소</button>
+      <button class="mbtn mbtn-go" id="ask-yes">확인</button>
+    </div>
+  </div>
+</div>
+
 <!-- 입력 모달 (Electron prompt 대체) -->
-<div class="ov" id="input-overlay">
+<div class="ov ov-top" id="input-overlay">
   <div class="modal narrow" style="width:340px">
     <div class="modal-title" id="input-title">입력</div>
     <input class="inp" id="input-field" placeholder="" autocomplete="off" spellcheck="false">
@@ -485,6 +668,8 @@ body.lb-open{overflow:hidden}
 </div>
 
 <div class="toast" id="toast"></div>
+
+<div id="jump-nav"><div id="jump-toc"></div><button type="button" id="jump-top" title="맨 위로">▲</button><button type="button" id="jump-toc-btn" title="그룹 목차" style="display:none">≡</button><button type="button" id="jump-bottom" title="맨 아래로">▼</button></div>
 
 <script>
 const $=s=>document.querySelector(s);
@@ -817,6 +1002,43 @@ function rewriteSlotSection(groups){
   p.raw=lines.slice(0,idx+1).concat(body).join('\n');
   return true;
 }
+/* 그룹 하나를 이름 가나다순으로. moveSlot 과 같은 규칙 —
+   번호(코드)는 자리에 고정되고, 라벨과 이미지가 그 자리로 옮겨간다 */
+function planSortGroup(items){
+  const codes=items.map(it=>it.code);                       // 자리는 그대로
+  const sorted=[...items].sort((a,b)=>
+    String(a.label).localeCompare(String(b.label),'ko',{numeric:true,sensitivity:'base'}));
+  const next=sorted.map((it,i)=>({code:codes[i],label:it.label}));
+  const map={};                                             // 옛 코드 -> 새 코드
+  sorted.forEach((it,i)=>{if(it.code!==codes[i])map[it.code]=codes[i];});
+  const changed=items.some((it,i)=>it.label!==next[i].label);
+  return {next,map,changed};
+}
+async function sortGroup(gi){
+  const ss=slotSection();if(!ss)return;
+  const g=ss.groups[gi];if(!g||g.items.length<2)return;
+  const {next,map,changed}=planSortGroup(g.items);
+  if(!changed){toast('이미 가나다순이야');return;}
+
+  const moved=Object.keys(map).filter(c=>images[keyOf(c)]).length;
+  const preview=next.slice(0,5)
+    .map((it,i)=>`${it.code}: ${it.label}${g.items[i].label!==it.label?`   (원래 ${g.items[i].label})`:''}`)
+    .join('\n');
+  const ok=await askConfirm(
+    `'${g.name||ss.name}' 그룹 ${g.items.length}칸을 이름 가나다순으로 정리할까?\n\n`
+    +`· 번호는 자리에 그대로 있고, 이름과 이미지가 옮겨가\n`
+    +(moved?`· 이미지 ${moved}장이 다른 번호로 이동해 — 이미 뿌린 URL이 있으면 어긋나\n`:`· 넣어둔 이미지는 없어\n`)
+    +`\n앞 ${Math.min(5,next.length)}칸 미리보기:\n${preview}${next.length>5?'\n…':''}`,
+    {title:'가나다 정렬',danger:moved>0,ok:'정리'});
+  if(!ok)return;
+
+  g.items=next;
+  if(!rewriteSlotSection(ss.groups)){toast('코드표를 다시 쓰지 못했어');return;}
+  if(Object.keys(map).length)remapImageCodes(map);
+  save();render();
+  toast(`${g.name||ss.name} 가나다순 정리 — ${Object.keys(map).length}칸 이동`);
+}
+
 /* 슬롯 코드 -> 새 코드 매핑을 모든 캐릭터·작품 경로에 걸쳐 적용.
    매핑에 없는 코드는 키를 그대로 둬서 orphan 목록으로 흘려보냄 */
 function remapImageCodes(map){
@@ -915,11 +1137,11 @@ function renderCompact(){
   const total=sectionItems({groups:plan.groups}).length;
   $('#cp-go').textContent=`적용 (${cpDrop.size}칸 삭제 · ${total}칸 남음)`;
 }
-function applyCompact(){
+async function applyCompact(){
   const ss=slotSection();if(!ss)return;
   const plan=planCompact(cpDrop,cpMode());
   const lost=[...cpDrop].filter(c=>usedCodes().has(c));
-  if(lost.length&&!confirm(`이미지가 들어있는 코드 ${lost.length}개(${lost.join(', ')})를 지우려 해. 그 이미지들은 '경로 안 맞는 이미지'로 빠져. 계속할까?`))return;
+  if(lost.length&&!await askConfirm(`이미지가 들어있는 코드 ${lost.length}개(${lost.join(', ')})를 지우려 해.\n\n그 이미지들은 '경로 안 맞는 이미지'로 빠져. 계속할까?`,{title:'번호 정리',danger:true,ok:'계속'}))return;
   if(!rewriteSlotSection(plan.groups)){setStatus('#cp-status','코드표에서 슬롯 섹션을 못 찾았어. ✎ 코드표를 확인해줘.','err');return;}
   remapImageCodes(plan.map);
   save();render();
@@ -1063,7 +1285,7 @@ function renderControls(){
     const total=Math.max(n,stored);          // 껐다 켠 직후엔 화면이 비어도 저장소엔 남아 있다
     if(!total){toast('비울 이미지가 없어');return;}
     const extra=stored>n?`\n(화면엔 ${n}장이지만 저장소에 ${stored}장이 남아 있어)`:'';
-    if(!confirm(`넣은 이미지 ${total}장을 전부 비울까? (코드표는 유지)${extra}`))return;
+    if(!await askConfirm(`넣은 이미지 ${total}장을 전부 비울까? (코드표는 유지)${extra}`,{title:'이미지 비우기',danger:true,ok:'비우기'}))return;
     Object.values(images).forEach(im=>URL.revokeObjectURL(im.url));images={};
     try{ await idbClearImages(); }
     catch(e){ toast('⚠ 저장소 비우기 실패 — '+((e&&e.message)||e)); }
@@ -1127,6 +1349,7 @@ function renderBoard(){
         <button class="cat-toggle" data-g="${esc(gkey)}">${collapsed?'▸':'▾'}</button>
         <span class="cat-name">${esc(g.name||ss.name)}</span>
         <span class="cat-badge">${filled}/${g.items.length}</span>
+        ${g.items.length>1?`<button class="cat-sort" data-sort="${gi}" title="이 그룹을 이름 가나다순으로 정리">⇅ 가나다</button>`:''}
       </div>
       <div class="cat-body ${collapsed?'collapsed':''}"><div class="slots">${slotsHtml}</div></div>`;
     root.appendChild(el);
@@ -1181,10 +1404,10 @@ function renderOrphans(){
     </div>`;
 
   $('#orphan-bar').addEventListener('click',()=>{orphanOpen=!orphanOpen;renderOrphans();});
-  root.querySelectorAll('.otx').forEach(b=>b.addEventListener('click',e=>{
+  root.querySelectorAll('.otx').forEach(b=>b.addEventListener('click',async e=>{
     e.stopPropagation();
     const k=e.currentTarget.dataset.k;
-    if(!confirm(`'${k}' 이미지를 버릴까?`))return;
+    if(!await askConfirm(`'${k}' 이미지를 버릴까?`,{title:'이미지 버리기',danger:true,ok:'버리기'}))return;
     if(images[k]){URL.revokeObjectURL(images[k].url);delete images[k];dropStored(k);}
     if(movingKey===k)cancelMove();
     render();
@@ -1217,11 +1440,11 @@ function renderMoveBar(){
 }
 
 /* 고아 이미지를 현재 조합 + 지정 코드 자리로 이동 */
-function moveOrphanTo(oldKey,code){
+async function moveOrphanTo(oldKey,code){
   if(!images[oldKey])return;
   const nk=keyOf(code);
   if(nk===oldKey){cancelMove();render();return;}
-  if(images[nk]&&!confirm(`'${nk}' 자리에 이미 이미지가 있어. 덮어쓸까?`))return;
+  if(images[nk]&&!await askConfirm(`'${nk}' 자리에 이미 이미지가 있어. 덮어쓸까?`,{title:'덮어쓰기',danger:true,ok:'덮어쓰기'}))return;
   if(images[nk])URL.revokeObjectURL(images[nk].url);
   images[nk]=images[oldKey];
   delete images[oldKey];
@@ -1342,6 +1565,9 @@ function bindBoard(){
   const root=$('#cats');
   root.querySelectorAll('.cat-toggle').forEach(b=>b.addEventListener('click',e=>{
     const g=e.currentTarget.dataset.g;state.collapsed[g]=!state.collapsed[g];save();render();
+  }));
+  root.querySelectorAll('.cat-sort').forEach(b=>b.addEventListener('click',e=>{
+    e.stopPropagation();sortGroup(Number(e.currentTarget.dataset.sort));
   }));
   root.querySelectorAll('.rm').forEach(b=>b.addEventListener('click',e=>{
     e.stopPropagation();
@@ -1485,11 +1711,11 @@ async function reconcileStore(){
   const keys=Object.keys(images);
   if(!storedKeys.length&&!keys.length){toast('저장소도 화면도 비어 있어');return;}
   const gone=storedKeys.filter(k=>!Object.prototype.hasOwnProperty.call(images,k)).length;
-  if(!confirm(
+  if(!await askConfirm(
     `저장소 ${storedKeys.length}장 → 화면 ${keys.length}장에 맞춰 다시 씁니다.\n\n`
     +`· 화면에 없는 ${gone}장이 사라져\n`
     +`· 화면의 ${keys.length}장은 그대로 저장돼 (하나도 안 잃어)`
-  ))return;
+  ,{title:'저장소 정리',danger:true,ok:'다시 쓰기'}))return;
   const orig=btn?btn.textContent:'';
   if(btn)btn.disabled=true;
   let fail=0;
@@ -1585,7 +1811,7 @@ function presetMenu(){
     ['dup','복제'],
     ['add','새 코드표 추가'],
     ['del','삭제']
-  ],function(choice){
+  ],async function(choice){
     if(choice==='rename')askInput('프리셋 이름',p.name,v=>{p.name=v;save();render();toast('이름 바꿈');});
     else if(choice==='dup')askInput('복제본 이름',p.name+' 복사',v=>{
       const np={id:newId(),name:v,raw:p.raw};state.presets.push(np);state.active=np.id;save();render();toast('복제됨');
@@ -1595,7 +1821,7 @@ function presetMenu(){
     });
     else if(choice==='del'){
       if(state.presets.length<=1){toast('마지막 코드표는 못 지워');return;}
-      if(!confirm(`'${p.name}' 코드표를 지울까? (넣어둔 이미지는 그대로)`))return;
+      if(!await askConfirm(`'${p.name}' 코드표를 지울까?\n\n(넣어둔 이미지는 그대로)`,{title:'코드표 삭제',danger:true,ok:'삭제'}))return;
       state.presets=state.presets.filter(x=>x.id!==p.id);state.active=state.presets[0].id;save();render();toast('삭제됨');
     }
   });
@@ -1621,11 +1847,11 @@ function schemaCheck(silentOk){
   setStatus('#schema-status','✓ 이상 없음\n'+lines.join('\n')+'\n예시 → '+sample,'ok');
   return r;
 }
-function schemaSave(){
+async function schemaSave(){
   const r=schemaCheck();
   if(r.errors.length){
     const head=r.errors.slice(0,5).join('\n');
-    if(!confirm(`코드표에 오류 ${r.errors.length}군데가 있어.\n\n${head}${r.errors.length>5?'\n…':''}\n\n그냥 저장할까? 잘못된 줄은 무시되고 나머지만 보드에 깔려. (원문은 그대로 보존돼)`))return;
+    if(!await askConfirm(`코드표에 오류 ${r.errors.length}군데가 있어.\n\n${head}${r.errors.length>5?'\n…':''}\n\n그냥 저장할까? 잘못된 줄은 무시되고 나머지만 보드에 깔려. (원문은 그대로 보존돼)`,{title:'코드표 저장',ok:'저장'}))return;
   }
   const p=activePreset();
   p.raw=$('#schema-text').value;
@@ -1636,8 +1862,8 @@ function schemaDirty(){
   const p=activePreset();
   return !!p && $('#schema-text').value!==p.raw;
 }
-function closeSchema(){
-  if(schemaDirty()&&!confirm('저장 안 한 변경이 있어. 그냥 닫으면 편집한 내용이 날아가.\n\n닫을까?'))return;
+async function closeSchema(){
+  if(schemaDirty()&&!await askConfirm('저장 안 한 변경이 있어. 그냥 닫으면 편집한 내용이 날아가.\n\n닫을까?',{title:'편집 닫기',danger:true,ok:'닫기'}))return;
   $('#schema-ov').classList.remove('open');
 }
 function setStatus(sel,msg,type){const el=$(sel);if(!el)return;el.textContent=msg||'';el.className='status'+(type?' '+type:'');}
@@ -1826,8 +2052,8 @@ $('#download').addEventListener('click',async()=>{
     }
 
     if(!ok){
-      alert(`묶을 수 있는 이미지가 하나도 없어.\n\n원본 파일이 사라진 칸 ${dead.length}개:\n`
-        +dead.slice(0,20).join(', ')+(dead.length>20?' …':''));
+      await askAlert(`묶을 수 있는 이미지가 하나도 없어.\n\n원본 파일이 사라진 칸 ${dead.length}개:\n`
+        +dead.slice(0,20).join(', ')+(dead.length>20?' …':''),'ZIP 실패');
       return;
     }
 
@@ -1842,13 +2068,13 @@ $('#download').addEventListener('click',async()=>{
     if(dead.length)msg+=` · 누락 ${dead.length}장`;
     toast(msg);
     if(dead.length||degraded.length){
-      alert([
+      await askAlert([
         dead.length?`원본 파일을 못 찾아서 ZIP에서 빠진 칸 ${dead.length}개:\n`+dead.join(', ')
           +'\n\n→ 파일이 옮겨졌거나 이름이 바뀌었거나 지워졌어. 해당 칸만 다시 넣어줘.':'',
         degraded.length?`webp 변환에 실패해서 원본 그대로 넣은 칸 ${degraded.length}개:\n`+degraded.join(', '):''
-      ].filter(Boolean).join('\n\n'));
+      ].filter(Boolean).join('\n\n'),'ZIP 완료 — 확인할 것');
     }
-  }catch(err){alert('오류: '+err.message);}
+  }catch(err){await askAlert('오류: '+err.message,'오류');}
   finally{btn.textContent=orig;btn.disabled=false;updateStat();}
 });
 
@@ -1970,6 +2196,331 @@ function startAutoSave(){
 
 /* ---------- 입력 모달 ---------- */
 let _inputCb=null;
+/* ---------- 파일명 대조 ---------- */
+const FM_IMG=/\.(png|jpe?g|webp|gif|bmp|avif|tiff?)$/i;
+const FM_SHOW=200;
+/* 파일 이름 하나 → 코드표에서 찾아볼 이름.
+   확장자를 떼고, ComfyUI 가 붙이는 _00001_ 꼬리를 떼고, 경로가 섞여 있으면 마지막 조각만 */
+function fmStem(name){
+  let s=String(name==null?'':name).trim();
+  if(!s)return'';
+  s=s.replace(/[?#].*$/,'');
+  s=s.split(/[\\/]/).pop();                 // 폴더 경로가 붙어 와도 파일명만
+  const hadExt=FM_IMG.test(s);
+  s=s.replace(/\.[^.]+$/,'');               // 확장자
+  s=s.replace(/_\d{4,}_?$/,'');             // _00001_ / _00001
+  return {stem:s.trim(),hadExt};
+}
+/* 이름 목록 → 종류만 남긴 정렬된 배열. 개수는 세지 않는다 */
+function fmCollect(names,imageOnly){
+  const set=new Set();
+  (names||[]).forEach(n=>{
+    const raw=String(n==null?'':n).trim();
+    if(!raw)return;
+    const r=fmStem(raw);
+    if(!r.stem)return;
+    /* 확장자가 있는데 이미지가 아니면 버림. 확장자가 아예 없으면 통과 */
+    if(imageOnly&&/\.[^.\\/]+$/.test(raw.split(/[\\/]/).pop())&&!r.hadExt)return;
+    set.add(r.stem);
+  });
+  return [...set].sort((a,b)=>a.localeCompare(b,'ko',{numeric:true}));
+}
+/* 코드표 항목과 맞대본다. 이름(label)이 먼저, 없으면 코드로 */
+function fmCompare(stems,items){
+  const byLabel=new Map(),byCode=new Map();
+  (items||[]).forEach(it=>{
+    if(!byLabel.has(it.label))byLabel.set(it.label,it);
+    if(!byCode.has(it.code))byCode.set(it.code,it);
+  });
+  const matched=[],onlyFile=[],hit=new Set();
+  (stems||[]).forEach(s=>{
+    const it=byLabel.get(s)||byCode.get(s);
+    if(it){matched.push({stem:s,code:it.code,label:it.label,via:byLabel.has(s)?'이름':'코드'});hit.add(it.code);}
+    else onlyFile.push(s);
+  });
+  const onlyCode=(items||[]).filter(it=>!hit.has(it.code));
+  return {matched,onlyFile,onlyCode};
+}
+
+let fmTab='folder',fmStems=[],fmRes=null,fmPick=new Set();
+
+function fmSlotItems(){const ss=schema&&slotSection();return ss?sectionItems(ss):[];}
+function fmNextNum(){
+  const nums=fmSlotItems().map(it=>parseInt(it.code,10)).filter(n=>Number.isFinite(n));
+  return nums.length?Math.max(...nums)+1:1;
+}
+function fmRender(){
+  const sum=$('#fm-sum'),res=$('#fm-res'),act=$('#fm-actions');
+  if(!fmRes){sum.textContent='';res.innerHTML='';act.style.display='none';return;}
+  const {matched,onlyFile,onlyCode}=fmRes;
+  sum.textContent=`파일 ${fmStems.length}종 · 코드표 ${fmSlotItems().length}칸 — 맞음 ${matched.length} / 파일만 ${onlyFile.length} / 코드표만 ${onlyCode.length}`;
+  let html='';
+  if(onlyFile.length){
+    html+=`<div class="fm-head y">🟡 파일에만 있음 ${onlyFile.length} — 코드표에 없는 이름이야</div>`;
+    onlyFile.slice(0,FM_SHOW).forEach(s=>{
+      html+=`<label class="fm-row pick"><input type="checkbox" value="${esc(s)}" ${fmPick.has(s)?'checked':''}>
+        <span class="fn">${esc(s)}</span><span class="fx">새 코드로 추가</span></label>`;
+    });
+    if(onlyFile.length>FM_SHOW)html+=`<div class="fm-more">… 외 ${onlyFile.length-FM_SHOW}개 (앞 ${FM_SHOW}개만 표시)</div>`;
+  }
+  if(onlyCode.length){
+    html+=`<div class="fm-head r">🔴 코드표에만 있음 ${onlyCode.length} — 아직 안 뽑았거나 이름이 다른 칸</div>`;
+    onlyCode.slice(0,FM_SHOW).forEach(it=>{
+      html+=`<div class="fm-row"><span class="fx">${esc(it.code)}</span><span class="fn">${esc(it.label)}</span></div>`;
+    });
+    if(onlyCode.length>FM_SHOW)html+=`<div class="fm-more">… 외 ${onlyCode.length-FM_SHOW}개</div>`;
+  }
+  if(matched.length){
+    html+=`<div class="fm-head g">🟢 맞음 ${matched.length}</div>`;
+    matched.slice(0,FM_SHOW).forEach(m=>{
+      html+=`<div class="fm-row"><span class="fx">${esc(m.code)}</span><span class="fn">${esc(m.stem)}</span><span class="fx">${m.via}</span></div>`;
+    });
+    if(matched.length>FM_SHOW)html+=`<div class="fm-more">… 외 ${matched.length-FM_SHOW}개</div>`;
+  }
+  if(!html)html='<div class="find-empty">읽은 이름이 없어.</div>';
+  res.innerHTML=html;
+  res.querySelectorAll('.fm-row input').forEach(cb=>cb.addEventListener('change',()=>{
+    cb.checked?fmPick.add(cb.value):fmPick.delete(cb.value);
+    $('#fm-add').textContent=`▼ 고른 것 편집창에 추가 (${fmPick.size})`;
+  }));
+  act.style.display=onlyFile.length?'flex':'none';
+  $('#fm-add').textContent=`▼ 고른 것 편집창에 추가 (${fmPick.size})`;
+}
+function fmApply(names){
+  fmStems=fmCollect(names,true);
+  fmRes=fmCompare(fmStems,fmSlotItems());
+  fmPick=new Set(fmRes.onlyFile);                // 파일에만 있는 건 기본으로 체크해 둔다
+  fmRender();
+}
+/* 드롭된 항목에서 파일 이름만 재귀로 긁어온다. 파일 내용은 읽지 않는다 */
+async function fmFromDrop(dt){
+  const out=[];
+  const walk=async entry=>{
+    if(!entry)return;
+    if(entry.isFile){out.push(entry.name);return;}
+    if(entry.isDirectory){
+      const rd=entry.createReader();
+      for(;;){
+        const ents=await new Promise(r=>{try{rd.readEntries(r,()=>r([]));}catch(e){r([]);}});
+        if(!ents||!ents.length)break;
+        for(const e of ents)await walk(e);
+      }
+    }
+  };
+  let entries=[];
+  try{entries=[...(dt.items||[])].map(i=>i.webkitGetAsEntry&&i.webkitGetAsEntry()).filter(Boolean);}catch(e){}
+  if(entries.length){for(const e of entries)await walk(e);}
+  if(out.length)return out;
+  return [...(dt.files||[])].map(f=>f.webkitRelativePath||f.name);   // 폴더 순회가 막히면 파일 목록으로
+}
+function fmRenderCmds(){
+  const cmds=[
+    ['명령 프롬프트','dir /b'],
+    ['PowerShell','Get-ChildItem -Name'],
+    ['mac · Linux','ls -1']
+  ];
+  $('#fm-cmds').innerHTML=cmds.map(([k,c],i)=>
+    `<div class="fm-cmd"><span class="fk">${esc(k)}</span><code>${esc(c)}</code>
+     <button type="button" class="jl-mini" data-c="${esc(c)}">복사</button></div>`).join('');
+  $('#fm-cmds').querySelectorAll('button[data-c]').forEach(b=>b.addEventListener('click',()=>{
+    navigator.clipboard.writeText(b.dataset.c).then(()=>toast('복사됨'),()=>toast('복사 실패'));
+  }));
+}
+function openFileMatch(){
+  $('#fm-ov').classList.add('open');
+  const ss=schema&&slotSection();
+  $('#fm-target').textContent=ss?`— ${ss.name} ${sectionItems(ss).length}칸 기준`:'— 코드표가 비어 있어';
+  fmRenderCmds();
+  if(fmRes)fmRender();
+}
+function closeFileMatch(){$('#fm-ov').classList.remove('open');}
+
+/* ---------- 라이브러리 JSON → 코드표 ---------- */
+/* 코드 칸에 쓸 수 있게 이름을 다듬는다. 파서가 막는 문자(공백 / \ ? #)와 쉼표를 _ 로 */
+function jlSlug(s){
+  return String(s==null?'':s).trim()
+    .replace(/[\/\\?#\s,]+/g,'_')
+    .replace(/_{2,}/g,'_')
+    .replace(/^_+|_+$/g,'');
+}
+/* groups: [{name, items:[{name}]}] → 코드표 텍스트.
+   번호 모드는 그룹을 넘어가며 이어서 매기고, 이름 모드는 겹치면 _2, _3 을 붙인다 */
+function jlBuild(groups,opt){
+  opt=opt||{};
+  const mode=opt.mode==='name'?'name':'num';
+  let n=Number.isFinite(+opt.start)?Math.trunc(+opt.start):1;
+  const used=new Set(opt.taken||[]);
+  const out=[];let cnt=0;
+  (groups||[]).forEach(g=>{
+    const items=(g.items||[]).filter(it=>String(it&&it.name||'').trim());
+    if(!items.length)return;
+    if(opt.groupLine!==false&&g.name)out.push('--- '+String(g.name).trim()+' ---');
+    items.forEach(it=>{
+      const rawLabel=String(it.name).trim();
+      /* 라벨도 언더바로 통일 (기본 켜짐). 다듬은 결과가 비면 원본을 그대로 둔다 */
+      const label=opt.slugLabel===false?rawLabel:(jlSlug(rawLabel)||rawLabel);
+      let code;
+      if(mode==='num'){code=String(n++);}
+      else{
+        const base=jlSlug(label)||('item'+(cnt+1));
+        code=base;let k=2;
+        while(used.has(code))code=base+'_'+(k++);
+      }
+      used.add(code);
+      out.push(code+': '+label);
+      cnt++;
+    });
+  });
+  return {text:out.join('\n'),count:cnt,next:n};
+}
+/* JSON 한 덩이에서 필요한 것만 뽑아낸다 */
+function jlParse(raw){
+  let d;
+  try{d=JSON.parse(raw);}catch(e){return{err:'JSON을 읽지 못했어 — '+((e&&e.message)||e)};}
+  if(!d||typeof d!=='object')return{err:'JSON 모양이 아니야'};
+  const works=Array.isArray(d.works)?d.works:[];
+  const presets=Array.isArray(d.assetPresets)?d.assetPresets:[];
+  if(!works.length)return{err:'works 가 없어. 프롬프트 라이브러리에서 내보낸 JSON이 맞아?'};
+  const cats=new Map();   // catId -> {id,name,items,workName}
+  works.forEach(w=>{
+    (w.categories||[]).forEach(c=>{
+      if(!c||!c.id)return;
+      cats.set(c.id,{id:c.id,name:c.name||c.id,items:Array.isArray(c.items)?c.items:[],
+                     workId:w.id,workName:w.name||w.id});
+    });
+  });
+  return {works,presets,cats};
+}
+/* 프리셋의 selected 를 그룹 배열로. 저장된 선택 순서를 그대로 지킨다 */
+function jlGroupsFromPreset(data,presetId){
+  const p=(data.presets||[]).find(x=>x.id===presetId);
+  if(!p)return[];
+  const out=[];
+  Object.keys(p.selected||{}).forEach(catId=>{
+    const c=data.cats.get(catId);if(!c)return;
+    const byId=new Map(c.items.map(it=>[it.id,it]));
+    const items=(p.selected[catId]||[]).map(id=>byId.get(id)).filter(Boolean);
+    if(items.length)out.push({name:c.name,items});
+  });
+  return out;
+}
+function jlGroupsFromCats(data,catIds){
+  return (catIds||[]).map(id=>data.cats.get(id)).filter(Boolean)
+    .map(c=>({name:c.name,items:c.items}));
+}
+
+let jlData=null,jlTab='lib',jlWork='',jlCats=new Set(),jlPreset='';
+
+function jlCurrentGroups(){
+  if(!jlData)return[];
+  return jlTab==='pre'?jlGroupsFromPreset(jlData,jlPreset):jlGroupsFromCats(jlData,[...jlCats]);
+}
+function jlRefresh(){
+  const groups=jlCurrentGroups();
+  const taken=[];
+  const ss=schema&&slotSection();
+  if(ss)sectionItems(ss).forEach(it=>taken.push(it.code));
+  const r=jlBuild(groups,{
+    mode:$('#jl-mode').value,
+    start:$('#jl-start').value,
+    groupLine:$('#jl-grp').checked,
+    slugLabel:$('#jl-lab').checked,
+    taken
+  });
+  $('#jl-out').value=r.text;
+  $('#jl-count').textContent=r.count?`${groups.length}그룹 · ${r.count}항목`:'고른 게 없어';
+}
+function jlRenderBody(){
+  const el=$('#jl-body');
+  if(!jlData){el.innerHTML='';return;}
+  if(jlTab==='pre'){
+    if(!jlData.presets.length){el.innerHTML='<div class="find-empty">저장된 프리셋이 없어.</div>';return;}
+    el.innerHTML='<div class="jl-list">'+jlData.presets.map(p=>{
+      const n=jlGroupsFromPreset(jlData,p.id).reduce((s,g)=>s+g.items.length,0);
+      return `<label class="jl-item ${jlPreset===p.id?'on':''}">
+        <input type="radio" name="jlp" value="${esc(p.id)}" ${jlPreset===p.id?'checked':''}>
+        <span class="jn">${esc(p.name||p.id)}</span><span class="jc">${n}항목</span></label>`;
+    }).join('')+'</div>';
+    el.querySelectorAll('input[name=jlp]').forEach(r=>r.addEventListener('change',()=>{
+      jlPreset=r.value;jlRenderBody();jlRefresh();
+    }));
+    return;
+  }
+  const works=jlData.works;
+  if(!jlWork)jlWork=works[0].id;
+  const w=works.find(x=>x.id===jlWork)||works[0];
+  el.innerHTML=`<div class="field" style="margin-bottom:8px">
+      <label>작품</label>
+      <select id="jl-work">${works.map(x=>`<option value="${esc(x.id)}" ${x.id===jlWork?'selected':''}>${esc(x.name||x.id)}</option>`).join('')}</select>
+    </div>
+    <div class="jl-bar">
+      <button type="button" class="jl-mini" id="jl-all">이 작품 전체 선택</button>
+      <button type="button" class="jl-mini" id="jl-none">선택 해제</button>
+    </div>
+    <div class="jl-list">${(w.categories||[]).map(c=>`
+      <label class="jl-item ${jlCats.has(c.id)?'on':''}">
+        <input type="checkbox" value="${esc(c.id)}" ${jlCats.has(c.id)?'checked':''}>
+        <span class="jn">${esc(c.name||c.id)}</span>
+        <span class="jc">${(c.items||[]).length}항목</span></label>`).join('')}</div>`;
+  $('#jl-work').addEventListener('change',e=>{jlWork=e.target.value;jlRenderBody();});
+  $('#jl-all').addEventListener('click',()=>{(w.categories||[]).forEach(c=>jlCats.add(c.id));jlRenderBody();jlRefresh();});
+  $('#jl-none').addEventListener('click',()=>{(w.categories||[]).forEach(c=>jlCats.delete(c.id));jlRenderBody();jlRefresh();});
+  el.querySelectorAll('.jl-list input[type=checkbox]').forEach(cb=>cb.addEventListener('change',()=>{
+    cb.checked?jlCats.add(cb.value):jlCats.delete(cb.value);
+    cb.closest('.jl-item').classList.toggle('on',cb.checked);
+    jlRefresh();
+  }));
+}
+async function jlLoadFile(file){
+  if(!file){return;}
+  setStatus('#jl-status','읽는 중…','');
+  let txt;
+  try{txt=await file.text();}
+  catch(e){setStatus('#jl-status','파일을 읽지 못했어 — '+((e&&e.message)||e),'err');return;}
+  const d=jlParse(txt);
+  if(d.err){setStatus('#jl-status',d.err,'err');return;}
+  jlData=d;jlWork='';jlCats=new Set();jlPreset=d.presets.length?d.presets[0].id:'';
+  $('#jl-name').textContent=`${file.name} · 작품 ${d.works.length} · 카테고리 ${d.cats.size} · 프리셋 ${d.presets.length}`;
+  $('#jl-main').style.display='flex';
+  setStatus('#jl-status','','');
+  jlRenderBody();jlRefresh();
+}
+function openJsonLib(){
+  $('#jl-ov').classList.add('open');
+  const ss=schema&&slotSection();
+  if(ss){                                   // 기존 코드 다음 번호를 시작값으로 미리 채워둔다
+    const nums=sectionItems(ss).map(it=>parseInt(it.code,10)).filter(n=>Number.isFinite(n));
+    if(nums.length)$('#jl-start').value=String(Math.max(...nums)+1);
+  }
+  if(jlData)jlRefresh();
+}
+function closeJsonLib(){$('#jl-ov').classList.remove('open');}
+
+/* ---------- 확인/알림 모달 (Electron은 네이티브 confirm·alert 뒤 포커스가 죽는다) ---------- */
+let _askRes=null;
+function askConfirm(msg,opt){
+  opt=opt||{};
+  return new Promise(res=>{
+    if(_askRes){const prev=_askRes;_askRes=null;prev(false);}   // 겹쳐 뜨면 이전 건 취소로 정리
+    _askRes=res;
+    $('#ask-title').textContent=opt.title||'확인';
+    $('#ask-body').textContent=String(msg==null?'':msg);
+    const yes=$('#ask-yes'),no=$('#ask-no');
+    no.style.display=opt.alert?'none':'';
+    no.textContent=opt.cancel||'취소';
+    yes.textContent=opt.ok||'확인';
+    yes.className='mbtn '+(opt.danger?'mbtn-danger':'mbtn-go');
+    $('#ask-overlay').classList.add('open');
+    setTimeout(()=>yes.focus(),30);
+  });
+}
+function askAlert(msg,title){return askConfirm(msg,{alert:true,title:title||'알림',ok:'닫기'});}
+function askDone(v){
+  const r=_askRes;_askRes=null;
+  $('#ask-overlay').classList.remove('open');
+  if(r)r(v);
+}
+
 function askInput(title,placeholder,cb){
   $('#input-title').textContent=title;
   const f=$('#input-field');f.value='';f.placeholder=placeholder||'';
@@ -2048,6 +2599,386 @@ window.save=save;window.render=render; // drive_sync.js 호환
   bindViewer();
   idbSelfTest().then(err=>{if(err)toast('⚠ 이미지 저장소 점검 실패 — '+err);});
   startAutoSave();
+
+  /* 파일명 대조 */
+  $('#schema-files').addEventListener('click',openFileMatch);
+  $('#fm-close').addEventListener('click',closeFileMatch);
+  $('#fm-ov').addEventListener('click',e=>{if(e.target.id==='fm-ov')closeFileMatch();});
+  document.querySelectorAll('#fm-ov .tab').forEach(t=>t.addEventListener('click',()=>{
+    fmTab=t.dataset.ft;
+    document.querySelectorAll('#fm-ov .tab').forEach(x=>x.classList.toggle('on',x===t));
+    $('#fm-tab-folder').style.display=fmTab==='folder'?'':'none';
+    $('#fm-tab-text').style.display=fmTab==='text'?'':'none';
+  }));
+  $('#fm-pick').addEventListener('click',()=>$('#fm-file').click());
+  $('#fm-file').addEventListener('change',e=>{
+    const flist=[...(e.target.files||[])];
+    $('#fm-name').textContent=`파일 ${flist.length}개 읽음`;
+    fmApply(flist.map(f=>f.webkitRelativePath||f.name));
+    e.target.value='';
+  });
+  const fd=$('#fm-drop');
+  ['dragenter','dragover'].forEach(ev=>fd.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();fd.classList.add('on');}));
+  fd.addEventListener('dragleave',e=>{if(!fd.contains(e.relatedTarget))fd.classList.remove('on');});
+  fd.addEventListener('drop',async e=>{
+    e.preventDefault();e.stopPropagation();fd.classList.remove('on');
+    $('#fm-name').textContent='읽는 중…';
+    const names=await fmFromDrop(e.dataTransfer);
+    $('#fm-name').textContent=names.length?`파일 ${names.length}개 읽음`:'못 읽었어 — 아래 붙여넣기 탭을 써줘';
+    fmApply(names);
+  });
+  $('#fm-read').addEventListener('click',()=>{
+    const lines=$('#fm-text').value.split(/\r?\n/);
+    if(!lines.filter(l=>l.trim()).length){toast('붙여넣은 게 없어');return;}
+    fmApply(lines);
+  });
+  $('#fm-add').addEventListener('click',()=>{
+    const picks=fmRes?fmRes.onlyFile.filter(s=>fmPick.has(s)):[];
+    if(!picks.length){toast('고른 게 없어');return;}
+    const r=jlBuild([{name:'',items:picks.map(s=>({name:s}))}],
+      {mode:'num',start:fmNextNum(),groupLine:false,slugLabel:true,
+       taken:fmSlotItems().map(it=>it.code)});
+    const ta=$('#schema-text');
+    ta.value=ta.value.replace(/\s*$/,'')+'\n'+r.text+'\n';
+    ta.scrollTop=ta.scrollHeight;
+    closeFileMatch();
+    setStatus('#schema-status',`${picks.length}칸을 편집창 끝에 붙였어 — 확인하고 저장 눌러줘`,'ok');
+    toast(`${picks.length}칸 추가됨`);
+  });
+
+  /* 라이브러리 JSON 가져오기 */
+  $('#schema-json').addEventListener('click',openJsonLib);
+  $('#jl-close').addEventListener('click',closeJsonLib);
+  $('#jl-ov').addEventListener('click',e=>{if(e.target.id==='jl-ov')closeJsonLib();});
+  $('#jl-pick').addEventListener('click',()=>$('#jl-file').click());
+  $('#jl-file').addEventListener('change',e=>{jlLoadFile(e.target.files&&e.target.files[0]);e.target.value='';});
+  const jd=$('#jl-drop');
+  ['dragenter','dragover'].forEach(ev=>jd.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();jd.classList.add('on');}));
+  jd.addEventListener('dragleave',e=>{if(!jd.contains(e.relatedTarget))jd.classList.remove('on');});
+  jd.addEventListener('drop',e=>{
+    e.preventDefault();e.stopPropagation();jd.classList.remove('on');
+    const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];
+    if(f)jlLoadFile(f);
+  });
+  document.querySelectorAll('#jl-ov .tab').forEach(t=>t.addEventListener('click',()=>{
+    jlTab=t.dataset.jt;
+    document.querySelectorAll('#jl-ov .tab').forEach(x=>x.classList.toggle('on',x===t));
+    jlRenderBody();jlRefresh();
+  }));
+  ['#jl-mode','#jl-start','#jl-grp','#jl-lab'].forEach(s=>{
+    $(s).addEventListener('change',jlRefresh);
+    $(s).addEventListener('input',jlRefresh);
+  });
+  $('#jl-append').addEventListener('click',()=>{
+    const add=$('#jl-out').value;
+    if(!add.trim()){toast('붙일 게 없어');return;}
+    const ta=$('#schema-text');
+    ta.value=ta.value.replace(/\s*$/,'')+'\n'+add+'\n';
+    ta.scrollTop=ta.scrollHeight;
+    closeJsonLib();
+    setStatus('#schema-status','편집창 끝에 붙였어 — 확인하고 저장 눌러줘','ok');
+    toast('편집창에 추가됨');
+  });
+  $('#jl-copy').addEventListener('click',()=>{
+    const v=$('#jl-out').value;
+    if(!v.trim()){toast('복사할 게 없어');return;}
+    navigator.clipboard.writeText(v).then(()=>{setStatus('#jl-status','복사됨!','ok');toast('복사됨');},
+      ()=>setStatus('#jl-status','복사 실패 — 미리보기에서 직접 긁어줘','err'));
+  });
+
+  /* 확인/알림 모달 */
+  $('#ask-yes').addEventListener('click',()=>askDone(true));
+  $('#ask-no').addEventListener('click',()=>askDone(false));
+  $('#ask-overlay').addEventListener('click',e=>{if(e.target.id==='ask-overlay')askDone(false);});
+  $('#ask-overlay').addEventListener('keydown',e=>{
+    if(e.key==='Escape'){e.stopPropagation();askDone(false);}
+    else if(e.key==='Enter'){e.stopPropagation();askDone(true);}
+  });
+
+  /* 코드표 검색 */
+  $('#find-btn').addEventListener('click',openFind);
+  $('#find-close').addEventListener('click',closeFind);
+  $('#find-ov').addEventListener('click',e=>{if(e.target.id==='find-ov')closeFind();});
+  let _findT=null;
+  $('#find-q').addEventListener('input',()=>{clearTimeout(_findT);_findT=setTimeout(renderFind,140);});
+  $('#find-q').addEventListener('keydown',e=>{
+    if(e.key==='Escape'){e.stopPropagation();closeFind();}
+    else if(e.key==='Enter'){const f=$('#find-list').querySelector('.find-row');if(f)f.click();}
+  });
+})();
+
+/* ---------- 코드표 검색 (모든 프리셋) ---------- */
+const FIND_MAX=400;
+
+/* 검색어가 문자열 어디에 걸렸는지 표시. 조각별로 esc해서 인덱스 어긋남 방지 */
+function findHl(s,q){
+  s=String(s==null?'':s);
+  if(!q)return esc(s);
+  const i=s.toLowerCase().indexOf(q.toLowerCase());
+  if(i<0)return esc(s);
+  return esc(s.slice(0,i))+'<mark>'+esc(s.slice(i,i+q.length))+'</mark>'+esc(s.slice(i+q.length));
+}
+/* 전 프리셋을 파싱해 평평한 항목 배열로 */
+function findAllItems(){
+  const out=[];
+  (state.presets||[]).forEach(p=>{
+    const sc=parseSchema(p.raw);
+    const last=sc.sections.length?sc.sections[sc.sections.length-1].name:null;
+    sc.sections.forEach(sec=>{
+      sec.groups.forEach(g=>{
+        g.items.forEach(it=>{
+          out.push({pid:p.id,pname:p.name,sec:sec.name,grp:g.name||'',
+                    code:it.code,label:it.label,isSlot:sec.name===last});
+        });
+      });
+    });
+  });
+  return out;
+}
+function findSearch(q){
+  const n=q.trim().toLowerCase();
+  if(!n)return[];
+  return findAllItems().filter(r=>
+    r.code.toLowerCase().includes(n)||
+    String(r.label).toLowerCase().includes(n)||
+    r.sec.toLowerCase().includes(n)||
+    r.grp.toLowerCase().includes(n));
+}
+/* 서로 다른 프리셋에 같은 코드가 있는 경우만.
+   슬롯축(마지막 섹션)은 제외 — 작품이 달라도 감정 1,2,3…은 겹치는 게 정상이라 경고가 아니다.
+   경로 단계 코드(작품/캐릭터 등)가 겹치는 것만 헷갈릴 여지가 있다 */
+function findDups(){
+  const map=new Map();
+  findAllItems().filter(r=>!r.isSlot).forEach(r=>{
+    if(!map.has(r.code))map.set(r.code,[]);
+    map.get(r.code).push(r);
+  });
+  return [...map.entries()]
+    .filter(([,arr])=>new Set(arr.map(a=>a.pid)).size>1)
+    .sort((a,b)=>a[0].localeCompare(b[0],'ko'));
+}
+/* 프리셋별 한 줄 요약 */
+function findPresetSummary(){
+  return (state.presets||[]).map(p=>{
+    const sc=parseSchema(p.raw);
+    let n=0;sc.sections.forEach(s=>s.groups.forEach(g=>n+=g.items.length));
+    return {pid:p.id,pname:p.name,secs:sc.sections.length,items:n,
+            slot:sc.sections.length?sc.sections[sc.sections.length-1].name:'—',
+            errs:sc.errors.length};
+  });
+}
+function findRowHtml(r,q,i){
+  const here=r.pid===state.active;
+  const path=[r.pname,r.sec,r.grp].filter(Boolean).join(' › ');
+  return `<button type="button" class="find-row ${here?'here':''}" data-i="${i}">
+    <span class="fcode">${findHl(r.code,q)}</span>
+    <span class="fmain">
+      <span class="flabel">${findHl(r.label,q)}</span>
+      <span class="fpath">${findHl(path,q)}</span>
+    </span>
+    <span class="fpre">${here?'● 현재':'↪ 이동'}</span>
+  </button>`;
+}
+let _findRows=[];
+let _findDupOpen=false;
+function renderFind(){
+  const q=$('#find-q').value.trim();
+  const list=$('#find-list'),sum=$('#find-sum');
+  _findRows=[];
+  if(!q){
+    const ps=findPresetSummary(),dups=findDups();
+    sum.textContent=`프리셋 ${ps.length}개 · 전체 항목 ${findAllItems().length}개`;
+    let html=ps.map(p=>{
+      const here=p.pid===state.active;
+      return `<button type="button" class="find-row ${here?'here':''}" data-p="${esc(p.pid)}">
+        <span class="fcode">${here?'●':'○'}</span>
+        <span class="fmain">
+          <span class="flabel">${esc(p.pname)}</span>
+          <span class="fpath">섹션 ${p.secs} · 항목 ${p.items} · 슬롯축 ${esc(p.slot)}${p.errs?` · ⚠ 오류 ${p.errs}`:''}</span>
+        </span>
+        <span class="fpre">${here?'● 현재':'↪ 전환'}</span>
+      </button>`;
+    }).join('');
+    if(dups.length){
+      html+=`<button type="button" class="find-dupbtn" id="find-dup-toggle">${_findDupOpen?'▾':'▸'} 겹치는 경로 코드 ${dups.length}종</button>`;
+      if(_findDupOpen){
+        dups.forEach(([code,arr])=>{
+          html+=`<div class="find-dup">⚠ ${esc(code)} — 프리셋 ${new Set(arr.map(a=>a.pid)).size}곳</div>`;
+          arr.forEach(r=>{_findRows.push(r);html+=findRowHtml(r,'',_findRows.length-1);});
+        });
+      }
+    }
+    list.innerHTML=html;
+    bindFindRows();
+    return;
+  }
+  let res=findSearch(q);
+  const total=res.length,cut=total>FIND_MAX;
+  if(cut)res=res.slice(0,FIND_MAX);
+  sum.textContent=cut?`${total}건 중 ${FIND_MAX}건만 표시 — 검색어를 더 좁혀줘`:`${total}건`;
+  if(!total){list.innerHTML='<div class="find-empty">아무것도 못 찾았어.</div>';return;}
+  _findRows=res;
+  list.innerHTML=res.map((r,i)=>findRowHtml(r,q,i)).join('');
+  bindFindRows();
+}
+function bindFindRows(){
+  const list=$('#find-list');
+  const tg=list.querySelector('#find-dup-toggle');
+  if(tg)tg.addEventListener('click',()=>{_findDupOpen=!_findDupOpen;renderFind();});
+  list.querySelectorAll('.find-row').forEach(b=>{
+    if(b.dataset.p!==undefined)b.addEventListener('click',()=>findSwitch(b.dataset.p));
+    else b.addEventListener('click',()=>findGo(_findRows[Number(b.dataset.i)]));
+  });
+}
+/* 프리셋만 전환 (검색어 없는 목록에서) */
+async function findSwitch(pid){
+  if(pid===state.active){closeFind();return;}
+  const p=(state.presets||[]).find(x=>x.id===pid);
+  if(!await askConfirm(`'${p?p.name:pid}' 코드표로 바꿀까?\n\n지금 프리셋의 선택값이 바뀌어. (넣어둔 이미지는 그대로)`,{title:'코드표 전환',ok:'바꾸기'}))return;
+  state.active=pid;save();render();closeFind();
+  toast(`${p?p.name:pid} 로 전환`);
+}
+/* 결과로 이동. 프리셋이 다르면 반드시 확인부터 */
+async function findGo(r){
+  if(!r)return;
+  if(r.pid!==state.active){
+    const p=(state.presets||[]).find(x=>x.id===r.pid);
+    if(!await askConfirm(`'${p?p.name:r.pid}' 코드표로 바꿀까?\n\n지금 프리셋의 선택값이 바뀌어. (넣어둔 이미지는 그대로)`,{title:'코드표 전환',ok:'바꾸기'}))return;
+    state.active=r.pid;save();render();
+  }
+  closeFind();
+  if(r.isSlot){
+    setTimeout(()=>{
+      const el=$('#cats').querySelector(`.slot[data-code="${CSS.escape(r.code)}"]`);
+      if(!el){toast(`${r.code} — 접힌 그룹 안에 있어`);return;}
+      window.scrollTo({top:el.getBoundingClientRect().top+window.scrollY-90,behavior:'smooth'});
+      el.classList.remove('flash');void el.offsetWidth;el.classList.add('flash');
+    },60);
+  }else{
+    state.sel[r.sec]=r.code;save();render();
+    toast(`${r.sec} → ${r.label}`);
+  }
+}
+function openFind(){
+  $('#find-ov').classList.add('open');
+  const q=$('#find-q');q.value='';renderFind();
+  setTimeout(()=>q.focus(),40);
+}
+function closeFind(){$('#find-ov').classList.remove('open');}
+
+/* ---------- 점프 내비: 메인 보드 + 모달 자동 감지 ---------- */
+(function(){
+  const nav=$('#jump-nav');if(!nav)return;
+  const MIN=24;                     // 이만큼도 못 굴리면 버튼 안 띄움
+  let hideTimer=null,hover=false;
+
+  let lastEl=null;                  // 마지막으로 실제 스크롤된 엘리먼트 (textarea 포함)
+  let tocOpen=false;
+
+  function lbOpened(){const lb=$('#lightbox');return !!(lb&&lb.classList.contains('open'));}
+  /* 살아있고 + 화면에 보이고 + 굴릴 여지가 있는가 */
+  function alive(el){
+    return !!(el&&el.nodeType===1&&el.isConnected&&el.offsetParent!==null
+              &&el.scrollHeight-el.clientHeight>MIN);
+  }
+  /* 열려 있는 모달의 스크롤 컨테이너 (폴백용).
+     시각적으로 맨 위에 있는 것부터 봐야 하므로 층이 높은 쪽(ov-top → ov-2 → 기본)을 먼저 뒤진다 */
+  function openBox(){
+    const sp=document.getElementById('slot-picker-overlay');   // 동적 생성이라 존재=열림
+    if(sp){const b=sp.querySelector('.slot-picker-box');if(alive(b))return b;}
+    for(const sel of ['.ov.ov-top.open','.ov.ov-2.open','.ov.open']){
+      const ovs=document.querySelectorAll(sel);
+      for(let i=ovs.length-1;i>=0;i--){
+        const m=ovs[i].querySelector('.modal');
+        if(alive(m))return m;
+        if(m){const in_=[...m.querySelectorAll('textarea,.cp-drop,.cp-prev,.jl-list,.fm-res')].find(alive);if(in_)return in_;}
+      }
+    }
+    return null;
+  }
+  /* 점프 대상: 방금 굴린 놈 > 열린 모달 > 페이지 전체(null) */
+  function target(){
+    if(alive(lastEl))return lastEl;
+    return openBox();
+  }
+  function canScroll(){
+    if(target())return true;
+    return document.documentElement.scrollHeight-window.innerHeight>MIN;
+  }
+  const restart=()=>{clearTimeout(hideTimer);hideTimer=setTimeout(()=>{if(!hover&&!tocOpen)nav.classList.remove('show')},1800)};
+
+  /* 캡처 단계로 받아야 모달 내부 스크롤도 잡힘 (scroll 이벤트는 버블링 안 함) */
+  document.addEventListener('scroll',e=>{
+    const t=e.target;
+    lastEl=(t&&t.nodeType===1)?t:null;   // document/window 스크롤이면 null
+    if(lbOpened())return;
+    if(!canScroll())return;
+    nav.classList.add('show');restart();
+  },{capture:true,passive:true});
+
+  nav.addEventListener('mouseenter',()=>{hover=true;clearTimeout(hideTimer)});
+  nav.addEventListener('mouseleave',()=>{hover=false;restart()});
+  nav.addEventListener('touchstart',()=>clearTimeout(hideTimer),{passive:true});
+
+  function go(toBottom){
+    const b=target();
+    if(b)b.scrollTo({top:toBottom?b.scrollHeight:0,behavior:'smooth'});
+    else window.scrollTo({top:toBottom?document.documentElement.scrollHeight:0,behavior:'smooth'});
+    restart();
+  }
+  $('#jump-top').onclick=()=>go(false);
+  $('#jump-bottom').onclick=()=>go(true);
+
+  /* ----- 그룹 목차(책갈피) ----- */
+  const toc=$('#jump-toc'),tocBtn=$('#jump-toc-btn');
+  const catList=()=>[...document.querySelectorAll('#cats > .cat')];
+
+  /* 화면 상단(80px 선)을 지난 마지막 그룹 = 지금 보고 있는 그룹 */
+  function curCatIdx(){
+    const cats=catList();let idx=0;
+    for(let i=0;i<cats.length;i++){
+      if(cats[i].getBoundingClientRect().top<=80)idx=i;else break;
+    }
+    return idx;
+  }
+  function gotoCat(i){
+    let cats=catList(),el=cats[i];if(!el)return;
+    const body=el.querySelector('.cat-body');
+    if(body&&body.classList.contains('collapsed')){
+      const tg=el.querySelector('.cat-toggle');
+      if(tg){tg.click();cats=catList();el=cats[i];}   // render()가 DOM을 새로 그리니 다시 집는다
+    }
+    if(!el)return;
+    window.scrollTo({top:el.getBoundingClientRect().top+window.scrollY-12,behavior:'smooth'});
+  }
+  function buildToc(){
+    const cats=catList();
+    toc.innerHTML=cats.map((el,i)=>{
+      const nm=el.querySelector('.cat-name'),bd=el.querySelector('.cat-badge');
+      return `<button type="button" data-i="${i}"><span class="tocn">${esc(nm?nm.textContent:'그룹 '+(i+1))}</span><span class="tocb">${esc(bd?bd.textContent:'')}</span></button>`;
+    }).join('');
+    const cur=toc.querySelector(`button[data-i="${curCatIdx()}"]`);if(cur)cur.classList.add('cur');
+    toc.querySelectorAll('button').forEach(b=>b.onclick=()=>{closeToc();gotoCat(Number(b.dataset.i));});
+  }
+  function openToc(){buildToc();toc.classList.add('open');tocOpen=true;nav.classList.add('show');clearTimeout(hideTimer);}
+  function closeToc(){toc.classList.remove('open');tocOpen=false;restart();}
+  tocBtn.onclick=e=>{e.stopPropagation();tocOpen?closeToc():openToc();};
+
+  document.addEventListener('click',e=>{if(tocOpen&&!nav.contains(e.target))closeToc();});
+  document.addEventListener('keydown',e=>{
+    if(e.key==='Escape'&&tocOpen){e.stopPropagation();closeToc();}
+  },true);   // 캡처 단계 — 다른 Esc 핸들러보다 먼저 잡아서 목차만 닫는다
+
+  /* 그룹이 2개 이상일 때만 ≡ 노출. 보드가 다시 그려질 때마다 갱신 */
+  function syncTocBtn(){
+    const n=catList().length;
+    tocBtn.style.display=n>1?'flex':'none';
+    if(n<=1&&tocOpen)closeToc();
+    else if(tocOpen)buildToc();
+  }
+  const catsRoot=document.getElementById('cats');
+  if(catsRoot)new MutationObserver(syncTocBtn).observe(catsRoot,{childList:true});
+  syncTocBtn();
 })();
 </script>
 <script src="drive_sync.js"></script>
