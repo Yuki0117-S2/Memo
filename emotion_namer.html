@@ -145,6 +145,21 @@ button.act.purple{border-color:var(--purple);color:var(--purple)}
 .input-btn-row{display:flex;gap:6px}
 .input-btn-row .gist-btn{flex:1}
 
+/* 확인/알림 모달 (Electron이 네이티브 confirm/alert를 막아서 직접 만든다) */
+#confirm-overlay{position:fixed;inset:0;z-index:10004;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:20px}
+#confirm-overlay.open{display:flex}
+.confirm-modal{background:var(--bg);border:.5px solid var(--border2);border-radius:var(--radius);padding:20px;width:400px;max-width:100%;display:flex;flex-direction:column;gap:13px;box-shadow:0 12px 40px rgba(0,0,0,.3);max-height:86vh}
+.confirm-title{font-size:14px;font-weight:700;color:var(--accent)}
+.confirm-title.danger{color:var(--danger)}
+.confirm-msg{font-size:12.5px;color:var(--text2);line-height:1.6;white-space:pre-wrap;word-break:break-word;overflow:auto}
+.confirm-btn-row{display:flex;gap:6px}
+.confirm-btn-row .gist-btn{flex:1}
+.gist-btn-danger{background:var(--danger);color:#fff}.gist-btn-danger:hover{opacity:.88}
+
+/* 카테고리 가나다 정렬 버튼 */
+.cat-sort{font-size:11px;font-weight:700;border:.5px solid var(--border2);background:transparent;color:var(--text2);border-radius:6px;padding:5px 8px;cursor:pointer;flex:none;white-space:nowrap;font-family:inherit}
+.cat-sort:hover{border-color:var(--accent3);color:var(--accent3)}
+
 .barwrap{position:fixed;left:0;right:0;bottom:0;background:var(--bg);border-top:.5px solid var(--border2);padding:12px 20px}
 .bar{max-width:1040px;margin:0 auto;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
 .stat{font-size:13px;color:var(--text3)}
@@ -275,6 +290,17 @@ button.act.purple{border-color:var(--purple);color:var(--purple)}
   </div>
 </div>
 
+<div id="confirm-overlay">
+  <div class="confirm-modal">
+    <div class="confirm-title" id="confirm-title">확인</div>
+    <div class="confirm-msg" id="confirm-msg"></div>
+    <div class="confirm-btn-row">
+      <button class="gist-btn gist-btn-cancel" id="confirm-cancel">취소</button>
+      <button class="gist-btn gist-btn-upload" id="confirm-ok">확인</button>
+    </div>
+  </div>
+</div>
+
 <div class="barwrap">
   <div class="bar">
     <span class="stat" id="stat">이미지 0장</span>
@@ -398,6 +424,7 @@ function render(){
         <span class="cat-badge">${filled}/${cat.presets.length}</span>
         <button class="mini cup" data-ci="${ci}" title="카테고리 위로">▲</button>
         <button class="mini cdown" data-ci="${ci}" title="카테고리 아래로">▼</button>
+        ${cat.presets.length>1?`<button class="cat-sort" data-ci="${ci}" title="이 카테고리 항목을 이름 가나다순으로 정리">⇅ 가나다</button>`:''}
         <button class="cat-add" data-ci="${ci}">+ 항목</button>
         <button class="mini del cdel" data-ci="${ci}" title="카테고리 삭제">✕</button>
       </div>
@@ -425,14 +452,17 @@ function bindEvents(){
     state.categories[ci].name=v;save();render();
   }));
   // 카테고리 순서
+  // 카테고리 가나다 정렬
+  root.querySelectorAll('.cat-sort').forEach(b=>b.addEventListener('click',e=>sortCategory(+e.currentTarget.dataset.ci)));
   root.querySelectorAll('.cup').forEach(b=>b.addEventListener('click',e=>moveCat(+e.currentTarget.dataset.ci,-1)));
   root.querySelectorAll('.cdown').forEach(b=>b.addEventListener('click',e=>moveCat(+e.currentTarget.dataset.ci,1)));
   // 카테고리 삭제
-  root.querySelectorAll('.cdel').forEach(b=>b.addEventListener('click',e=>{
+  root.querySelectorAll('.cdel').forEach(b=>b.addEventListener('click',async e=>{
     const ci=+e.currentTarget.dataset.ci,cat=state.categories[ci];
     const imgCnt=cat.presets.reduce((s,p)=>s+imgsOf(p).length,0);
     if(state.categories.length<=1){toast('마지막 카테고리는 못 지워');return;}
-    if(!confirm(`'${cat.name}' 카테고리를 통째로 지울까? 항목 ${cat.presets.length}개${imgCnt?` · 이미지 ${imgCnt}장`:''} 같이 빠짐`))return;
+    if(!await askConfirm(`'${cat.name}' 카테고리를 통째로 지울까?\n\n항목 ${cat.presets.length}개${imgCnt?` · 이미지 ${imgCnt}장`:''} 같이 빠져.`,
+      {title:'카테고리 삭제',danger:true,ok:'삭제'}))return;
     cat.presets.forEach(p=>{imgsOf(p).forEach(im=>URL.revokeObjectURL(im.url));delete images[p];});
     state.categories.splice(ci,1);save();render();
   }));
@@ -458,10 +488,11 @@ function bindEvents(){
   root.querySelectorAll('.pup').forEach(b=>b.addEventListener('click',e=>movePreset(+e.currentTarget.dataset.ci,+e.currentTarget.dataset.pi,-1)));
   root.querySelectorAll('.pdown').forEach(b=>b.addEventListener('click',e=>movePreset(+e.currentTarget.dataset.ci,+e.currentTarget.dataset.pi,1)));
   // 항목 삭제
-  root.querySelectorAll('.pdel').forEach(b=>b.addEventListener('click',e=>{
+  root.querySelectorAll('.pdel').forEach(b=>b.addEventListener('click',async e=>{
     const ci=+e.currentTarget.dataset.ci,pi=+e.currentTarget.dataset.pi;
     const p=state.categories[ci].presets[pi],cnt=imgsOf(p).length;
-    if(cnt&&!confirm(`'${p}' 항목에 이미지 ${cnt}장이 들어있어. 칸을 지울까? (이미지도 같이 빠짐)`))return;
+    if(cnt&&!await askConfirm(`'${p}' 항목에 이미지 ${cnt}장이 들어있어.\n\n칸을 지울까? 이미지도 같이 빠져.`,
+      {title:'항목 삭제',danger:true,ok:'삭제'}))return;
     imgsOf(p).forEach(im=>URL.revokeObjectURL(im.url));delete images[p];
     state.categories[ci].presets.splice(pi,1);save();render();
   }));
@@ -514,6 +545,23 @@ function bindEvents(){
   });
 }
 
+/* ---------- 가나다 정렬 ----------
+   에셋코더와 달리 여기는 코드(번호)가 없고 '항목 이름' 자체가 이미지의 키다.
+   그래서 배열만 다시 늘어놓으면 이미지도 파일명도 그대로 따라온다 — 무해한 작업 */
+function planSortPresets(presets){
+  const next=[...presets].sort((a,b)=>
+    String(a).localeCompare(String(b),'ko',{numeric:true,sensitivity:'base'}));
+  const changed=next.some((v,i)=>v!==presets[i]);
+  return {next,changed};
+}
+function sortCategory(ci){
+  const cat=state.categories[ci];if(!cat||cat.presets.length<2)return;
+  const {next,changed}=planSortPresets(cat.presets);
+  if(!changed){toast('이미 가나다순이야');return;}
+  cat.presets=next;save();render();
+  toast(`'${cat.name}' 가나다순 정리 완료`);
+}
+
 function moveCat(ci,dir){
   const to=ci+dir;if(to<0||to>=state.categories.length)return;
   const[m]=state.categories.splice(ci,1);state.categories.splice(to,0,m);save();render();
@@ -561,14 +609,16 @@ $('#suffix').addEventListener('input',e=>{state.suffix=e.target.value;save();ren
 $('#webp').addEventListener('change',render);
 function reFocus(sel){const el=$(sel);el.focus();el.setSelectionRange(el.value.length,el.value.length);}
 
-$('#resetPresets').addEventListener('click',()=>{
-  if(!confirm("'감정' 카테고리를 기본 17개로 되돌릴까? (다른 카테고리/항목은 유지, 이미지도 그대로)"))return;
+$('#resetPresets').addEventListener('click',async()=>{
+  if(!await askConfirm(`'감정' 카테고리를 기본 ${DEFAULT_PRESETS.length}개로 되돌릴까?\n\n다른 카테고리/항목은 그대로 유지되고, 넣어둔 이미지도 안 없어져.`,
+    {title:'기본 감정셋 복원',ok:'복원'}))return;
   let cat=state.categories.find(c=>c.name==='감정');
   if(!cat){cat={name:'감정',collapsed:false,presets:[]};state.categories.unshift(cat);}
   cat.presets=[...DEFAULT_PRESETS];save();render();toast('기본 감정셋 복원됨');
 });
-$('#clearImgs').addEventListener('click',()=>{
-  if(!confirm('넣은 이미지를 전부 비울까? (카테고리/항목은 유지)'))return;
+$('#clearImgs').addEventListener('click',async()=>{
+  if(!await askConfirm('넣은 이미지를 전부 비울까?\n\n카테고리/항목 구성은 그대로 남아.',
+    {title:'이미지 비우기',danger:true,ok:'비우기'}))return;
   Object.values(images).flat().forEach(im=>URL.revokeObjectURL(im.url));images={};render();toast('이미지 비움');
 });
 function doAddCat(){
@@ -618,7 +668,7 @@ $('#download').addEventListener('click',async()=>{
     a.download=`${(state.char.trim()||'assets')}_emotions.zip`;a.click();
     setTimeout(()=>URL.revokeObjectURL(a.href),1000);
     toast(`${jobs.length}장 묶어서 내보냈어`);
-  }catch(err){alert('오류: '+err.message);}
+  }catch(err){await askAlert('오류: '+err.message,{title:'ZIP 만들기 실패',danger:true});}
   finally{btn.textContent=orig;btn.disabled=false;updateStat();}
 });
 
@@ -760,6 +810,32 @@ function confirmInput(){
   if(cb&&v)cb(v);
 }
 
+/* ---------- 확인/알림 모달 (Electron은 confirm/alert도 막힘) ---------- */
+let _confirmResolve=null;
+function _closeConfirm(v){
+  const r=_confirmResolve;_confirmResolve=null;
+  $('#confirm-overlay').classList.remove('open');
+  if(r)r(v);
+}
+/* opts: {title, ok, cancel, danger, alert} — alert:true면 취소 버튼을 감춘다 */
+function askConfirm(message,opts){
+  opts=opts||{};
+  if(_confirmResolve)_closeConfirm(false);       // 겹쳐 열리면 앞 것을 취소로 닫는다
+  const t=$('#confirm-title');
+  t.textContent=opts.title||(opts.alert?'알림':'확인');
+  t.className='confirm-title'+(opts.danger?' danger':'');
+  $('#confirm-msg').textContent=message==null?'':String(message);
+  const okBtn=$('#confirm-ok'),cancelBtn=$('#confirm-cancel');
+  okBtn.textContent=opts.ok||'확인';
+  okBtn.className='gist-btn '+(opts.danger?'gist-btn-danger':'gist-btn-upload');
+  cancelBtn.textContent=opts.cancel||'취소';
+  cancelBtn.style.display=opts.alert?'none':'';
+  $('#confirm-overlay').classList.add('open');
+  setTimeout(()=>okBtn.focus(),30);
+  return new Promise(res=>{_confirmResolve=res;});
+}
+function askAlert(message,opts){return askConfirm(message,Object.assign({alert:true},opts||{}));}
+
 /* ---------- 부팅 ---------- */
 load();
 render();
@@ -776,6 +852,15 @@ window.save=save;window.render=render; // drive_sync.js 호환
   $('#input-cancel').addEventListener('click',closeInput);
   $('#input-field').addEventListener('keydown',e=>{if(e.key==='Enter')confirmInput();else if(e.key==='Escape')closeInput();});
   $('#input-overlay').addEventListener('click',e=>{if(e.target.id==='input-overlay')closeInput();});
+  $('#confirm-ok').addEventListener('click',()=>_closeConfirm(true));
+  $('#confirm-cancel').addEventListener('click',()=>_closeConfirm(false));
+  $('#confirm-overlay').addEventListener('click',e=>{if(e.target.id==='confirm-overlay')_closeConfirm(false);});
+  /* 확인 모달이 떠 있으면 Esc=취소 / Enter=확인. 입력 모달이 자기 키를 먼저 먹으므로 충돌 없음 */
+  document.addEventListener('keydown',e=>{
+    if(!_confirmResolve)return;
+    if(e.key==='Escape'){e.preventDefault();_closeConfirm(false);}
+    else if(e.key==='Enter'){e.preventDefault();_closeConfirm(true);}
+  });
   startAutoSave();
 })();
 </script>

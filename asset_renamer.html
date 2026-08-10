@@ -100,6 +100,19 @@ button:disabled{opacity:.4;cursor:not-allowed}
   .btn-dl{width:100%}
 }
 
+/* 확인/알림 모달 (Electron이 네이티브 confirm/alert를 막아서 직접 만든다) */
+#confirm-overlay{position:fixed;inset:0;z-index:10004;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:20px}
+#confirm-overlay.open{display:flex}
+.confirm-modal{background:var(--bg);border:.5px solid var(--border2);border-radius:var(--radius);padding:20px;width:400px;max-width:100%;display:flex;flex-direction:column;gap:13px;box-shadow:0 12px 40px rgba(0,0,0,.3);max-height:86vh}
+.confirm-title{font-size:14px;font-weight:700;color:var(--accent)}
+.confirm-title.danger{color:var(--danger)}
+.confirm-msg{font-size:12.5px;color:var(--text2);line-height:1.6;white-space:pre-wrap;word-break:break-word;overflow:auto}
+.confirm-btn-row{display:flex;gap:6px}
+.confirm-btn-row button{flex:1;padding:8px 10px;border-radius:var(--radius-sm);border:none;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit}
+.cbtn-ok{background:var(--accent);color:#fff}.cbtn-ok:hover{opacity:.88}
+.cbtn-danger{background:var(--danger);color:#fff}.cbtn-danger:hover{opacity:.88}
+.cbtn-cancel{background:transparent;border:.5px solid var(--border2);color:var(--text2)}.cbtn-cancel:hover{border-color:var(--danger);color:var(--danger)}
+
 /* ---------- 점프 내비 (작업실 공용) ---------- */
 #jump-nav{position:fixed;right:14px;bottom:84px;z-index:9998;display:flex;flex-direction:column;gap:8px;opacity:0;pointer-events:none;transform:translateX(8px);transition:opacity .18s,transform .18s}
 #jump-nav.show{opacity:1;pointer-events:auto;transform:none}
@@ -334,13 +347,60 @@ $('#download').addEventListener('click',async()=>{
     a.download='assets.zip';a.click();
     setTimeout(()=>URL.revokeObjectURL(a.href),1000);
   }catch(err){
-    alert('오류: '+err.message);
+    await askAlert('오류: '+err.message,{title:'ZIP 만들기 실패',danger:true});
   }finally{
     btn.textContent=orig;render();
   }
 });
 
 render();
+</script>
+
+<div id="confirm-overlay">
+  <div class="confirm-modal">
+    <div class="confirm-title" id="confirm-title">확인</div>
+    <div class="confirm-msg" id="confirm-msg"></div>
+    <div class="confirm-btn-row">
+      <button class="cbtn-cancel" id="confirm-cancel">취소</button>
+      <button class="cbtn-ok" id="confirm-ok">확인</button>
+    </div>
+  </div>
+</div>
+<script>
+/* ---------- 확인/알림 모달 (Electron은 confirm/alert가 막힘) ---------- */
+(function(){
+  var resolveFn=null;
+  function close(v){var r=resolveFn;resolveFn=null;
+    document.getElementById('confirm-overlay').classList.remove('open');if(r)r(v);}
+  window.askConfirm=function(message,opts){
+    opts=opts||{};
+    if(resolveFn)close(false);
+    var t=document.getElementById('confirm-title');
+    t.textContent=opts.title||(opts.alert?'알림':'확인');
+    t.className='confirm-title'+(opts.danger?' danger':'');
+    document.getElementById('confirm-msg').textContent=message==null?'':String(message);
+    var okBtn=document.getElementById('confirm-ok'),cancelBtn=document.getElementById('confirm-cancel');
+    okBtn.textContent=opts.ok||'확인';
+    okBtn.className=opts.danger?'cbtn-danger':'cbtn-ok';
+    cancelBtn.textContent=opts.cancel||'취소';
+    cancelBtn.style.display=opts.alert?'none':'';
+    document.getElementById('confirm-overlay').classList.add('open');
+    setTimeout(function(){okBtn.focus();},30);
+    return new Promise(function(res){resolveFn=res;});
+  };
+  window.askAlert=function(message,opts){
+    var o=Object.assign({alert:true},opts||{});return window.askConfirm(message,o);
+  };
+  document.getElementById('confirm-ok').addEventListener('click',function(){close(true);});
+  document.getElementById('confirm-cancel').addEventListener('click',function(){close(false);});
+  document.getElementById('confirm-overlay').addEventListener('click',function(e){
+    if(e.target.id==='confirm-overlay')close(false);});
+  document.addEventListener('keydown',function(e){
+    if(!resolveFn)return;
+    if(e.key==='Escape'){e.preventDefault();close(false);}
+    else if(e.key==='Enter'){e.preventDefault();close(true);}
+  });
+})();
 </script>
 
 <div id="jump-nav"><button type="button" id="jump-top" title="맨 위로">▲</button><button type="button" id="jump-bottom" title="맨 아래로">▼</button></div>
