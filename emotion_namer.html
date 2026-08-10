@@ -180,6 +180,14 @@ button.act.purple{border-color:var(--purple);color:var(--purple)}
   .addrow .act{width:100%}
   .btn-dl{width:100%}
 }
+
+/* ---------- 점프 내비 (작업실 공용) ---------- */
+#jump-nav{position:fixed;right:14px;bottom:84px;z-index:9998;display:flex;flex-direction:column;gap:8px;opacity:0;pointer-events:none;transform:translateX(8px);transition:opacity .18s,transform .18s}
+#jump-nav.show{opacity:1;pointer-events:auto;transform:none}
+#jump-nav button{width:40px;height:40px;border:.5px solid var(--border2);border-radius:999px;background:var(--bg);color:var(--accent);font-size:14px;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.18);font-family:inherit;display:flex;align-items:center;justify-content:center;padding:0;line-height:1}
+#jump-nav button:hover{background:var(--accent);color:#fff}
+@media(max-width:760px){#jump-nav{right:10px;bottom:78px}#jump-nav button{width:44px;height:44px}}
+@media print{#jump-nav{display:none}}
 </style>
 </head>
 <body>
@@ -772,5 +780,27 @@ window.save=save;window.render=render; // drive_sync.js 호환
 })();
 </script>
 <script src="drive_sync.js"></script>
+
+<div id="jump-nav"><button type="button" id="jump-top" title="맨 위로">▲</button><button type="button" id="jump-bottom" title="맨 아래로">▼</button></div>
+<script>
+/* ---------- 점프 내비 (작업실 공용 · 자립형) ----------
+   페이지 헬퍼($ 등)에 의존하지 않고, 어느 도구에 붙여도 똑같이 동작한다.
+   z-index 9998 — 모달 오버레이(10001+)보다 낮아서 모달이 열리면 CSS가 알아서 가려준다 */
+(function(){
+  var nav=document.getElementById('jump-nav');if(!nav)return;
+  var top=document.getElementById('jump-top'),bot=document.getElementById('jump-bottom');
+  if(!top||!bot)return;
+  var MIN=24,hideTimer=null,hover=false;                 // 이만큼도 못 굴리면 버튼 안 띄움
+  function docEl(){return document.scrollingElement||document.documentElement;}
+  function canScroll(){return docEl().scrollHeight-window.innerHeight>MIN;}
+  function restart(){clearTimeout(hideTimer);hideTimer=setTimeout(function(){if(!hover)nav.classList.remove('show');},1800);}
+  function poke(){if(!canScroll())return;nav.classList.add('show');restart();}
+  window.addEventListener('scroll',poke,{passive:true});
+  nav.addEventListener('mouseenter',function(){hover=true;clearTimeout(hideTimer);});
+  nav.addEventListener('mouseleave',function(){hover=false;restart();});
+  top.addEventListener('click',function(){window.scrollTo({top:0,behavior:'smooth'});restart();});
+  bot.addEventListener('click',function(){window.scrollTo({top:docEl().scrollHeight,behavior:'smooth'});restart();});
+})();
+</script>
 </body>
 </html>

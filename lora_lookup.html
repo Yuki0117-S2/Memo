@@ -28,6 +28,14 @@ header{display:flex;align-items:center;gap:10px;border-bottom:.5px solid var(--b
 .info-row{display:flex;gap:10px;margin-bottom:7px;align-items:flex-start}.info-label{font-size:11px;color:var(--text3);min-width:72px;padding-top:2px;flex-shrink:0;font-weight:700}.info-val{font-size:12px;color:var(--text);line-height:1.5;min-width:0}.pills{display:flex;flex-wrap:wrap;gap:5px}.pill,.pill-auto{font-size:11px;padding:3px 10px;border-radius:999px;font-family:var(--mono);cursor:pointer;transition:background .12s,border-color .12s;word-break:break-word}.pill{background:rgba(221,170,204,.12);border:.5px solid rgba(221,170,204,.32);color:var(--accent2)}.pill:hover{background:rgba(221,170,204,.22)}.pill-auto{background:rgba(204,170,136,.10);border:.5px dashed rgba(204,170,136,.42);color:var(--accent3)}.pill-auto:hover{background:rgba(204,170,136,.18)}.pill-none{font-size:12px;color:var(--text3)}.source-label{font-size:10px;color:var(--text3);margin-bottom:4px}.source-label.auto{color:var(--accent3)}.hash-val{font-family:var(--mono);font-size:11px;color:var(--text3);word-break:break-all}.link-btn{display:inline-flex;align-items:center;gap:6px;margin-top:10px;padding:6px 13px;border-radius:var(--radius-sm);border:.5px solid var(--accent);color:var(--accent);font-size:12px;text-decoration:none;font-weight:700;transition:background .12s}.link-btn:hover{background:var(--accent);color:#fff}.link-btn svg{width:12px;height:12px;fill:currentColor}.notfound-box{padding:12px 14px 14px}.notfound-msg{font-size:12px;color:var(--danger);margin-bottom:8px;line-height:1.55}.trigger-section{margin-bottom:2px}
 @media(max-width:720px){#app{padding:.75rem .8rem 2rem}header{display:grid;grid-template-columns:auto 1fr;grid-template-areas:"back logo" "tools tools";align-items:center;gap:8px;padding-bottom:.85rem}.back{grid-area:back}.logo{grid-area:logo;margin-right:0}.toolbar{grid-area:tools;width:100%;font-size:11px}.hero-head{padding:12px}.drop-zone{margin:10px;padding:28px 14px}.card-header{align-items:flex-start;gap:9px;padding:11px 12px}.card-icon{width:34px;height:34px;font-size:11px}.badge{margin-top:2px}.result-wrap{padding:10px 12px 12px;gap:10px}.result-thumb{width:104px}.info-row{display:grid;grid-template-columns:68px minmax(0,1fr);gap:6px}.info-label{min-width:0}.pill,.pill-auto{font-size:10px;padding:3px 8px}.result-model{font-size:13px}.link-btn{width:100%;justify-content:center}}
 @media(max-width:460px){.result-wrap{flex-direction:column}.result-thumb{width:100%;max-height:280px;aspect-ratio:16/10}.result-thumb img{object-fit:contain;background:var(--bg2)}.card-header{flex-wrap:wrap}.card-meta{min-width:calc(100% - 46px)}.badge{margin-left:46px}.info-row{grid-template-columns:1fr}.info-label{padding-top:0}.drop-icon{width:44px;height:44px}.drop-main{font-size:13px}.drop-sub{font-size:11px}}
+
+/* ---------- 점프 내비 (작업실 공용) ---------- */
+#jump-nav{position:fixed;right:14px;bottom:24px;z-index:9998;display:flex;flex-direction:column;gap:8px;opacity:0;pointer-events:none;transform:translateX(8px);transition:opacity .18s,transform .18s}
+#jump-nav.show{opacity:1;pointer-events:auto;transform:none}
+#jump-nav button{width:40px;height:40px;border:.5px solid var(--border2);border-radius:999px;background:var(--bg);color:var(--accent);font-size:14px;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.18);font-family:inherit;display:flex;align-items:center;justify-content:center;padding:0;line-height:1}
+#jump-nav button:hover{background:var(--accent);color:#fff}
+@media(max-width:760px){#jump-nav{right:10px;bottom:20px}#jump-nav button{width:44px;height:44px}}
+@media print{#jump-nav{display:none}}
 </style>
 </head>
 <body>
@@ -308,6 +316,28 @@ async function processFile(file){
   }
 }
 function handleFiles(files){[...files].forEach(f=>processFile(f));}
+</script>
+
+<div id="jump-nav"><button type="button" id="jump-top" title="맨 위로">▲</button><button type="button" id="jump-bottom" title="맨 아래로">▼</button></div>
+<script>
+/* ---------- 점프 내비 (작업실 공용 · 자립형) ----------
+   페이지 헬퍼($ 등)에 의존하지 않고, 어느 도구에 붙여도 똑같이 동작한다.
+   z-index 9998 — 모달 오버레이(10001+)보다 낮아서 모달이 열리면 CSS가 알아서 가려준다 */
+(function(){
+  var nav=document.getElementById('jump-nav');if(!nav)return;
+  var top=document.getElementById('jump-top'),bot=document.getElementById('jump-bottom');
+  if(!top||!bot)return;
+  var MIN=24,hideTimer=null,hover=false;                 // 이만큼도 못 굴리면 버튼 안 띄움
+  function docEl(){return document.scrollingElement||document.documentElement;}
+  function canScroll(){return docEl().scrollHeight-window.innerHeight>MIN;}
+  function restart(){clearTimeout(hideTimer);hideTimer=setTimeout(function(){if(!hover)nav.classList.remove('show');},1800);}
+  function poke(){if(!canScroll())return;nav.classList.add('show');restart();}
+  window.addEventListener('scroll',poke,{passive:true});
+  nav.addEventListener('mouseenter',function(){hover=true;clearTimeout(hideTimer);});
+  nav.addEventListener('mouseleave',function(){hover=false;restart();});
+  top.addEventListener('click',function(){window.scrollTo({top:0,behavior:'smooth'});restart();});
+  bot.addEventListener('click',function(){window.scrollTo({top:docEl().scrollHeight,behavior:'smooth'});restart();});
+})();
 </script>
 </body>
 </html>
