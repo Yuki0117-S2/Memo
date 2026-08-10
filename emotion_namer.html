@@ -226,6 +226,16 @@ button.act.purple{border-color:var(--purple);color:var(--purple)}
 .bulk-sel.none{color:var(--danger);border-color:rgba(187,102,136,.5)}
 .bulk-tools{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .bulk-tools .act{padding:6px 10px;font-size:11.5px}
+.bulk-new{flex:none;border:.5px solid var(--accent3);background:transparent;color:var(--accent3);border-radius:6px;padding:5px 8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap}
+.bulk-new:hover{background:var(--accent3);color:#fff}
+
+/* 미매칭에서 바로 새 항목 만들기 */
+#newp-ov{position:fixed;inset:0;z-index:10010;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;padding:20px}
+#newp-ov.open{display:flex}
+.newp-modal{background:var(--bg);border:.5px solid var(--border2);border-radius:var(--radius);padding:20px;width:400px;max-width:100%;display:flex;flex-direction:column;gap:12px;box-shadow:0 12px 40px rgba(0,0,0,.3)}
+.newp-from{font-family:var(--mono);font-size:11px;color:var(--text3);word-break:break-all;background:var(--bg2);border:.5px solid var(--border);border-radius:6px;padding:6px 8px}
+.newp-sel{width:100%;background:var(--bg2);border:.5px solid var(--border2);color:var(--text);border-radius:var(--radius-sm);padding:7px 10px;font-size:12px;font-family:inherit}
+.newp-sel:focus{outline:none;border-color:var(--accent)}
 @media(max-width:720px){
   .bulk-modal{padding:15px}
   .bulk-sel{flex:0 0 130px}
@@ -382,6 +392,27 @@ body.lb-open{overflow:hidden}
     <div class="bulk-tools">
       <button class="gist-btn gist-btn-cancel" id="bulk-cancel" style="flex:1">취소</button>
       <button class="gist-btn gist-btn-upload" id="bulk-apply" style="flex:2">배치하기</button>
+    </div>
+  </div>
+</div>
+
+<div id="newp-ov">
+  <div class="newp-modal">
+    <div class="input-title">＋ 새 항목 만들기</div>
+    <div class="newp-from" id="newp-from"></div>
+    <div class="gist-section">
+      <div class="gist-label">항목 이름</div>
+      <input class="gist-input" id="newp-name" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="gist-section">
+      <div class="gist-label">어느 카테고리에</div>
+      <select class="newp-sel" id="newp-cat"></select>
+    </div>
+    <div class="gist-status" id="newp-status"></div>
+    <div class="gist-hint">💡 만들고 나면 <b>남은 미매칭도 다시 훑어</b>. 같은 이름 파일이 여러 장이면 한 번에 정리돼.</div>
+    <div class="input-btn-row">
+      <button class="gist-btn gist-btn-cancel" id="newp-cancel">취소</button>
+      <button class="gist-btn gist-btn-upload" id="newp-ok">만들고 배정</button>
     </div>
   </div>
 </div>
@@ -853,6 +884,7 @@ function renderBulk(){
       <div class="bulk-fn" title="${String(r.name).replace(/"/g,'&quot;')}">${r.name}</div>
       <span class="bulk-arrow">→</span>
       ${bulkSelectHtml(r.preset,i)}
+      ${r.preset?'':`<button class="bulk-new" data-new="${i}" title="이 파일 이름으로 새 항목 만들기">＋ 새 항목</button>`}
     </div>`).join('')
     :'<div style="padding:16px;text-align:center;color:var(--text3);font-size:12px">표시할 게 없어</div>';
 
@@ -860,6 +892,9 @@ function renderBulk(){
     const i=+e.target.dataset.i,v=e.target.value;
     bulkRows[i].preset=v?decodeURIComponent(v):null;
     renderBulk();
+  }));
+  $('#bulk-list').querySelectorAll('.bulk-new').forEach(b=>b.addEventListener('click',e=>{
+    openNewPreset(+e.currentTarget.dataset.new);
   }));
   $('#bulk-apply').disabled=placed===0;
   $('#bulk-apply').textContent=placed?`${placed}장 배치하기`:'배치할 게 없어';
@@ -894,6 +929,65 @@ function applyBulk(){
   closeBulk(true);
   render();
   toast(`${go.length}장 배치 · ${Object.keys(per).length}개 항목`+(skipped?` · 건너뜀 ${skipped}장`:''));
+}
+
+/* 미매칭 파일 → 새 항목 이름 제안.
+   이미 알고 있는 캐릭터·상황·접미사 토막을 걷어내면 남는 게 감정 이름일 확률이 높다.
+   전부 걷혀 없어지면 마지막 토막으로 되돌린다 */
+function bulkSuggestName(stem,char,situation,suffix){
+  const s=String(stem||'').trim();
+  if(!s)return'';
+  const drop=new Set([char,situation,suffix]
+    .map(v=>String(v==null?'':v).trim().toLowerCase()).filter(Boolean));
+  let parts=s.split('_').filter(Boolean);
+  let kept=parts.filter(t=>!drop.has(t.toLowerCase()));
+  while(kept.length>1&&/^\d+$/.test(kept[kept.length-1]))kept.pop();  // 꼬리 순번(_2)
+  if(!kept.length)kept=[parts[parts.length-1]||s];
+  return kept.join('_');
+}
+
+/* ---------- 미매칭에서 바로 새 항목 만들기 ---------- */
+let newpIdx=-1;
+function setNewpStatus(msg,type){
+  const el=$('#newp-status');if(!el)return;
+  el.textContent=msg||'';el.className='gist-status'+(type?' '+type:'');
+}
+function openNewPreset(i){
+  const r=bulkRows[i];if(!r)return;
+  newpIdx=i;
+  $('#newp-from').textContent=r.name;
+  $('#newp-name').value=bulkSuggestName(r.stem,state.char,state.situation,state.suffix);
+  $('#newp-cat').innerHTML=state.categories
+    .map((c,ci)=>`<option value="${ci}">${String(c.name)} (${c.presets.length})</option>`).join('');
+  setNewpStatus('','');
+  $('#newp-ov').classList.add('open');
+  setTimeout(()=>{const f=$('#newp-name');f.focus();f.select();},30);
+}
+function closeNewPreset(){newpIdx=-1;$('#newp-ov').classList.remove('open');}
+function confirmNewPreset(){
+  if(newpIdx<0)return;
+  const name=$('#newp-name').value.trim();
+  if(!name){setNewpStatus('이름을 넣어줘!','err');return;}
+  if(allPresets().includes(name)){setNewpStatus('이미 있는 항목이야. 드롭다운에서 골라.','err');return;}
+  const ci=+$('#newp-cat').value;
+  const cat=state.categories[ci];
+  if(!cat){setNewpStatus('카테고리를 못 찾았어','err');return;}
+
+  cat.presets.push(name);
+  save();
+  bulkRows[newpIdx].preset=name;               // 방금 그 파일은 확실히 배정
+  /* 남은 미매칭도 새 항목 기준으로 다시 훑는다 — 같은 감정 여러 장을 한 번에 정리 */
+  const presets=allPresets();
+  let extra=0;
+  bulkRows.forEach((r,i)=>{
+    if(i===newpIdx||r.preset)return;
+    const m=bulkMatch(r.stem,presets);
+    if(m){r.preset=m;extra++;}
+  });
+  closeNewPreset();
+  render();                                     // 보드에 빈 칸이 생김
+  renderBulk();
+  toast(`'${name}' 항목 추가`+(extra?` · 미매칭 ${extra}장 같이 해결`:''));
 }
 
 function moveCat(ci,dir){
@@ -1279,6 +1373,14 @@ window.save=save;window.render=render; // drive_sync.js 호환
   $('#bulk-skip-miss').addEventListener('click',()=>{
     bulkRows.forEach(r=>{if(!r.preset)r.preset=null;});
     bulkMissOnly=false;renderBulk();toast('미매칭은 건너뛰기로 뒀어');
+  });
+
+  $('#newp-ok').addEventListener('click',confirmNewPreset);
+  $('#newp-cancel').addEventListener('click',closeNewPreset);
+  $('#newp-ov').addEventListener('click',e=>{if(e.target.id==='newp-ov')closeNewPreset();});
+  $('#newp-name').addEventListener('keydown',e=>{
+    if(e.key==='Enter'){e.preventDefault();confirmNewPreset();}
+    else if(e.key==='Escape'){e.preventDefault();closeNewPreset();}
   });
 
   startAutoSave();
