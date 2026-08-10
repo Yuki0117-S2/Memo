@@ -197,6 +197,41 @@ button.act.purple{border-color:var(--purple);color:var(--purple)}
   .btn-dl{width:100%}
 }
 
+/* ---------- 일괄 넣기: 드롭존 · 전체화면 안내 · 미리보기 모달 ---------- */
+.bulk-dz{display:flex;align-items:center;gap:8px;border:1px dashed var(--border2);border-radius:var(--radius-sm);padding:8px 12px;cursor:pointer;color:var(--text3);font-size:12px;font-weight:600;background:var(--bg2);transition:.15s;white-space:nowrap}
+.bulk-dz:hover,.bulk-dz.over{border-color:var(--accent);color:var(--accent);background:rgba(136,136,204,.08)}
+.bulk-dz b{color:var(--accent)}
+
+#page-drop{position:fixed;inset:0;z-index:10040;background:rgba(136,136,204,.16);backdrop-filter:blur(2px);display:none;align-items:center;justify-content:center;pointer-events:none}
+#page-drop.on{display:flex}
+.page-drop-box{border:2px dashed var(--accent);border-radius:18px;padding:26px 38px;background:var(--bg);color:var(--accent);font-size:15px;font-weight:800;box-shadow:0 18px 50px rgba(0,0,0,.25);text-align:center;line-height:1.6}
+.page-drop-box small{display:block;color:var(--text3);font-size:12px;font-weight:600;margin-top:5px}
+
+#bulk-ov{position:fixed;inset:0;z-index:10005;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:20px}
+#bulk-ov.open{display:flex}
+.bulk-modal{background:var(--bg);border:.5px solid var(--border2);border-radius:var(--radius);padding:20px;width:720px;max-width:100%;max-height:88vh;display:flex;flex-direction:column;gap:12px;box-shadow:0 12px 40px rgba(0,0,0,.3)}
+.bulk-sum{font-size:12px;color:var(--text2);line-height:1.6;background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:9px 11px}
+.bulk-sum b{color:var(--accent)}
+.bulk-sum .miss{color:var(--danger)}
+.bulk-list{overflow:auto;border:.5px solid var(--border);border-radius:var(--radius-sm);min-height:120px}
+.bulk-row{display:flex;align-items:center;gap:9px;padding:7px 9px;border-bottom:.5px solid var(--border)}
+.bulk-row:last-child{border-bottom:0}
+.bulk-row.miss{background:rgba(187,102,136,.07)}
+.bulk-row.skip{opacity:.45}
+.bulk-th{width:34px;height:34px;border-radius:6px;background:var(--bg2) center/cover no-repeat;border:.5px solid var(--border);flex:none}
+.bulk-fn{flex:1;min-width:0;font-family:var(--mono);font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bulk-arrow{color:var(--text3);font-size:12px;flex:none}
+.bulk-sel{flex:0 0 190px;max-width:46%;background:var(--bg2);border:.5px solid var(--border2);color:var(--text);border-radius:6px;padding:5px 7px;font-size:12px;font-family:inherit}
+.bulk-sel:focus{outline:none;border-color:var(--accent)}
+.bulk-sel.none{color:var(--danger);border-color:rgba(187,102,136,.5)}
+.bulk-tools{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.bulk-tools .act{padding:6px 10px;font-size:11.5px}
+@media(max-width:720px){
+  .bulk-modal{padding:15px}
+  .bulk-sel{flex:0 0 130px}
+  .bulk-th{display:none}
+}
+
 /* ---------- 라이트박스 (이미지 확대 보기) ---------- */
 body.lb-open{overflow:hidden}
 #lightbox{position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,.88);display:none;align-items:center;justify-content:center;padding:18px;touch-action:none}
@@ -265,6 +300,7 @@ body.lb-open{overflow:hidden}
         <input type="text" id="suffix" placeholder="예: v2" style="min-width:110px">
       </div>
       <label class="toggle"><input type="checkbox" id="webp"><span class="switch"></span><span>webp 변환</span></label>
+      <div class="bulk-dz" id="bulk-dz" title="파일명으로 항목을 찾아 한꺼번에 배치"><b>📦 여러 장 한번에</b> · 드롭/클릭</div>
       <div class="spacer"></div>
       <button class="act" id="resetPresets">기본 감정셋 복원</button>
       <button class="act purple" id="clearImgs">이미지 비우기</button>
@@ -329,6 +365,29 @@ body.lb-open{overflow:hidden}
       <button class="gist-btn gist-btn-upload" id="confirm-ok">확인</button>
     </div>
   </div>
+</div>
+
+<div id="bulk-ov">
+  <div class="bulk-modal">
+    <div class="gist-modal-title">📦 여러 장 한번에 넣기</div>
+    <div class="bulk-sum" id="bulk-sum"></div>
+    <div class="bulk-tools">
+      <button class="act" id="bulk-only-miss">미매칭만 보기</button>
+      <button class="act" id="bulk-skip-miss">미매칭 전부 건너뛰기</button>
+      <span style="flex:1"></span>
+      <span class="gist-hint" id="bulk-note"></span>
+    </div>
+    <div class="bulk-list" id="bulk-list"></div>
+    <div class="gist-hint">💡 항목을 직접 골라 고칠 수 있어. <b>건너뛰기</b>로 두면 그 파일은 안 들어가. 기존 이미지는 지워지지 않고 <b>뒤에 추가</b>돼.</div>
+    <div class="bulk-tools">
+      <button class="gist-btn gist-btn-cancel" id="bulk-cancel" style="flex:1">취소</button>
+      <button class="gist-btn gist-btn-upload" id="bulk-apply" style="flex:2">배치하기</button>
+    </div>
+  </div>
+</div>
+
+<div id="page-drop">
+  <div class="page-drop-box">📦 여기 놓으면 한꺼번에 배치<small>파일명에서 항목 이름을 찾아 자동으로 나눠 담아</small></div>
 </div>
 
 <div id="lightbox" aria-hidden="true">
@@ -407,6 +466,59 @@ function toast(msg){
 function ext(name){const i=name.lastIndexOf('.');return i<0?'':name.slice(i+1).toLowerCase();}
 function imgsOf(p){return images[p]||(images[p]=[]);}
 function allPresets(){return state.categories.reduce((a,c)=>a.concat(c.presets),[]);}
+
+/* ---------- 파일명 → 항목 자동 매칭 (순수 로직) ----------
+   밑줄로 자르지 않는다. '지침_피로' 처럼 이름 안에 _ 가 든 항목이 흔하기 때문. */
+const BULK_IMG_EXT=/\.(png|jpe?g|webp|gif|bmp|avif|tiff?)$/i;
+
+/* 파일 이름 → 비교용 줄기. 경로·확장자·ComfyUI 꼬리번호(_00001_)를 뗀다 */
+function bulkStem(name){
+  let s=String(name==null?'':name).trim();
+  if(!s)return'';
+  s=s.replace(/[?#].*$/,'');
+  s=s.split(/[\\/]/).pop();            // 폴더째 끌어와도 파일명만
+  s=s.replace(/\.[^.]+$/,'');          // 확장자
+  s=s.replace(/_\d{4,}_?$/,'');        // _00001_ / _00001
+  return s.trim();
+}
+/* 줄기 안에서 항목 이름이 '토막'으로 끊겨 있는가.
+   앞뒤가 _ 이거나 문자열 끝이어야 인정 → '작게놀람' 이 '놀람' 으로 오인되는 걸 막는다 */
+function bulkBounded(stem,name){
+  if(!name)return false;
+  let from=0;
+  for(;;){
+    const i=stem.indexOf(name,from);
+    if(i<0)return false;
+    const before=i===0?'_':stem[i-1];
+    const afterI=i+name.length;
+    const after=afterI>=stem.length?'_':stem[afterI];
+    if(before==='_'&&after==='_')return true;
+    from=i+1;
+  }
+}
+/* 걸리는 항목이 여럿이면 가장 긴 이름이 이긴다.
+   '흠칫_놀람' 과 '놀람' 이 둘 다 걸리면 '흠칫_놀람' 쪽 */
+function bulkMatch(stem,presets){
+  let best=null;
+  (presets||[]).forEach(p=>{
+    if(!p)return;
+    if(!bulkBounded(stem,p))return;
+    if(!best||p.length>best.length)best=p;
+  });
+  return best;
+}
+/* 파일 목록 → 배치 계획. 이미지가 아닌 파일은 아예 뺀다 */
+function bulkPlan(files,presets){
+  const rows=[];
+  (files||[]).forEach(f=>{
+    if(!f)return;
+    const isImg=(f.type&&f.type.startsWith('image/'))||BULK_IMG_EXT.test(f.name||'');
+    if(!isImg)return;
+    const stem=bulkStem(f.name);
+    rows.push({file:f,name:f.name,stem:stem,preset:bulkMatch(stem,presets)});
+  });
+  return rows;
+}
 
 function previewName(sample){
   const parts=[state.char.trim(),state.situation.trim(),(sample||'항목')].filter(Boolean);
@@ -709,6 +821,79 @@ function syncLb(){
   if(!list.length){closeLb();return;}
   lbList=list;lbPos=relocateLbPos(list,ent,lbPos);
   renderLb();
+}
+
+/* ---------- 일괄 넣기: 미리보기 → 승인 → 배치 ---------- */
+let bulkRows=[],bulkMissOnly=false;
+
+/* 항목 고르는 드롭다운. 카테고리별로 묶어서 보여준다 */
+function bulkSelectHtml(sel,idx){
+  const opts=state.categories.map(cat=>{
+    if(!cat.presets.length)return'';
+    const inner=cat.presets.map(p=>
+      `<option value="${encodeURIComponent(p)}"${p===sel?' selected':''}>${p}</option>`).join('');
+    return `<optgroup label="${String(cat.name).replace(/"/g,'&quot;')}">${inner}</optgroup>`;
+  }).join('');
+  return `<select class="bulk-sel${sel?'':' none'}" data-i="${idx}">
+    <option value=""${sel?'':' selected'}>— 건너뛰기 —</option>${opts}</select>`;
+}
+function renderBulk(){
+  const total=bulkRows.length;
+  const placed=bulkRows.filter(r=>r.preset).length;
+  const miss=total-placed;
+  $('#bulk-sum').innerHTML=`이미지 <b>${total}장</b> · 항목 찾음 <b>${placed}장</b>`
+    +(miss?` · <span class="miss">못 찾음 ${miss}장</span>`:'')
+    +`<br><span style="color:var(--text3)">파일명에서 항목 이름을 <b>토막 단위</b>로 찾아. 여러 개 걸리면 가장 긴 이름이 이겨.</span>`;
+  $('#bulk-note').textContent=bulkMissOnly?`미매칭 ${miss}개만 표시 중`:'';
+
+  const shown=bulkRows.map((r,i)=>({r,i})).filter(({r})=>!bulkMissOnly||!r.preset);
+  $('#bulk-list').innerHTML=shown.length?shown.map(({r,i})=>`
+    <div class="bulk-row ${r.preset?'':'miss'} ${r.preset?'':'skip'}">
+      <div class="bulk-th" style="background-image:url('${r.url}')"></div>
+      <div class="bulk-fn" title="${String(r.name).replace(/"/g,'&quot;')}">${r.name}</div>
+      <span class="bulk-arrow">→</span>
+      ${bulkSelectHtml(r.preset,i)}
+    </div>`).join('')
+    :'<div style="padding:16px;text-align:center;color:var(--text3);font-size:12px">표시할 게 없어</div>';
+
+  $('#bulk-list').querySelectorAll('.bulk-sel').forEach(s=>s.addEventListener('change',e=>{
+    const i=+e.target.dataset.i,v=e.target.value;
+    bulkRows[i].preset=v?decodeURIComponent(v):null;
+    renderBulk();
+  }));
+  $('#bulk-apply').disabled=placed===0;
+  $('#bulk-apply').textContent=placed?`${placed}장 배치하기`:'배치할 게 없어';
+}
+function openBulk(fileList){
+  const files=Array.from(fileList||[]);
+  if(!files.length)return;
+  if(!allPresets().length){toast('항목을 먼저 만들어줘');return;}
+  const rows=bulkPlan(files,allPresets());
+  if(!rows.length){toast('이미지 파일이 없어');return;}
+  /* 미리보기용 URL 을 여기서 한 번만 만든다. 배치되면 그대로 재사용, 버려지면 해제 */
+  rows.forEach(r=>{r.url=URL.createObjectURL(r.file);});
+  bulkRows=rows;bulkMissOnly=false;
+  renderBulk();
+  $('#bulk-ov').classList.add('open');
+}
+/* 승인 안 된(=건너뛴) 파일의 URL 만 정리하고 닫는다 */
+function closeBulk(applied){
+  bulkRows.forEach(r=>{if(!applied||!r.preset)URL.revokeObjectURL(r.url);});
+  bulkRows=[];bulkMissOnly=false;
+  $('#bulk-ov').classList.remove('open');
+}
+function applyBulk(){
+  const go=bulkRows.filter(r=>r.preset);
+  if(!go.length)return;
+  const per={};
+  go.forEach(r=>{
+    imgsOf(r.preset).push({id:++uid,file:r.file,url:r.url});   // Q4: 교체 아님, 뒤에 추가
+    per[r.preset]=(per[r.preset]||0)+1;
+  });
+  const skipped=bulkRows.length-go.length;
+  closeBulk(true);
+  render();
+  toast(`${go.length}장 배치 · ${Object.keys(per).length}개 항목`+(skipped?` · 건너뜀 ${skipped}장`:''));
 }
 
 function moveCat(ci,dir){
@@ -1038,6 +1223,63 @@ window.save=save;window.render=render; // drive_sync.js 호환
     else if(e.key==='ArrowLeft'){e.preventDefault();stepLb(-1);}
     else if(e.key==='ArrowRight'){e.preventDefault();stepLb(1);}
   },true);
+
+  /* ---------- 일괄 넣기 ---------- */
+  function pickBulk(){
+    const inp=document.createElement('input');
+    inp.type='file';inp.accept='image/*';inp.multiple=true;
+    inp.onchange=e=>openBulk(e.target.files);
+    inp.click();
+  }
+  const hasFiles=e=>{
+    const dt=e.dataTransfer;
+    return !!(dt&&dt.types&&Array.prototype.indexOf.call(dt.types,'Files')>=0);
+  };
+  const bdz=$('#bulk-dz');
+  bdz.addEventListener('click',pickBulk);
+  ['dragenter','dragover'].forEach(ev=>bdz.addEventListener(ev,e=>{
+    if(!hasFiles(e))return;
+    e.preventDefault();e.stopPropagation();bdz.classList.add('over');
+  }));
+  bdz.addEventListener('dragleave',()=>bdz.classList.remove('over'));
+  bdz.addEventListener('drop',e=>{
+    if(!hasFiles(e))return;
+    e.preventDefault();e.stopPropagation();bdz.classList.remove('over');
+    openBulk(e.dataTransfer.files);
+  });
+
+  /* 페이지 아무 데나 드롭. 항목 칸(.dz/.slot)은 자기 drop 에서 stopPropagation 하므로
+     여기까지 안 올라오고, 항목 순서 드래그(dragPi!==null)는 파일이 아니라 걸러진다 */
+  const pd=$('#page-drop');
+  let dragDepth=0;
+  document.addEventListener('dragenter',e=>{
+    if(!hasFiles(e)||dragPi!==null)return;
+    dragDepth++;pd.classList.add('on');
+  });
+  document.addEventListener('dragleave',e=>{
+    if(!hasFiles(e))return;
+    dragDepth=Math.max(0,dragDepth-1);
+    if(!dragDepth)pd.classList.remove('on');
+  });
+  document.addEventListener('dragover',e=>{
+    if(!hasFiles(e)||dragPi!==null)return;
+    e.preventDefault();
+  });
+  document.addEventListener('drop',e=>{
+    dragDepth=0;pd.classList.remove('on');
+    if(!hasFiles(e)||dragPi!==null)return;
+    e.preventDefault();
+    if(e.dataTransfer.files&&e.dataTransfer.files.length)openBulk(e.dataTransfer.files);
+  });
+
+  $('#bulk-cancel').addEventListener('click',()=>closeBulk(false));
+  $('#bulk-apply').addEventListener('click',applyBulk);
+  $('#bulk-ov').addEventListener('click',e=>{if(e.target.id==='bulk-ov')closeBulk(false);});
+  $('#bulk-only-miss').addEventListener('click',()=>{bulkMissOnly=!bulkMissOnly;renderBulk();});
+  $('#bulk-skip-miss').addEventListener('click',()=>{
+    bulkRows.forEach(r=>{if(!r.preset)r.preset=null;});
+    bulkMissOnly=false;renderBulk();toast('미매칭은 건너뛰기로 뒀어');
+  });
 
   startAutoSave();
 })();
