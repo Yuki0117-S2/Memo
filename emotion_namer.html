@@ -229,6 +229,38 @@ button.act.purple{border-color:var(--purple);color:var(--purple)}
 .bulk-new{flex:none;border:.5px solid var(--accent3);background:transparent;color:var(--accent3);border-radius:6px;padding:5px 8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap}
 .bulk-new:hover{background:var(--accent3);color:#fff}
 
+/* 라이브러리 JSON 가져오기 */
+#jl-ov{position:fixed;inset:0;z-index:10006;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:20px}
+#jl-ov.open{display:flex}
+.jl-modal{background:var(--bg);border:.5px solid var(--border2);border-radius:var(--radius);padding:20px;width:700px;max-width:100%;max-height:88vh;display:flex;flex-direction:column;gap:11px;box-shadow:0 12px 40px rgba(0,0,0,.3)}
+.jl-drop{display:flex;align-items:center;gap:10px;border:1px dashed var(--border2);border-radius:var(--radius-sm);padding:11px 13px;background:var(--bg2);cursor:pointer;font-size:12px;color:var(--text3);transition:.15s}
+.jl-drop:hover,.jl-drop.over{border-color:var(--accent);color:var(--accent);background:rgba(136,136,204,.08)}
+.jl-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);font-size:11.5px}
+.jl-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px;min-height:0;flex:1}
+.jl-col{display:flex;flex-direction:column;gap:5px;min-height:0}
+.jl-cats{overflow:auto;border:.5px solid var(--border);border-radius:var(--radius-sm);min-height:170px;max-height:34vh}
+.jl-cat{display:flex;align-items:center;gap:8px;padding:6px 9px;border-bottom:.5px solid var(--border);cursor:pointer;font-size:12px}
+.jl-cat:last-child{border-bottom:0}
+.jl-cat:hover{background:var(--bg2)}
+.jl-cat input{accent-color:var(--accent);flex:none;cursor:pointer}
+.jl-cat .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.jl-cat .c{font-family:var(--mono);font-size:10.5px;color:var(--text3);flex:none}
+.jl-prev{overflow:auto;border:.5px solid var(--border);border-radius:var(--radius-sm);min-height:170px;max-height:34vh;padding:8px 10px;font-size:11.5px;line-height:1.75}
+.jl-prev .g{font-weight:800;color:var(--accent);margin-top:7px}
+.jl-prev .g:first-child{margin-top:0}
+.jl-prev .g .tag{font-weight:700;font-size:10px;border-radius:999px;padding:1px 7px;margin-left:5px;background:var(--bg3);color:var(--text2)}
+.jl-prev .g .tag.new{background:var(--accent);color:#fff}
+.jl-prev .it{font-family:var(--mono);color:var(--text2);word-break:break-all}
+.jl-prev .sk{font-family:var(--mono);color:var(--text3);text-decoration:line-through}
+.jl-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.jl-sel{flex:1;min-width:120px;background:var(--bg2);border:.5px solid var(--border2);color:var(--text);border-radius:var(--radius-sm);padding:7px 9px;font-size:12px;font-family:inherit}
+.jl-sel:focus{outline:none;border-color:var(--accent)}
+@media(max-width:720px){
+  .jl-modal{padding:15px}
+  .jl-grid{grid-template-columns:1fr}
+  .jl-cats,.jl-prev{max-height:22vh;min-height:110px}
+}
+
 /* 미매칭에서 바로 새 항목 만들기 */
 #newp-ov{position:fixed;inset:0;z-index:10010;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;padding:20px}
 #newp-ov.open{display:flex}
@@ -324,6 +356,7 @@ body.lb-open{overflow:hidden}
   <div class="addrow">
     <input type="text" id="newCat" placeholder="새 카테고리 추가 (예: 배경 / 포즈) — Enter">
     <button class="act" id="addCat">+ 카테고리 추가</button>
+    <button class="act purple" id="jl-open">📥 라이브러리 JSON</button>
   </div>
 </div>
 
@@ -392,6 +425,43 @@ body.lb-open{overflow:hidden}
     <div class="bulk-tools">
       <button class="gist-btn gist-btn-cancel" id="bulk-cancel" style="flex:1">취소</button>
       <button class="gist-btn gist-btn-upload" id="bulk-apply" style="flex:2">배치하기</button>
+    </div>
+  </div>
+</div>
+
+<div id="jl-ov">
+  <div class="jl-modal">
+    <div class="gist-modal-title">📥 라이브러리 JSON에서 가져오기</div>
+    <div class="jl-drop" id="jl-drop">
+      <button class="act" id="jl-pick" style="flex:0 0 auto">📂 JSON 고르기</button>
+      <span class="jl-name" id="jl-fname">파일을 고르거나 여기로 끌어다 놔</span>
+    </div>
+    <div id="jl-main" style="display:none;flex-direction:column;gap:11px;min-height:0;flex:1">
+      <div class="jl-row">
+        <select class="jl-sel" id="jl-work"></select>
+        <select class="jl-sel" id="jl-target"></select>
+      </div>
+      <div class="jl-grid">
+        <div class="jl-col">
+          <div class="jl-row" style="justify-content:space-between">
+            <span class="gist-label">카테고리 고르기</span>
+            <span><button class="act" id="jl-all" style="padding:3px 8px;font-size:11px">전체</button>
+            <button class="act" id="jl-none" style="padding:3px 8px;font-size:11px">해제</button></span>
+          </div>
+          <div class="jl-cats" id="jl-cats"></div>
+        </div>
+        <div class="jl-col">
+          <span class="gist-label">들어갈 것 미리보기</span>
+          <div class="jl-prev" id="jl-prev"></div>
+        </div>
+      </div>
+      <div class="bulk-sum" id="jl-sum"></div>
+    </div>
+    <div class="gist-status" id="jl-status"></div>
+    <div class="gist-hint">💡 항목 <b>이름만</b> 가져와 (프롬프트는 안 씀). 공백·괄호는 <code>_</code>로 정리되고, <b>이미 있는 이름은 건너뛰어</b>.</div>
+    <div class="input-btn-row">
+      <button class="gist-btn gist-btn-cancel" id="jl-cancel">닫기</button>
+      <button class="gist-btn gist-btn-upload" id="jl-apply">가져오기</button>
     </div>
   </div>
 </div>
@@ -990,6 +1060,163 @@ function confirmNewPreset(){
   toast(`'${name}' 항목 추가`+(extra?` · 미매칭 ${extra}장 같이 해결`:''));
 }
 
+/* ---------- 라이브러리 JSON 가져오기 (순수 로직) ----------
+   프롬프트 라이브러리 내보내기 형식: works[].categories[].items[].name
+   여기서 쓰는 건 name 뿐. prompt 는 버린다 */
+
+/* 항목 이름 → 파일명에 넣어도 안전한 형태.
+   한글·영숫자·_·- 만 남기고 나머지는 _ 로. '기승위 (1)' → '기승위_1' */
+function jlSlug(s){
+  return String(s==null?'':s).trim()
+    .replace(/[^0-9A-Za-z\uac00-\ud7a3_-]+/g,'_')
+    .replace(/_{2,}/g,'_')
+    .replace(/^_+|_+$/g,'');
+}
+/* JSON 한 덩이 → 작품/카테고리 목록. 항목은 이름만 뽑아 중복 제거 */
+function jlParseLib(raw){
+  let d;
+  try{d=JSON.parse(raw);}catch(e){return{err:'JSON을 읽지 못했어 — '+((e&&e.message)||e)};}
+  if(!d||typeof d!=='object')return{err:'JSON 모양이 아니야'};
+  const works=Array.isArray(d.works)?d.works:[];
+  if(!works.length)return{err:'works 가 없어. 프롬프트 라이브러리에서 내보낸 JSON이 맞아?'};
+  const out=[];
+  works.forEach(w=>{
+    if(!w)return;
+    const cats=[];
+    (w.categories||[]).forEach(c=>{
+      if(!c)return;
+      const seen=new Set(),names=[];
+      (c.items||[]).forEach(it=>{
+        const n=jlSlug(it&&it.name);
+        if(!n||seen.has(n))return;
+        seen.add(n);names.push(n);
+      });
+      if(names.length)cats.push({id:c.id||('cat'+cats.length),name:String(c.name||c.id||'이름없음'),names:names});
+    });
+    if(cats.length)out.push({id:w.id||('work'+out.length),name:String(w.name||w.id||'이름없음'),cats:cats});
+  });
+  if(!out.length)return{err:'가져올 항목이 하나도 없어'};
+  return {works:out};
+}
+/* 고른 카테고리 + 대상 → 무엇이 어디로 갈지 계획을 세운다.
+   target 이 null 이면 카테고리별로 새로 만들고, 문자열이면 그 카테고리 하나에 몰아넣는다.
+   이미 있는 이름(현재 보드 전체 기준)은 건너뛴다 */
+function jlBuildPlan(picked,target,stateCategories){
+  const taken=new Set((stateCategories||[]).reduce((a,c)=>a.concat(c.presets||[]),[]));
+  const existing=new Set((stateCategories||[]).map(c=>c.name));
+  const groups=[];
+  const push=(name,isNew)=>{
+    let g=groups.find(x=>x.name===name);
+    if(!g){g={name:name,isNew:isNew,add:[],skip:[]};groups.push(g);}
+    return g;
+  };
+  (picked||[]).forEach(cat=>{
+    const g=target==null?push(cat.name,!existing.has(cat.name)):push(target,false);
+    (cat.names||[]).forEach(n=>{
+      if(taken.has(n)){g.skip.push(n);return;}
+      taken.add(n);g.add.push(n);          // 같은 판 안에서의 중복도 막는다
+    });
+  });
+  return groups;
+}
+
+/* ---------- 라이브러리 가져오기: 화면 조작 ---------- */
+let jlData=null,jlWork=0,jlPicked=new Set();
+
+function setJlStatus(msg,type){
+  const el=$('#jl-status');if(!el)return;
+  el.textContent=msg||'';el.className='gist-status'+(type?' '+type:'');
+}
+function jlCurrentCats(){
+  if(!jlData)return[];
+  const w=jlData.works[jlWork];if(!w)return[];
+  return w.cats.filter(c=>jlPicked.has(c.id));
+}
+function jlTargetValue(){
+  const v=$('#jl-target').value;
+  return v==='__new__'?null:decodeURIComponent(v);
+}
+function renderJl(){
+  if(!jlData)return;
+  const w=jlData.works[jlWork];
+  $('#jl-cats').innerHTML=w.cats.map(c=>`
+    <label class="jl-cat">
+      <input type="checkbox" data-cid="${c.id}"${jlPicked.has(c.id)?' checked':''}>
+      <span class="n">${String(c.name)}</span>
+      <span class="c">${c.names.length}</span>
+    </label>`).join('');
+  $('#jl-cats').querySelectorAll('input').forEach(chk=>chk.addEventListener('change',e=>{
+    const id=e.target.dataset.cid;
+    if(e.target.checked)jlPicked.add(id);else jlPicked.delete(id);
+    renderJl();
+  }));
+
+  const picked=jlCurrentCats();
+  const plan=jlBuildPlan(picked,jlTargetValue(),state.categories);
+  const add=plan.reduce((s,g)=>s+g.add.length,0);
+  const skip=plan.reduce((s,g)=>s+g.skip.length,0);
+
+  $('#jl-prev').innerHTML=plan.length?plan.map(g=>
+    `<div class="g">${g.name}<span class="tag${g.isNew?' new':''}">${g.isNew?'새로 만듦':'기존에 추가'}</span></div>`
+    +g.add.map(n=>`<div class="it">${n}</div>`).join('')
+    +g.skip.map(n=>`<div class="sk">${n}</div>`).join('')
+  ).join(''):'<span style="color:var(--text3)">카테고리를 골라봐</span>';
+
+  $('#jl-sum').innerHTML=`카테고리 <b>${picked.length}개</b> 선택 · 가져올 항목 <b>${add}개</b>`
+    +(skip?` · <span class="miss">이미 있어서 건너뜀 ${skip}개</span>`:'');
+  $('#jl-apply').disabled=add===0;
+  $('#jl-apply').textContent=add?`${add}개 가져오기`:'가져올 게 없어';
+}
+function jlLoadText(text,fname){
+  const r=jlParseLib(text);
+  if(r.err){setJlStatus(r.err,'err');return;}
+  jlData=r;jlWork=0;jlPicked=new Set();
+  $('#jl-fname').textContent=fname||'불러온 JSON';
+  $('#jl-work').innerHTML=r.works.map((w,i)=>{
+    const n=w.cats.reduce((s,c)=>s+c.names.length,0);
+    return `<option value="${i}">${String(w.name)} — 카테고리 ${w.cats.length} / 항목 ${n}</option>`;
+  }).join('');
+  $('#jl-main').style.display='flex';
+  setJlStatus('','');
+  refreshJlTarget();
+  renderJl();
+}
+function refreshJlTarget(){
+  $('#jl-target').innerHTML='<option value="__new__">＋ 카테고리별로 새로 만들기</option>'
+    +state.categories.map(c=>
+      `<option value="${encodeURIComponent(c.name)}">→ '${String(c.name)}' 에 몰아넣기</option>`).join('');
+}
+function jlReadFile(file){
+  if(!file)return;
+  const rd=new FileReader();
+  rd.onload=()=>jlLoadText(String(rd.result||''),file.name);
+  rd.onerror=()=>setJlStatus('파일을 읽지 못했어','err');
+  try{rd.readAsText(file);}catch(e){setJlStatus('파일을 읽지 못했어 — '+((e&&e.message)||e),'err');}
+}
+function openJl(file){
+  jlData=null;jlPicked=new Set();
+  $('#jl-main').style.display='none';
+  $('#jl-fname').textContent='파일을 고르거나 여기로 끌어다 놔';
+  setJlStatus('','');
+  $('#jl-ov').classList.add('open');
+  if(file)jlReadFile(file);
+}
+function closeJl(){jlData=null;jlPicked=new Set();$('#jl-ov').classList.remove('open');}
+function applyJl(){
+  const plan=jlBuildPlan(jlCurrentCats(),jlTargetValue(),state.categories);
+  let made=0,added=0,skipped=0;
+  plan.forEach(g=>{
+    skipped+=g.skip.length;
+    if(!g.add.length)return;
+    let cat=state.categories.find(c=>c.name===g.name);
+    if(!cat){cat={name:g.name,collapsed:false,presets:[]};state.categories.push(cat);made++;}
+    g.add.forEach(n=>{cat.presets.push(n);added++;});
+  });
+  if(!added){setJlStatus('가져올 게 없어','err');return;}
+  closeJl();save();render();
+  toast(`${added}개 항목 가져옴`+(made?` · 카테고리 ${made}개 새로 만듦`:'')+(skipped?` · 건너뜀 ${skipped}`:''));
+}
+
 function moveCat(ci,dir){
   const to=ci+dir;if(to<0||to>=state.categories.length)return;
   const[m]=state.categories.splice(ci,1);state.categories.splice(to,0,m);save();render();
@@ -1363,7 +1590,12 @@ window.save=save;window.render=render; // drive_sync.js 호환
     dragDepth=0;pd.classList.remove('on');
     if(!hasFiles(e)||dragPi!==null)return;
     e.preventDefault();
-    if(e.dataTransfer.files&&e.dataTransfer.files.length)openBulk(e.dataTransfer.files);
+    const fs=e.dataTransfer.files;
+    if(!fs||!fs.length)return;
+    /* JSON 한 개만 떨어졌으면 라이브러리 가져오기로 보낸다 */
+    const json=Array.prototype.filter.call(fs,f=>/\.json$/i.test(f.name||''));
+    if(json.length&&json.length===fs.length){openJl(json[0]);return;}
+    openBulk(fs);
   });
 
   $('#bulk-cancel').addEventListener('click',()=>closeBulk(false));
@@ -1382,6 +1614,37 @@ window.save=save;window.render=render; // drive_sync.js 호환
     if(e.key==='Enter'){e.preventDefault();confirmNewPreset();}
     else if(e.key==='Escape'){e.preventDefault();closeNewPreset();}
   });
+
+  /* ---------- 라이브러리 JSON 가져오기 ---------- */
+  const pickJson=()=>{
+    const inp=document.createElement('input');
+    inp.type='file';inp.accept='.json,application/json';
+    inp.onchange=e=>jlReadFile(e.target.files&&e.target.files[0]);
+    inp.click();
+  };
+  $('#jl-open').addEventListener('click',()=>openJl(null));
+  $('#jl-pick').addEventListener('click',e=>{e.stopPropagation();pickJson();});
+  $('#jl-drop').addEventListener('click',pickJson);
+  ['dragenter','dragover'].forEach(ev=>$('#jl-drop').addEventListener(ev,e=>{
+    if(!hasFiles(e))return;
+    e.preventDefault();e.stopPropagation();$('#jl-drop').classList.add('over');
+  }));
+  $('#jl-drop').addEventListener('dragleave',()=>$('#jl-drop').classList.remove('over'));
+  $('#jl-drop').addEventListener('drop',e=>{
+    if(!hasFiles(e))return;
+    e.preventDefault();e.stopPropagation();$('#jl-drop').classList.remove('over');
+    jlReadFile(e.dataTransfer.files&&e.dataTransfer.files[0]);
+  });
+  $('#jl-work').addEventListener('change',e=>{jlWork=+e.target.value;jlPicked=new Set();renderJl();});
+  $('#jl-target').addEventListener('change',renderJl);
+  $('#jl-all').addEventListener('click',()=>{
+    const w=jlData&&jlData.works[jlWork];if(!w)return;
+    w.cats.forEach(c=>jlPicked.add(c.id));renderJl();
+  });
+  $('#jl-none').addEventListener('click',()=>{jlPicked=new Set();renderJl();});
+  $('#jl-apply').addEventListener('click',applyJl);
+  $('#jl-cancel').addEventListener('click',closeJl);
+  $('#jl-ov').addEventListener('click',e=>{if(e.target.id==='jl-ov')closeJl();});
 
   startAutoSave();
 })();
