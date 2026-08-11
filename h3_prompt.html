@@ -99,6 +99,30 @@ input.tx::placeholder,textarea.tx::placeholder{color:var(--text3)}
 .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 footer{margin-top:2rem;font-size:11px;color:var(--text3);text-align:center;letter-spacing:.3px}
 
+/* ---------- 해상도 표 · LLM 지시문 (추가분) ---------- */
+.tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:.5px solid var(--border);border-radius:var(--radius-sm)}
+table.tbl{width:100%;border-collapse:collapse;font-size:12px;min-width:340px}
+table.tbl th,table.tbl td{padding:7px 10px;text-align:left;border-bottom:.5px solid var(--border);white-space:nowrap}
+table.tbl thead th{background:var(--bg2);font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.6px}
+table.tbl tbody tr:last-child td{border-bottom:0}
+table.tbl td:first-child{color:var(--text2);font-weight:600}
+table.tbl td.num{font-family:var(--mono);color:var(--text2)}
+table.tbl td.mp{font-family:var(--mono);color:var(--accent);font-weight:600}
+table.tbl tr.real td:first-child{color:var(--accent3)}
+table.tbl tr.real td.mp{color:var(--accent3)}
+
+ol.rules{margin:0;padding-left:0;list-style:none;counter-reset:r}
+ol.rules li{counter-increment:r;position:relative;padding:8px 10px 8px 34px;border:.5px solid var(--border);border-left:3px solid var(--blue);border-radius:var(--radius-sm);background:var(--bg2);margin-bottom:7px;font-size:12px;line-height:1.6;color:var(--text2)}
+ol.rules li:last-child{margin-bottom:0}
+ol.rules li::before{content:counter(r);position:absolute;left:11px;top:8px;font-family:var(--mono);font-size:11px;font-weight:800;color:var(--accent)}
+ol.rules li b{color:var(--text);font-weight:700}
+ol.rules li code{font-family:var(--mono);font-size:11px;color:var(--accent)}
+
+.sysbox{width:100%;min-height:230px;border:.5px solid var(--border);border-radius:var(--radius-sm);background:var(--bg2);color:var(--text);padding:11px;font-size:11.5px;line-height:1.65;resize:vertical;font-family:var(--mono)}
+.sysbox:focus{outline:none;border-color:var(--accent)}
+.warnbox{border:.5px solid var(--border);border-left:3px solid var(--danger);border-radius:var(--radius-sm);background:var(--bg2);padding:9px 11px;font-size:11.5px;line-height:1.65;color:var(--text2);margin-top:9px}
+.warnbox b{color:var(--danger)}
+
 /* ---------- 점프 내비 (작업실 공용) ---------- */
 #jump-nav{position:fixed;right:14px;bottom:24px;z-index:9998;display:flex;flex-direction:column;gap:8px;opacity:0;pointer-events:none;transform:translateX(8px);transition:opacity .18s,transform .18s}
 #jump-nav.show{opacity:1;pointer-events:auto;transform:none}
@@ -290,6 +314,111 @@ footer{margin-top:2rem;font-size:11px;color:var(--text3);text-align:center;lette
         <div class="spec-i"><div class="spec-k">모델 파일</div><div class="spec-v">Ref2VA는 <code>ref2va</code> · 나머지는 <code>fl2va</code></div></div>
       </div>
       <div class="note">ComfyUI는 H3-Context-IR을 거치지 않고 H3-Base에 직결된다. 즉 이 도구가 만드는 형식이 <b>Context-IR가 내놓는 결과물 형태</b>이고, 그걸 사람이 대신 쓰는 셈이다.</div>
+    </div>
+  </div>
+
+  <!-- 해상도 -->
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">▸ 해상도 · 화소수</div><span class="sub">MP = 백만 화소</span></div>
+    <div class="panel-body">
+      <div class="opt-block">
+        <div class="opt-label">통칭 규격 <span class="sub">· 일반 영상 기준</span></div>
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr><th>통칭</th><th>해상도</th><th>픽셀</th><th>MP</th></tr></thead>
+            <tbody>
+              <tr><td>480p</td><td class="num">854×480</td><td class="num">409,920</td><td class="mp">0.41</td></tr>
+              <tr><td>720p</td><td class="num">1280×720</td><td class="num">921,600</td><td class="mp">0.92</td></tr>
+              <tr><td>1080p</td><td class="num">1920×1080</td><td class="num">2,073,600</td><td class="mp">2.07</td></tr>
+              <tr><td>1440p</td><td class="num">2560×1440</td><td class="num">3,686,400</td><td class="mp">3.69</td></tr>
+              <tr><td>4K UHD</td><td class="num">3840×2160</td><td class="num">8,294,400</td><td class="mp">8.29</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="opt-block">
+        <div class="opt-label">H3 실제값 <span class="sub">· 32배수 스냅 적용</span></div>
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr><th>부르는 이름</th><th>실제 해상도</th><th>픽셀</th><th>MP</th></tr></thead>
+            <tbody>
+              <tr class="real"><td>768 세로 9:16</td><td class="num">768×1376</td><td class="num">1,056,768</td><td class="mp">1.06</td></tr>
+              <tr class="real"><td>768 가로 16:9</td><td class="num">1376×768</td><td class="num">1,056,768</td><td class="mp">1.06</td></tr>
+              <tr class="real"><td>"720p"</td><td class="num">1280×704</td><td class="num">901,120</td><td class="mp">0.90</td></tr>
+              <tr class="real"><td>"1080p"</td><td class="num">1920×1088</td><td class="num">2,088,960</td><td class="mp">2.09</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="note"><b>720도 1080도 32로 안 나눠떨어진다</b>(720÷32=22.5, 1080÷32=33.75). 그래서 실제로는 704로 깎이거나 1088로 올라간다. "1080p 뽑았다"는 말은 엄밀히 <code>1920×1088</code>이다. 짧은 변 768이 기본값이고, 그 위로 올릴수록 VRAM과 시간이 화소수에 거의 비례해서 늘어난다 — 768 기본에서 "1080p"로 가면 화소가 약 <code>2배</code>다.</div>
+    </div>
+  </div>
+
+  <!-- LLM 지시문 -->
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">▸ 로컬 LLM 지시문 작성법</div>
+      <button class="btn solid" type="button" onclick="copy('llm-sys','시스템 프롬프트')">시스템 프롬프트 복사</button>
+    </div>
+    <div class="panel-body">
+      <div class="opt-block">
+        <div class="opt-label">7원칙</div>
+        <ol class="rules">
+          <li><b>역할을 한 줄로 못박는다.</b> "너는 MiniMax H3 프롬프트 생성기다." 그 외 잡담·요약·인사는 전부 금지 대상으로 명시한다.</li>
+          <li><b>출력 형식을 강제한다.</b> <code>아래 필드만 출력. 서두·마크다운·코드펜스·설명 금지.</code> 이 문장이 없으면 열에 아홉은 "물론이죠!"로 시작한다.</li>
+          <li><b>완성 예시를 하나 통째로 붙인다.</b> 규칙 열 줄보다 실제 출력물 1개가 훨씬 강하게 먹는다.</li>
+          <li><b>금지 목록을 따로 판다.</b> 로마자 표기 금지 / <code>&lt;d&gt;</code> 안에는 언어태그와 대사만 / 대사를 soundscape에 넣지 말 것 / 음색은 화자 소개 문구에.</li>
+          <li><b>규칙과 내용을 분리한다.</b> system에는 규칙만, user에는 이번 장면만. 매 요청마다 규칙 전체를 다시 붙이지 않는다.</li>
+          <li><b>샘플러를 조인다.</b> temperature <code>0.6~0.8</code>, 형식이 깨지면 <code>0.4</code>까지. repeat_penalty <code>1.05~1.1</code>. 창작 온도가 아니라 서식 온도다.</li>
+          <li><b>분량 상한을 숫자로 박는다.</b> <code>350~500 words</code>. 안 박으면 끝없이 늘어지고 타임코드가 무너진다.</li>
+        </ol>
+      </div>
+      <div class="opt-block">
+        <div class="opt-label">모델별 차이 <span class="sub">· 작성법 자체는 9할이 공통</span></div>
+        <div class="spec">
+          <div class="spec-i"><div class="spec-k">Qwen 계열</div><div class="spec-v"><code>system</code> 롤이 정식으로 분리돼 있어 규칙 유지가 안정적이다. 대신 묘사가 밋밋해지기 쉬우니 <b>"빛·질감·소리 최소 3종 포함"</b> 같은 하한선을 강제한다.</div></div>
+          <div class="spec-i"><div class="spec-k">Gemma 계열</div><div class="spec-v">채팅 템플릿에 <code>system</code> 롤이 따로 없어 규칙이 첫 user 턴에 합쳐진다. 그래서 <b>프롬프트 맨 끝에 형식 규칙을 한 번 더</b> 반복해야 한다. 상상력이 넘치는 쪽이라 "지정 안 한 요소 추가 금지"로 눌러준다.</div></div>
+          <div class="spec-i"><div class="spec-k">체급</div><div class="spec-v">영상 프롬프트 조립은 <code>26B</code> 안팎이 실사용 하한선이라는 게 커뮤니티 중론. 8~9B는 필드 누락과 타임코드 붕괴가 잦다.</div></div>
+          <div class="spec-i"><div class="spec-k">MoE vs Dense</div><div class="spec-v">Dense는 일반 RAM으로 오프로드하면 속도가 급락한다 — VRAM에 전부 올리는 게 원칙. MoE는 비활성 전문가를 RAM에 두고 굴릴 수 있다. <code>mmproj</code>를 같이 물리면 이미지 분석이 되지만 VRAM을 더 먹는다.</div></div>
+        </div>
+      </div>
+      <div class="opt-block">
+        <div class="opt-label">시스템 프롬프트 원본 <span class="sub">· 그대로 붙여 쓸 것</span></div>
+        <textarea id="llm-sys" class="sysbox" spellcheck="false">You are a MiniMax H3 video-prompt generator. You emit the prompt itself and nothing else.
+
+## OUTPUT
+Emit exactly these fields, in this order:
+integrated_multimodal_description:
+overall_soundscape:
+non_diegetic_music:
+
+If the user says Ref2VA, use six fields instead:
+subject_definitions:
+summary:
+integrated_multimodal_description:
+overall_soundscape:
+non_diegetic_music:
+retention_analysis:
+
+No preamble. No markdown. No code fences. No commentary. No translation notes.
+
+## HARD RULES
+1. Shots. The first shot is "[Shot 1]" with no timestamp. Every later shot opens with "[Shot N] At MM:SS.mmm".
+2. Camera. One motion type plus amplitude plus speed, e.g. "Push In, small amplitude, slow speed". Use only: Static Shot, Push In, Pull Out, Pan Left, Pan Right, Tilt Up, Tilt Down, Truck Left, Truck Right, Pedestal Up, Pedestal Down, Arc Shot, Handheld, Crane Up, Crane Down, Zoom In, Zoom Out, Tracking Shot, Whip Pan, Rack Focus.
+3. Dialogue. Wrap every line as &lt;d&gt;[Korean] 대사&lt;/d&gt;. Keep the original script. NEVER romanize. Only the language tag and the line go inside &lt;d&gt;.
+4. Voice. Timbre, age and register belong in the speaker-introduction phrase BEFORE the &lt;d&gt; tag. Never in the soundscape.
+5. overall_soundscape holds ambience and diegetic sound only. No dialogue, no lyrics, no score.
+6. non_diegetic_music is the score the characters cannot hear. Write "N/A" when there is none.
+7. Runtime is 4-15 seconds. Timestamps stay inside it and increase monotonically.
+8. Body text is English. Dialogue lines stay in their source language.
+9. Do not invent elements the user did not specify. Do not drop elements the user did specify.
+
+## LENGTH
+integrated_multimodal_description runs 350-500 words and carries at least three sensory layers: light, texture, and one audible cue.
+
+## REMINDER
+Fields only. No preamble. No markdown. Never romanize dialogue. Timbre before the &lt;d&gt; tag, not inside it.</textarea>
+      </div>
+      <div class="warnbox"><b>검증 상태 —</b> 해상도·화소 계산은 산수라 확실하다. 7원칙과 시스템 프롬프트는 모델 무관하게 통하는 일반 원칙이다. 반면 <b>특정 세대 모델의 파라미터·아키텍처 명명</b>(예: Gemma4 26B A4B, Qwen 3.5 27B)은 <b>확인 불가</b> — 커뮤니티 전언이므로 실측으로 검증할 것. "Qwen이 지시문에 충실하고 Gemma가 상상력이 풍부하다"는 평가도 벤치마크 근거는 <b>불확실함</b>이며, 위에 적은 템플릿 구조 차이는 사실이나 그것이 성능 차이의 전부라는 보장은 없다.</div>
     </div>
   </div>
 
