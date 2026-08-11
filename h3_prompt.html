@@ -369,7 +369,7 @@ ol.rules li code{font-family:var(--mono);font-size:11px;color:var(--accent)}
           <li><b>금지 목록을 따로 판다.</b> 로마자 표기 금지 / <code>&lt;d&gt;</code> 안에는 언어태그와 대사만 / 대사를 soundscape에 넣지 말 것 / 음색은 화자 소개 문구에.</li>
           <li><b>규칙과 내용을 분리한다.</b> system에는 규칙만, user에는 이번 장면만. 매 요청마다 규칙 전체를 다시 붙이지 않는다.</li>
           <li><b>샘플러를 조인다.</b> temperature <code>0.6~0.8</code>, 형식이 깨지면 <code>0.4</code>까지. repeat_penalty <code>1.05~1.1</code>. 창작 온도가 아니라 서식 온도다.</li>
-          <li><b>분량 상한을 숫자로 박는다.</b> <code>350~500 words</code>. 안 박으면 끝없이 늘어지고 타임코드가 무너진다.</li>
+          <li><b>분량 상한을 숫자로 박는다.</b> <code>350~500 words</code>는 <b>Ref2VA의 detailed_description 전용</b> 규정이다. 3필드 모드에는 공식 단어 수 규정이 없으니 길이 대신 <code>샷 수</code>와 <code>영상 길이</code>로 조인다.</li>
         </ol>
       </div>
       <div class="opt-block">
@@ -383,42 +383,80 @@ ol.rules li code{font-family:var(--mono);font-size:11px;color:var(--accent)}
       </div>
       <div class="opt-block">
         <div class="opt-label">시스템 프롬프트 원본 <span class="sub">· 그대로 붙여 쓸 것</span></div>
-        <textarea id="llm-sys" class="sysbox" spellcheck="false">You are a MiniMax H3 video-prompt generator. You emit the prompt itself and nothing else.
-
-## OUTPUT
-Emit exactly these fields, in this order:
-integrated_multimodal_description:
-overall_soundscape:
-non_diegetic_music:
-
-If the user says Ref2VA, use six fields instead:
-subject_definitions:
-summary:
-integrated_multimodal_description:
-overall_soundscape:
-non_diegetic_music:
-retention_analysis:
-
+        <textarea id="llm-sys" class="sysbox" spellcheck="false">You are a MiniMax H3 prompt writer. You emit the prompt itself and nothing else.
 No preamble. No markdown. No code fences. No commentary. No translation notes.
 
-## HARD RULES
-1. Shots. The first shot is "[Shot 1]" with no timestamp. Every later shot opens with "[Shot N] At MM:SS.mmm".
-2. Camera. One motion type plus amplitude plus speed, e.g. "Push In, small amplitude, slow speed". Use only: Static Shot, Push In, Pull Out, Pan Left, Pan Right, Tilt Up, Tilt Down, Truck Left, Truck Right, Pedestal Up, Pedestal Down, Arc Shot, Handheld, Crane Up, Crane Down, Zoom In, Zoom Out, Tracking Shot, Whip Pan, Rack Focus.
-3. Dialogue. Wrap every line as &lt;d&gt;[Korean] 대사&lt;/d&gt;. Keep the original script. NEVER romanize. Only the language tag and the line go inside &lt;d&gt;.
-4. Voice. Timbre, age and register belong in the speaker-introduction phrase BEFORE the &lt;d&gt; tag. Never in the soundscape.
-5. overall_soundscape holds ambience and diegetic sound only. No dialogue, no lyrics, no score.
-6. non_diegetic_music is the score the characters cannot hear. Write "N/A" when there is none.
-7. Runtime is 4-15 seconds. Timestamps stay inside it and increase monotonically.
-8. Body text is English. Dialogue lines stay in their source language.
-9. Do not invent elements the user did not specify. Do not drop elements the user did specify.
+## MODE 1 - T2VA / I2VA / FL2VA / L2VA   (checkpoint: fl2va)
+Line 1 is the alignment instruction, then one blank line, then the three core fields.
 
-## LENGTH
-integrated_multimodal_description runs 350-500 words and carries at least three sensory layers: light, texture, and one audible cue.
+T2VA  : no alignment line; begin directly with the fields.
+I2VA  : For the target video, at 0.00 seconds into the target video, &lt;Picture 1&gt; (from [Shot 1]) is fully referenced.
+FL2VA : How the reference pictures align with the target video - Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot N) aligns with the S.SS-second mark of the target video.
+L2VA  : How the reference pictures align with the target video - &lt;Picture 1&gt; (from [Shot N]) aligns with the S.SS-second mark of the target video.
+N is the index of the actual final shot. S.SS is the duration to exactly two decimals.
+
+Fields, in this order:
+integrated_multimodal_description: [Shot 1] ...
+overall_soundscape: ...
+non_diegetic_music: ...
+
+State the visual style and initial composition at the start of [Shot 1].
+
+## MODE 2 - Ref2VA   (checkpoint: ref2va)
+Six fields, in this order. No alignment line.
+subject_definitions:
+summary:
+retention_analysis:
+detailed_description:
+overall_soundscape:
+non_diegetic_music:
+
+Establish the visual style in one or two sentences BEFORE [Shot 1], not inside it.
+detailed_description runs 350-500 English words for generation tasks.
+summary opens with a bracketed task type: keyframe completion, reference generation, video editing, video continuation, audio reuse, audio reference. Join multiple types with " + " and never repeat one.
+Retention markers for &lt;Subject N&gt;, &lt;Picture N&gt;, &lt;Video N&gt;: fully_preserved, partially_preserved, attribute_transfer, weak_reference.
+Retention markers for &lt;Audio N&gt; are a SEPARATE set: fully_copy, partially_copy, reference, weak_reference.
+Never write (Sx) inside retention_analysis.
+
+## SHARED RULES
+1. [Shot 1] carries no timestamp. Later shots open with "[Shot N] At MM:SS.mmm, " and cut times strictly increase inside the duration.
+2. Cut wording: the camera cuts to / the shot cuts to / the shot transitions to / the shot changes to / the shot switches to.
+3. Camera motion types, and only these: Zoom In, Zoom Out, Push In, Pull Out, Pan Left, Pan Right, Truck Left, Truck Right, Tilt Up, Tilt Down, Pedestal Up, Pedestal Down, Arc Shot, Tracking Shot, Static Shot, Shake Slightly, Shake Strongly, POV, Roll Clockwise, Roll Counterclockwise.
+4. Amplitude is "with small amplitude" or "with large amplitude". Speed is "at slow speed" or "at fast speed". Omit both when medium and normal. Write the motion as a natural action inside the sentence; never stack labels at the end of it.
+5. Speakers take stable IDs (S1), (S2); joint speech uses (S1,S2). At first appearance establish voice type, register, timbre and pace. Identity, ID, action and delivery go OUTSIDE &lt;d&gt;. Inside &lt;d&gt; put only the language tag and the spoken words, verbatim. Never romanize.
+6. Voiceover uses the exact phrase "says in an off-screen voiceover", and immediately after the &lt;d&gt; block state that the character's lips remain completely closed.
+7. Dialogue crossing a cut uses &lt;scenetrans&gt; at both connecting points plus an explicit statement that the audio continues across the cut. Speech truncated by the video ending uses &lt;cutoff&gt;.
+8. On-screen text goes inside English double quotation marks, verbatim and untranslated.
+9. overall_soundscape: 1-4 sentences in one paragraph. Ambience, physical action sound and non-verbal human sound only. No dialogue, no singing, no score. N/A only when total silence is requested.
+10. non_diegetic_music: 1-3 sentences on instrumentation, tempo, rhythm and dynamics. No abstract mood words. N/A when there is no score.
+11. Body text is English. Dialogue, lyrics and visible on-screen text keep their original language.
+12. FL2VA prefers a single shot so the model can interpolate; add shots only when the user asks.
+13. Add nothing the user did not specify. Drop nothing the user did specify.
 
 ## REMINDER
-Fields only. No preamble. No markdown. Never romanize dialogue. Timbre before the &lt;d&gt; tag, not inside it.</textarea>
+Fields only. No preamble. Camera terms from the list above only. Never romanize dialogue. Timbre outside &lt;d&gt;.</textarea>
       </div>
-      <div class="warnbox"><b>검증 상태 —</b> 해상도·화소 계산은 산수라 확실하다. 7원칙과 시스템 프롬프트는 모델 무관하게 통하는 일반 원칙이다. 반면 <b>특정 세대 모델의 파라미터·아키텍처 명명</b>(예: Gemma4 26B A4B, Qwen 3.5 27B)은 <b>확인 불가</b> — 커뮤니티 전언이므로 실측으로 검증할 것. "Qwen이 지시문에 충실하고 Gemma가 상상력이 풍부하다"는 평가도 벤치마크 근거는 <b>불확실함</b>이며, 위에 적은 템플릿 구조 차이는 사실이나 그것이 성능 차이의 전부라는 보장은 없다.</div>
+      <div class="warnbox"><b>검증 상태 —</b> 위 시스템 프롬프트는 MiniMax 공식 가이드 <code>VIDEO_PROMPT_WRITING_GUIDE_base_en.md</code> · <code>ref_en.md</code> 원문과 대조해 필드 순서·정렬 지시문·카메라 어휘 20종·보존 마커·분량 규정을 맞춘 것이다. 해상도 계산은 산수라 확실하다. 반면 <b>샘플러 수치</b>(temperature, repeat_penalty)는 공식 근거가 없는 <b>경험칙</b>이고, <b>특정 세대 모델의 파라미터·아키텍처 명명</b>과 "Qwen이 지시문에 충실하다"류의 평가는 <b>확인 불가</b>이니 실측으로 검증할 것.</div>
+    </div>
+  </div>
+
+  <!-- 예시 -->
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">▸ 예시 · 규격 대조</div>
+      <button class="btn solid" type="button" id="btn-copy-ex">이 예시 복사</button>
+    </div>
+    <div class="panel-body">
+      <div class="opt-block">
+        <div class="opt-label">보기</div>
+        <div class="seg" id="seg-ex">
+          <button data-ex="i2va" class="active">I2VA · 3필드</button>
+          <button data-ex="ref">Ref2VA · 6필드</button>
+          <button data-ex="comm">커뮤니티 시스템프롬프트</button>
+        </div>
+        <div class="sub" style="margin-top:6px" id="ex-hint"></div>
+      </div>
+      <textarea id="ex-box" class="sysbox" spellcheck="false" style="min-height:320px"></textarea>
+      <div class="warnbox" id="ex-warn"></div>
     </div>
   </div>
 
@@ -833,6 +871,43 @@ S.subjects=[{desc:'the young man in <Picture 1>, with his hairstyle, facial feat
 ['style','light','grade','lens','space','lang','verb','delivery','voice'].forEach(k=>$('p-'+k).value=S[k]);
 chips($('chk-dopt'),DOPT,'dopt');
 syncMode();renderShots();renderDShot();renderSubjects();renderAudios();build();
+</script>
+
+
+<script>
+/* ===== 예시 패널 ===== */
+(function(){
+  var EX={
+    i2va:{
+      hint:'공식 base 가이드 규격을 그대로 따라 작성한 6초 분량 예시. 첫 줄 정렬 지시문 + 빈 줄 + 3필드.',
+      warn:'<b>출처 —</b> MiniMax 공식 문서의 예시를 옮긴 것이 아니라, <b>공식 규격에 맞춰 새로 쓴 예시</b>다. 규격 준수 여부는 검증했으나 실제 생성 결과는 미검증. 공식 원문은 <code>docs/VIDEO_PROMPT_WRITING_GUIDE_base_en.md</code> 참조.',
+      body:'For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\nintegrated_multimodal_description: [Shot 1] 2D-animated, a close shot with shallow depth of field frames the young woman shown in <Picture 1> seated beside a rain-streaked window, preserving her hairstyle, uniform, seat position, and the classroom layout behind her. Soft natural window light falls across a gentle warm color grade. The camera pushes in with small amplitude at slow speed as she lifts her gaze from the open notebook toward the lens. The girl with a quiet, low-register voice, flat and unhurried with a fragile edge (S1) murmurs quietly but deliberately, placing each word, <d>[Korean] 아직 안 갔네.</d> Her lips close as the line ends and her shoulders draw inward. [Shot 2] At 00:04.000, the shot cuts to an extreme close-up of her hand flattening the notebook page while her final word carries over from the previous shot. The shot holds on this final framing through the end of the video.\n\noverall_soundscape: Quiet indoor room tone continues throughout while rain ticks steadily against the window. Fabric rustles softly as the subject shifts, and a single shallow breath precedes the line.\n\nnon_diegetic_music: Sparse piano notes at a slow tempo, gradually decreasing in volume.'
+    },
+    ref:{
+      hint:'공식 ref 가이드 6필드 규격 예시. 스타일 문장이 [Shot 1] 앞에 오고, 본문 필드명이 detailed_description이다.',
+      warn:'<b>출처 —</b> 위와 같이 <b>공식 규격에 맞춰 새로 쓴 예시</b>다. 다만 <code>detailed_description</code>은 공식 권장 분량 350~500단어에 <b>못 미치는 축약본</b>이므로 구조 확인용으로만 볼 것. 실전에서는 분량을 채워야 한다.',
+      body:'subject_definitions:\n<Subject 1> is the young man in <Picture 1>, with his silver-grey hair, sharp features, black high-collared coat, and the thin chain at his throat.\n<Subject 2> is the night rooftop in <Picture 2>, with its rusted railing, scattered gravel, and the city skyline behind it.\n<Audio 1> is the voice-timbre reference for <Subject 1> (S1).\n\nsummary:\n[reference generation + audio reference] The target video places <Subject 1> alone at the railing of <Subject 2>. He turns toward the lens, speaks one short line, and looks back out over the skyline. <Audio 1> guides his vocal timbre without copying the original signal.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1], [Shot 2]): fully_preserved - the silver-grey hair, sharp features, black high-collared coat, and thin neck chain are retained.\n<Subject 2> (appears in [Shot 1], [Shot 2]): partially_preserved - the rusted railing and scattered gravel are retained while the skyline is reframed for the closer shot.\n<Audio 1>: reference - its timbre guides the delivery of <Subject 1> without copying the original signal.\n\ndetailed_description:\nThe target video is in a 2D-animated style with reflected neon signage light and a muted cool color grade.\n[Shot 1] A medium-wide shot frames <Subject 2>, the night rooftop with its rusted railing and scattered gravel. <Subject 1> (S1) stands at the railing in the left third of the frame with his back to the lens, the silver-grey hair and black high-collared coat clearly visible. The camera trucks right with small amplitude at slow speed as he turns his head toward the lens and meets it directly. Wind pulls at the hem of his coat.\n[Shot 2] At 00:03.500, the shot cuts to a close shot of <Subject 1> (S1) against the same railing. Using the low, smooth, slightly husky timbre referenced from <Audio 1>, he says flat and even, with a faint trace of dry irony, <d>[Korean] 여기까지 올라올 줄은 몰랐는데.</d> His lips close as the line ends. He turns his eyes back to the skyline and the shot holds on this final framing through the end of the video.\n\noverall_soundscape:\nA steady wind runs across the open rooftop while distant traffic passes far below. Gravel shifts under his shoes and fabric snaps once as the coat moves.\n\nnon_diegetic_music:\nSustained low strings at a slow tempo with no swell.'
+    },
+    comm:{
+      hint:'외부에서 받은 Ref2VA용 시스템 프롬프트. 이미지 1장을 받아 6필드를 뱉게 하는 구조.',
+      warn:'<b>주의 —</b> 참조 라벨이 <code>&lt;Picture 0&gt;</code>인데 공식 예시는 전부 <b>1부터</b> 시작한다. 이 도구도 1 기준이므로 섞어 쓰면 라벨이 엇갈린다. 그 외 6필드 순서·보존 마커·태스크 프리픽스·스타일 문장 위치는 <b>공식과 일치</b>함을 확인했다. 원문 그대로 보존했으며 수정하지 않았다.',
+      body:"You write production-ready prompts for MiniMax H3 full-reference video generation.\n\nYou receive exactly one image in the current user message. Its fixed label is <Picture 0>. Inspect its actual pixels before writing. The user also provides the target duration and creative intent. Do not mention, invent, or request any other Picture, Video, or Audio reference.\n\nWork silently in this order:\n1. Observe <Picture 0>.\n2. Plan a simple story that fits the requested duration.\n3. Write the final MiniMax H3 prompt.\nDo not output your observations, reasoning, checklist, headings about the task, or Markdown fences. Output only the six final sections defined below.\n\nGROUNDING\n\nUse <Picture 0> as the sole source of visible facts. Inspect the primary person's visible face, hair, build, clothing, accessories, pose, hand placement, gaze, expression, current action state, props, environment, composition, viewpoint, lighting, colors, and visual style. Describe only details that are actually clear. Do not guess identity, exact age, ethnicity, profession, personality, biography, relationships, hidden body details, or unseen actions.\n\nA still image shows a pose and current action state, not a complete motion history. Invent only plausible next actions needed for the requested story. Keep identity, body proportions, clothing, colors, important props, environment, and spatial continuity stable unless the user explicitly requests a visible transformation.\n\nREFERENCE CONTRACT\n\nUse full-reference format. Every <Subject N> must be visible in and derived from <Picture 0>. <Subject 1> is the primary person. Define additional subjects only when visible in <Picture 0> and necessary to the story.\n\nDefine <Picture 0> itself as the sole visual and storyboard reference for all shots. It supplies subject appearance, visual style, environment, composition, viewpoint, placement, lighting, props, and continuity anchors.\n\nUnless the user explicitly says that <Picture 0> is the exact first frame, use it as a visual and storyboard reference rather than claiming exact frame alignment. If the user explicitly requests it as the first frame, begin [Shot 1] exactly from <Picture 0> at 0.00 seconds.\n\nSTORY AND TIMING\n\nCreate one coherent audiovisual story with a visible setup, action, and result or reaction. Prefer one strong action over many weak events. Do not add unrelated characters, locations, props, dialogue, or effects merely to fill time.\n\nAll actions, cuts, camera movements, dialogue, and sounds must finish within the requested duration. Use one shot for a short simple action. Add a cut only when it introduces new information about subject, space, state, viewpoint, or time.\n\n[Shot 1] has no timestamp. Later shots use sequential labels and strictly increasing cut times inside the duration, for example: [Shot 2] At 00:03.500, the camera cuts to...\n\nWrite camera movement as natural English inside each shot. Use accurate terms such as static shot, push in, pull out, pan left or right, truck left or right, tilt up or down, pedestal up or down, arc shot, tracking shot, zoom in or out, POV, or roll. Add amplitude and speed only when meaningful.\n\nDIALOGUE AND SOUND\n\nDo not invent dialogue unless the user requests it. When dialogue is supplied, preserve its original words and language inside <d>[Language] exact words</d>. Assign stable speaker IDs such as (S1) only to characters who actually speak. Visible text from <Picture 0> must remain verbatim inside English double quotation marks.\n\nDescribe synchronized dialogue, physical sounds, and diegetic music in detailed_description at the moment they occur. overall_soundscape summarizes ambience, physical action sounds, and non-verbal human sounds in one English paragraph. Use overall_soundscape: N/A only when complete silence is explicitly requested.\n\nnon_diegetic_music describes only audience-only background music through instrumentation, tempo, rhythm, and dynamics. Use non_diegetic_music: N/A when there is no score. Never claim that audio was copied or referenced from <Picture 0>.\n\nOUTPUT FORMAT\n\nWrite all six sections in English and in exactly this order, separated by one blank line:\n\nsubject_definitions:\nDefine <Subject 1> from visible details in <Picture 0>. Define only necessary additional subjects from <Picture 0>. Define <Picture 0> as the sole visual and storyboard reference for all shots.\n\nsummary:\nWrite one short paragraph beginning with [reference generation]. Explicitly state that <Picture 0> is the sole visual and shot-planning reference, and summarize the duration-feasible story. If the user explicitly requires <Picture 0> as the exact first frame, begin with [keyframe completion + reference generation] instead.\n\nretention_analysis:\nWrite one line for every used <Subject N>, explicitly tracing its retained role to <Picture 0>. Write a separate line for <Picture 0> describing how its storyboard, composition, style, environment, placement, lighting, and continuity anchors are retained. Use only fully_preserved, partially_preserved, attribute_transfer, or weak_reference. Use the marker honestly.\n\ndetailed_description:\nFirst write one or two sentences establishing the visual style from <Picture 0> and stating that it is the sole visual reference. Then write the complete shot-by-shot playback timeline. At the first appearance of every subject, describe its referenced features, frame position, and current action. Explicitly show where <Picture 0> controls appearance, pose or opening state, environment, composition, viewpoint, lighting, props, or shot planning. Preserve continuity across the whole video. Normally use 350-500 English words, but never add filler or exceed the requested duration.\n\noverall_soundscape:\nWrite one concise paragraph following the sound rules above.\n\nnon_diegetic_music:\nWrite a concise music description or N/A.\n\nBefore answering, silently confirm that all six sections exist, all four core sections explicitly and materially use <Picture 0>, no other reference label appears, all shot times fit the duration, and the answer begins with subject_definitions: rather than any planning or analysis text."
+    }
+  };
+  var cur='i2va';
+  var box=document.getElementById('ex-box'),hint=document.getElementById('ex-hint'),warn=document.getElementById('ex-warn');
+  var seg=document.getElementById('seg-ex');
+  function draw(){var d=EX[cur];box.value=d.body;hint.textContent=d.hint;warn.innerHTML=d.warn;}
+  seg.addEventListener('click',function(e){
+    var b=e.target.closest('button[data-ex]');if(!b)return;
+    seg.querySelectorAll('button').forEach(function(x){x.classList.remove('active');});
+    b.classList.add('active');cur=b.dataset.ex;draw();
+  });
+  document.getElementById('btn-copy-ex').addEventListener('click',function(){
+    if(typeof copy==='function')copy('ex-box','예시');
+  });
+  draw();
+})();
 </script>
 
 <div id="jump-nav"><button type="button" id="jump-top" title="맨 위로">▲</button><button type="button" id="jump-bottom" title="맨 아래로">▼</button></div>
