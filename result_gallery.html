@@ -70,6 +70,8 @@ header{display:flex;align-items:center;gap:10px;border-bottom:.5px solid var(--b
 .gallery-view .card-expand-btn{display:flex}
 .card-expanded{display:none;margin-top:8px;padding-top:9px;border-top:.5px solid var(--border)}
 .card-expanded.open{display:block}
+.list-sentinel{grid-column:1/-1;text-align:center;color:var(--text3);font-size:12px;padding:14px;border:.5px dashed var(--border);border-radius:var(--radius);background:var(--bg2);cursor:pointer;font-family:inherit;width:100%}
+.list-sentinel:hover{color:var(--accent);border-color:var(--accent)}
 .ce-kv{display:grid;grid-template-columns:54px 1fr;gap:3px 7px;margin-bottom:6px}
 .ce-kv b{color:var(--text3);font-weight:700;font-size:10px;padding-top:1px}
 .ce-kv span{color:var(--text2);font-size:11px;word-break:break-all;line-height:1.4}
@@ -488,6 +490,7 @@ const IDB_DB_VERSION=1;
 const IDB_ITEM_STORE='items';
 const THUMB_MAX=760;
 const META_RAW_LIMIT=20000;
+const LIST_CHUNK=120; // 리스트 청크 렌더 단위(무한 스크롤 1회 표시 수)
 const STATUSES=['전체','보류','성공','재작업','폐기'];
 const LB_SPEEDS=[2000,3000,4000,5000];
 const LB_SPEED_DEFAULT=3000;
@@ -1044,72 +1047,123 @@ function cleanLoraName(n){return String(n||'').replace(/\.(safetensors|ckpt)$/i,
 function statusClass(s){return s==='성공'?'status-ok':(s==='폐기'||s==='재작업')?'status-bad':''}
 function stars(n){n=Number(n)||0;return n?'★'.repeat(n):'미평가'}
 function renderStatuses(){const box=$('#status-list');box.innerHTML=STATUSES.map(s=>`<button class="cat ${state.status===s?'active':''}" data-status="${esc(s)}"><span>${esc(s)}</span><span class="count">${s==='전체'?state.items.length:state.items.filter(i=>i.status===s).length}</span></button>`).join('');box.querySelectorAll('.cat').forEach(b=>b.onclick=()=>{state.status=b.dataset.status;save();render()})}
-function renderList(){
-  const list=filtered(), box=$('#list');
-  $('#view-info').textContent=list.length+'개 표시';
-  $('#total-count').textContent=state.items.length+'개';
-  if(!list.length){box.innerHTML='<div class="empty">이미지가 없어. ComfyUI · NovelAI 원본 PNG를 추가해봐.</div>';return}
-  box.innerHTML=list.map(it=>{
-    const expanded=state.expandedIds.includes(it.id);
-    const tagsArr=it.tags||[];
-    const tagsMini=tagsArr.slice(0,5).map(t=>`<span class="tag-mini">#${esc(t)}</span>`).join('')+(tagsArr.length>5?`<span class="tag-mini">+${tagsArr.length-5}</span>`:'');
-    return `<article class="card ${it.id===state.selectedId?'active':''}${selectMode&&selectedIds.has(it.id)?' selected':''}" data-id="${it.id}"><div class="fav ${it.fav?'on':''}">${it.fav?'★':'☆'}</div><div class="thumb${it.thumbStripped?' stripped':''}">${it.thumb?`<img src="${it.thumb}" alt="">`:it.thumbStripped?'<span class="sync-noimg" title="원본 PNG를 다시 드롭하면 자동으로 채워져"><span class="sn-icon">☁</span>다른 기기에서<br>동기화됨<span class="sn-sub">원본 PNG 드롭 시 자동 매칭</span></span>':'<span class="noimg">이미지 없음</span>'}</div><div class="card-info"><div class="card-title">${esc(it.title)}</div><div class="card-meta"><span class="pill ${statusClass(it.status)}">${esc(it.status)}</span><span class="pill">${stars(it.score)}</span>${(g=>g?`<span class="pill meta ${g}">${g==='nai'?'NAI':'Comfy'}</span>`:'')(genOf(it))}${(n=>`<span class="pill imgs${n>1?' multi':''}" title="이미지 수 (대표+보조)">${n}장</span>`)(imgCountOf(it))}</div><div class="card-tags-mini">${tagsMini}</div><div class="card-note">${esc(it.notes||it.meta?.model||it.meta?.source||'메모 없음')}</div><button class="card-expand-btn" data-expand="${it.id}"><span class="ce-arrow">${expanded?'▴':'▾'}</span><span class="ce-label">${expanded?'정보 접기':'정보 보기'}</span></button><div class="card-expanded ${expanded?'open':''}" data-eid="${it.id}">${cardExpandedHTML(it)}</div></div></article>`;
-  }).join('');
-  box.classList.toggle('select-mode',selectMode);
-  box.querySelectorAll('.card').forEach(c=>c.onclick=()=>{if(selectMode){toggleCardSelect(c.dataset.id,c);return;}openEdit(c.dataset.id)});
-  box.querySelectorAll('.fav').forEach(f=>f.onclick=e=>{e.stopPropagation();const card=f.closest('.card');if(selectMode){toggleCardSelect(card.dataset.id,card);return;}const it=state.items.find(x=>x.id===card.dataset.id);if(it){it.fav=!it.fav;save();render()}});
-  if(state.view==='gallery'){
-    box.querySelectorAll('.card .thumb').forEach(t=>t.onclick=e=>{
-      if(selectMode)return;
-      e.stopPropagation();
-      const card=t.closest('.card');
-      state.selectedId=card.dataset.id; save(); openLightbox();
-    });
-    box.querySelectorAll('.card-expand-btn').forEach(b=>b.onclick=e=>{
-      if(selectMode)return;
-      e.stopPropagation();
-      const id=b.dataset.expand;
-      state.selectedId=id;
-      const idx=state.expandedIds.indexOf(id);
-      if(idx>=0)state.expandedIds.splice(idx,1); else state.expandedIds.push(id);
-      save();
-      const open=idx<0;
-      document.querySelectorAll('#list .card').forEach(card=>card.classList.toggle('active', card.dataset.id===id));
-      const exp=b.parentElement.querySelector(`.card-expanded[data-eid="${id}"]`);
-      if(exp)exp.classList.toggle('open',open);
-      const arrow=b.querySelector('.ce-arrow'); if(arrow)arrow.textContent=open?'▴':'▾';
-      const label=b.querySelector('.ce-label'); if(label)label.textContent=open?'정보 접기':'정보 보기';
-      if(state.view!=='gallery') renderDetail();
-    });
-    box.querySelectorAll('.ce-prompt-copy').forEach(b=>b.onclick=e=>{
-      e.stopPropagation();
-      const which=b.dataset.which;
-      const card=b.closest('.card');
-      const it=state.items.find(x=>x.id===card?.dataset.id);
-      if(!it)return;
-      const t=which==='negative'?(it.meta?.negative||''):(it.meta?.positive||'');
-      navigator.clipboard.writeText(t).then(()=>toast(which==='negative'?'Negative 복사됨':'Positive 복사됨'),()=>toast('복사 실패'));
-    });
-    box.querySelectorAll('[data-sub-promote]').forEach(b=>b.onclick=async e=>{
-      e.stopPropagation();
-      const card=b.closest('.card'); const it=state.items.find(x=>x.id===card?.dataset.id);
-      const idx=Number(b.dataset.subPromote);
-      if(!it||!(it.subs||[])[idx])return;
-      if(!await showConfirm('이 보조 이미지를 대표로 승격할까?\n기존 대표는 보조 이미지로 내려가.',{confirmText:'승격'}))return;
-      promoteSub(it,idx);
-      save();render();toast('대표 이미지를 교체했어');
-    });
-    box.querySelectorAll('[data-sub-del]').forEach(b=>b.onclick=async e=>{
-      e.stopPropagation();
-      const card=b.closest('.card'); const it=state.items.find(x=>x.id===card?.dataset.id);
-      const idx=Number(b.dataset.subDel);
-      if(!it||!(it.subs||[])[idx])return;
-      if(!await showConfirm(`보조 이미지 "${(it.subs[idx].fileName||'이름 없음')}" 를 삭제할까?\n원본 파일은 삭제되지 않아.`,{danger:true,confirmText:'삭제'}))return;
-      it.subs.splice(idx,1);
-      it.updatedAt=Date.now();
-      save();render();toast('보조 이미지 삭제했어');
-    });
+/* === 리스트 렌더: 청크(무한 스크롤) + 펼침 정보 지연 생성 ===
+   - 카드 목록은 LIST_CHUNK 개씩 끊어서 DOM에 붙인다. 스크롤이 하단 감지선(sentinel)에 닿으면 다음 청크가 이어 붙는다.
+   - card-expanded 내부(보조 이미지 base64 포함)는 "펼쳐진 카드"만 즉시 생성하고, 나머지는 정보 보기를 누르는 순간 채운다.
+   - 슬라이드쇼/라이트박스 재생목록은 DOM이 아니라 state.items 기준(buildLbPlaylist)이라 청크 렌더의 영향을 받지 않는다. */
+let listItems=[];   // 현재 필터 결과 (renderList 시점 스냅샷)
+let listShown=0;    // DOM에 붙은 카드 수
+const listObserver=(typeof IntersectionObserver==='function')
+  ? new IntersectionObserver(entries=>{entries.forEach(en=>{if(en.isIntersecting)appendListChunk()})},{rootMargin:'600px 0px'})
+  : null;
+function cardHtml(it){
+  const expanded=state.expandedIds.includes(it.id);
+  const tagsArr=it.tags||[];
+  const tagsMini=tagsArr.slice(0,5).map(t=>`<span class="tag-mini">#${esc(t)}</span>`).join('')+(tagsArr.length>5?`<span class="tag-mini">+${tagsArr.length-5}</span>`:'');
+  return `<article class="card ${it.id===state.selectedId?'active':''}${selectMode&&selectedIds.has(it.id)?' selected':''}" data-id="${it.id}"><div class="fav ${it.fav?'on':''}">${it.fav?'★':'☆'}</div><div class="thumb${it.thumbStripped?' stripped':''}">${it.thumb?`<img src="${it.thumb}" alt="" loading="lazy" decoding="async">`:it.thumbStripped?'<span class="sync-noimg" title="원본 PNG를 다시 드롭하면 자동으로 채워져"><span class="sn-icon">☁</span>다른 기기에서<br>동기화됨<span class="sn-sub">원본 PNG 드롭 시 자동 매칭</span></span>':'<span class="noimg">이미지 없음</span>'}</div><div class="card-info"><div class="card-title">${esc(it.title)}</div><div class="card-meta"><span class="pill ${statusClass(it.status)}">${esc(it.status)}</span><span class="pill">${stars(it.score)}</span>${(g=>g?`<span class="pill meta ${g}">${g==='nai'?'NAI':'Comfy'}</span>`:'')(genOf(it))}${(n=>`<span class="pill imgs${n>1?' multi':''}" title="이미지 수 (대표+보조)">${n}장</span>`)(imgCountOf(it))}</div><div class="card-tags-mini">${tagsMini}</div><div class="card-note">${esc(it.notes||it.meta?.model||it.meta?.source||'메모 없음')}</div><button class="card-expand-btn" data-expand="${it.id}"><span class="ce-arrow">${expanded?'▴':'▾'}</span><span class="ce-label">${expanded?'정보 접기':'정보 보기'}</span></button><div class="card-expanded ${expanded?'open':''}"${expanded?' data-filled="1"':''} data-eid="${it.id}">${expanded?cardExpandedHTML(it):''}</div></div></article>`;
+}
+/* 펼침 영역 내부 버튼(프롬프트 복사·보조 승격·보조 삭제) 바인딩. scope는 카드 하나 또는 card-expanded 하나 */
+function bindExpandedControls(scope){
+  scope.querySelectorAll('.ce-prompt-copy').forEach(b=>b.onclick=e=>{
+    e.stopPropagation();
+    const which=b.dataset.which;
+    const card=b.closest('.card');
+    const it=state.items.find(x=>x.id===card?.dataset.id);
+    if(!it)return;
+    const t=which==='negative'?(it.meta?.negative||''):(it.meta?.positive||'');
+    navigator.clipboard.writeText(t).then(()=>toast(which==='negative'?'Negative 복사됨':'Positive 복사됨'),()=>toast('복사 실패'));
+  });
+  scope.querySelectorAll('[data-sub-promote]').forEach(b=>b.onclick=async e=>{
+    e.stopPropagation();
+    const card=b.closest('.card'); const it=state.items.find(x=>x.id===card?.dataset.id);
+    const idx=Number(b.dataset.subPromote);
+    if(!it||!(it.subs||[])[idx])return;
+    if(!await showConfirm('이 보조 이미지를 대표로 승격할까?\n기존 대표는 보조 이미지로 내려가.',{confirmText:'승격'}))return;
+    promoteSub(it,idx);
+    save();render();toast('대표 이미지를 교체했어');
+  });
+  scope.querySelectorAll('[data-sub-del]').forEach(b=>b.onclick=async e=>{
+    e.stopPropagation();
+    const card=b.closest('.card'); const it=state.items.find(x=>x.id===card?.dataset.id);
+    const idx=Number(b.dataset.subDel);
+    if(!it||!(it.subs||[])[idx])return;
+    if(!await showConfirm(`보조 이미지 "${(it.subs[idx].fileName||'이름 없음')}" 를 삭제할까?\n원본 파일은 삭제되지 않아.`,{danger:true,confirmText:'삭제'}))return;
+    it.subs.splice(idx,1);
+    it.updatedAt=Date.now();
+    save();render();toast('보조 이미지 삭제했어');
+  });
+}
+/* 카드 1장 이벤트 바인딩. 청크로 나중에 붙는 카드도 동일하게 이 함수를 거친다 */
+function bindCardEl(cardEl){
+  cardEl.onclick=()=>{if(selectMode){toggleCardSelect(cardEl.dataset.id,cardEl);return;}openEdit(cardEl.dataset.id)};
+  const fav=cardEl.querySelector('.fav');
+  if(fav)fav.onclick=e=>{e.stopPropagation();if(selectMode){toggleCardSelect(cardEl.dataset.id,cardEl);return;}const it=state.items.find(x=>x.id===cardEl.dataset.id);if(it){it.fav=!it.fav;save();render()}};
+  if(state.view!=='gallery')return;
+  const thumb=cardEl.querySelector('.thumb');
+  if(thumb)thumb.onclick=e=>{
+    if(selectMode)return;
+    e.stopPropagation();
+    state.selectedId=cardEl.dataset.id; save(); openLightbox();
+  };
+  const btn=cardEl.querySelector('.card-expand-btn');
+  if(btn)btn.onclick=e=>{
+    if(selectMode)return;
+    e.stopPropagation();
+    const id=btn.dataset.expand;
+    state.selectedId=id;
+    const idx=state.expandedIds.indexOf(id);
+    if(idx>=0)state.expandedIds.splice(idx,1); else state.expandedIds.push(id);
+    save();
+    const open=idx<0;
+    document.querySelectorAll('#list .card').forEach(card=>card.classList.toggle('active', card.dataset.id===id));
+    const exp=cardEl.querySelector(`.card-expanded[data-eid="${id}"]`);
+    if(exp){
+      if(open&&!exp.dataset.filled){ // 지연 생성: 처음 펼칠 때만 내용 조립
+        const it=state.items.find(x=>x.id===id);
+        exp.innerHTML=it?cardExpandedHTML(it):'';
+        exp.dataset.filled='1';
+        bindExpandedControls(exp);
+      }
+      exp.classList.toggle('open',open);
+    }
+    const arrow=btn.querySelector('.ce-arrow'); if(arrow)arrow.textContent=open?'▴':'▾';
+    const label=btn.querySelector('.ce-label'); if(label)label.textContent=open?'정보 접기':'정보 보기';
+    if(state.view!=='gallery') renderDetail();
+  };
+  bindExpandedControls(cardEl); // 처음부터 펼쳐진(복원된) 카드의 내부 버튼
+}
+function appendListChunk(){
+  const box=$('#list');
+  const slice=listItems.slice(listShown,listShown+LIST_CHUNK);
+  if(!slice.length)return;
+  const oldS=box.querySelector('.list-sentinel');
+  if(oldS){if(listObserver)listObserver.unobserve(oldS);oldS.remove();}
+  const tpl=document.createElement('template');
+  tpl.innerHTML=slice.map(cardHtml).join('');
+  const nodes=[...tpl.content.children];
+  nodes.forEach(n=>{box.appendChild(n);bindCardEl(n);});
+  listShown+=slice.length;
+  if(listShown<listItems.length){
+    const s=document.createElement('button');
+    s.type='button';
+    s.className='list-sentinel';
+    s.textContent=`남은 ${listItems.length-listShown}개 · 스크롤하면 이어서 표시돼`;
+    s.onclick=()=>appendListChunk(); // IntersectionObserver 미지원 대비 수동 폴백
+    box.appendChild(s);
+    if(listObserver)listObserver.observe(s);
   }
+}
+function renderList(){
+  listItems=filtered(); const box=$('#list');
+  $('#view-info').textContent=listItems.length+'개 표시';
+  $('#total-count').textContent=state.items.length+'개';
+  const oldS=box.querySelector('.list-sentinel');
+  if(oldS&&listObserver)listObserver.unobserve(oldS);
+  if(!listItems.length){box.innerHTML='<div class="empty">이미지가 없어. ComfyUI · NovelAI 원본 PNG를 추가해봐.</div>';box.classList.toggle('select-mode',selectMode);return}
+  box.innerHTML='';
+  listShown=0;
+  appendListChunk();
+  box.classList.toggle('select-mode',selectMode);
 }
 function current(){return state.items.find(i=>i.id===state.selectedId)}
 function renderDetail(){const it=current();$('#detail-empty').style.display=it?'none':'block';$('#detail').style.display=it?'block':'none';$('#selected-state').textContent=it?'편집 중':'선택 없음';if(!it)return;const m=it.meta||{};$('#d-img').src=it.thumb||'';$('#d-title').value=it.title||'';$('#d-status').value=it.status||'보류';$('#d-score').value=String(it.score||0);$('#d-tags').value=(it.tags||[]).join(', ');$('#d-notes').value=it.notes||'';$('#toggle-fav-btn').textContent=it.fav?'즐겨찾기 해제':'즐겨찾기';const loras=(m.loras||[]).map(l=>`${l.name}${l.strength_model!=null?' @'+l.strength_model:''}`).join(', ');

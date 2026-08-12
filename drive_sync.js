@@ -49,6 +49,10 @@
     try{return typeof GIST_FILE_NAME!=='undefined' && GIST_FILE_NAME==='lora_lab_data.json';}
     catch(e){return false;}
   }
+  function isResultGalleryApp(){
+    try{return typeof GIST_FILE_NAME!=='undefined' && GIST_FILE_NAME==='result_gallery_data.json';}
+    catch(e){return false;}
+  }
 
   function byteSizeOfJson(obj){
     try{return new Blob([JSON.stringify(obj)]).size;}
@@ -64,10 +68,10 @@
   }
 
   function getDriveSlotMax(){
-    // LoRA Lab은 이미지 dataUrl이 커서 슬롯을 많이 누적하면
+    // LoRA Lab · Result Gallery는 이미지 dataUrl이 커서 슬롯을 많이 누적하면
     // 같은 데이터라도 재저장 때 Invalid string length가 날 수 있다.
-    // 그래서 Drive는 최신 백업 2개까지만 보존한다.
-    return isLoRALabApp()?2:SLOT_MAX;
+    // 그래서 이 두 앱은 Drive에 최신 백업 2개까지만 보존한다.
+    return (isLoRALabApp()||isResultGalleryApp())?2:SLOT_MAX;
   }
 
   function getStateForDrive(){
@@ -263,6 +267,210 @@
   }
   // ===== /LoRA Lab 전용 =====
 
+  // ===== Result Gallery 전용: 이미지 분리 저장 (LoRA Lab v2 이식) =====
+  // 메인 파일엔 항목 메타 + 이미지 참조(imageFileId)만 담고,
+  // 대표 thumb + 보조 subs의 dataUrl은 항목별 파일로 쪼개 저장해 V8 문자열 한계(~512MB)를 회피한다.
+  // 기존 단일 백업 파일(appFileName)은 절대 건드리지 않아 롤백이 항상 가능하다(비파괴).
+  function rgMainFileName(){
+    const base=(typeof GIST_FILE_NAME!=='undefined' && GIST_FILE_NAME) ? GIST_FILE_NAME.replace(/\.json$/,'') : 'result_gallery_data';
+    return base+'_drive_v2.json';
+  }
+  function rgImgFileName(itemId){
+    return 'rg_img_'+String(itemId||'').replace(/[^a-zA-Z0-9_-]/g,'')+'.json';
+  }
+  // 이미지 세트 변경 감지용 시그니처(재업로드 스킵 판단). 대표 thumb 길이 + 보조별 id:길이.
+  function rgItemImageSig(it){
+    const subs=Array.isArray(it&&it.subs)?it.subs:[];
+    return 'm:'+((it&&it.thumb)?it.thumb.length:0)+'|'+subs.map(s=>((s&&s.id)||'')+':'+((s&&s.thumb)?s.thumb.length:0)).join('|');
+  }
+  // 항목에서 이미지(dataUrl)를 뺀 메타 사본을 만든다. 보조는 껍데기(썸네일 제외)로 유지해
+  // 이미지 파일이 유실돼도 파일명·크기·해시 등 재매칭 단서는 살아남는다.
+  function rgStripItem(it){
+    const meta={};
+    for(const k in it){
+      if(k==='thumb'||k==='subs') continue;
+      meta[k]=it[k];
+    }
+    meta.subs=(Array.isArray(it.subs)?it.subs:[]).map(s=>{
+      const sub={};
+      for(const k in s){ if(k==='thumb') continue; sub[k]=s[k]; }
+      return sub;
+    });
+    return meta;
+  }
+
+  async function uploadDriveSlotRG(){
+    try{
+      setStatus('Drive 저장 중... (이미지 분리 저장)','loading');
+      if(typeof saveResultGalleryToIndexedDBNow==='function') await saveResultGalleryToIndexedDBNow();
+      else if(typeof save==='function') save();
+
+      const items=(state&&Array.isArray(state.items))?state.items:[];
+      const mainName=rgMainFileName();
+
+      // 기존 v2 메인 파일에서 이전 슬롯/이미지 참조를 읽어온다(있으면 변경분만 올린다).
+      let prevSlots=[];
+      const mainFile=await findDriveFileByName(mainName);
+      if(mainFile){
+        try{ const d=await readDriveFile(mainFile.id); prevSlots=Array.isArray(d.slots)?d.slots:[]; }catch(e){ prevSlots=[]; }
+      }
+      const prevRef={};
+      const prevTop=prevSlots[0];
+      if(prevTop && Array.isArray(prevTop.items)){
+        prevTop.items.forEach(it=>{ if(it&&it.id) prevRef[it.id]={imageFileId:it.imageFileId||'', sig:it.imageSig||''}; });
+      }
+
+      // 이미지 파일 목록을 한 번에 조회해둔다(항목별 검색 대신 이 맵을 참조 → 중복 생성 방지 + 속도).
+      setStatus('Drive 이미지 목록 확인 중...','loading');
+      let imgFileMap={};
+      try{ imgFileMap=await listDriveFilesByPrefix('rg_img_'); }catch(e){ imgFileMap={}; }
+
+      let uploaded=0, skipped=0, imgErrors=0, idx=0;
+      const total=items.length;
+      const mainItems=[];
+      for(const it of items){
+        idx++;
+        setStatus(`이미지 저장 중 (${idx}/${total})\n${(it.title||'제목 없음').slice(0,40)}`,'loading');
+        const subs=Array.isArray(it.subs)?it.subs:[];
+        const sig=rgItemImageSig(it);
+        const meta=rgStripItem(it);
+        meta.imagesStripped=true;
+        meta.imageSig=sig;
+
+        const hasVisual=!!it.thumb || subs.some(s=>s&&s.thumb);
+        if(!hasVisual){ meta.imageFileId=''; mainItems.push(meta); continue; }
+
+        const prev=prevRef[it.id];
+        if(prev && prev.imageFileId && prev.sig===sig){
+          meta.imageFileId=prev.imageFileId; mainItems.push(meta); skipped++; continue;
+        }
+        try{
+          const imgName=rgImgFileName(it.id);
+          const existingId=(prev&&prev.imageFileId)||imgFileMap[imgName]||null;
+          const imgPayload={version:1,kind:'result-gallery-item-images',itemId:it.id,thumb:it.thumb||'',subs:subs.filter(s=>s&&s.thumb).map(s=>({id:s.id,thumb:s.thumb}))};
+          let written;
+          try{
+            written=await writeDriveFile(existingId, imgPayload, imgName);
+          }catch(inner){
+            // 재사용하려던 파일 ID가 유효하지 않으면(수동 삭제 등) 새로 생성해 재시도한다.
+            if(existingId) written=await writeDriveFile(null, imgPayload, imgName);
+            else throw inner;
+          }
+          if(written&&written.id) imgFileMap[imgName]=written.id;
+          meta.imageFileId=written.id; mainItems.push(meta); uploaded++;
+        }catch(e){
+          imgErrors++; meta.imageFileId=''; meta.imageUploadError=true; mainItems.push(meta);
+        }
+      }
+
+      // 이미지 업로드가 하나라도 실패하면 메인 파일을 새로 쓰지 않고 중단한다.
+      // 로컬 원본과 기존 백업이 그대로 남으므로 데이터는 안전하다.
+      if(imgErrors>0){
+        setStatus(`이미지 ${imgErrors}개 항목 업로드에 실패해서 저장을 멈췄어.\n로컬 원본과 기존 백업은 그대로야. 잠시 후 다시 시도해줘.`,'err');
+        return;
+      }
+
+      const maxSlots=getDriveSlotMax();
+      const currentSlot={savedAt:nowIso(),device:deviceName(),app:appLabel(),items:mainItems};
+      const slots=[currentSlot, ...prevSlots].slice(0,maxSlots);
+
+      const payload={version:2,kind:'result-gallery-drive-slots-split',appFile:mainName,updatedAt:nowIso(),slots};
+      const approx=byteSizeOfJson(payload);
+      setStatus(`메인 파일 저장 중...\n메인 크기: ${formatBytes(approx)} (이미지 제외)\n이미지 파일: 신규/갱신 ${uploaded} · 재사용 ${skipped}`,'loading');
+
+      const writtenMain=await writeDriveFile(mainFile?mainFile.id:null, payload, mainName);
+
+      // read-back 검증: 메인을 다시 읽어 이미지 참조 수를 확인한다.
+      let verifyMsg='';
+      try{
+        const rb=await readDriveFile(writtenMain.id);
+        const rbItems=(rb.slots&&rb.slots[0]&&rb.slots[0].items)||[];
+        const refCount=rbItems.filter(x=>x.imageFileId).length;
+        verifyMsg=`\n검증 OK · 이미지 참조 ${refCount}개 확인`;
+      }catch(e){
+        verifyMsg='\n⚠ 검증 재읽기는 실패했지만 저장 자체는 됐을 수 있어. 기존 백업은 그대로야.';
+      }
+
+      setStatus(`Drive 저장 완료! (분리 저장)\n메인: ${writtenMain.name}\n슬롯: ${slots.length}개 · 메인 ${formatBytes(approx)}${verifyMsg}`,'ok');
+      safeToast('☁️ Drive 분리 저장 완료');
+    }catch(e){
+      setStatus('Drive 저장 실패: '+(e.message||e)+'\n(로컬 원본과 기존 백업은 안전해)','err');
+    }
+  }
+
+  async function applyDriveStateRG(slot){
+    const items=(slot&&Array.isArray(slot.items))?slot.items:[];
+    // 복원 전, 현재 로컬 항목에서 id -> {thumb, 보조 thumb 맵, sig}를 만든다.
+    // 슬롯의 imageSig와 로컬 sig가 같으면 Drive에서 다시 받지 않고 로컬 이미지를 재사용한다.
+    const localMap={};
+    const curItems=(state&&Array.isArray(state.items))?state.items:[];
+    curItems.forEach(li=>{
+      if(!li||!li.id)return;
+      const subT={};
+      (Array.isArray(li.subs)?li.subs:[]).forEach(s=>{ if(s&&s.id&&s.thumb) subT[s.id]=s.thumb; });
+      localMap[li.id]={thumb:li.thumb||'', subThumbs:subT, sig:rgItemImageSig(li)};
+    });
+
+    // 항목의 껍데기 subs에 thumb 맵(id→dataUrl)을 입힌다. 못 입힌 쪽은 thumbStripped 껍데기로 남겨
+    // 앱의 기존 "원본 PNG 드롭 시 자동 매칭" 경로로 나중에 채울 수 있게 한다.
+    function dressItem(item, mainThumb, subThumbMap){
+      let miss=0;
+      if(mainThumb){ item.thumb=mainThumb; item.thumbStripped=false; }
+      else { delete item.thumb; item.thumbStripped=true; miss++; }
+      item.subs=(Array.isArray(item.subs)?item.subs:[]).map(s=>{
+        const sub=Object.assign({},s);
+        const t=sub.id?subThumbMap[sub.id]:'';
+        if(t){ sub.thumb=t; sub.thumbStripped=false; }
+        else { delete sub.thumb; sub.thumbStripped=true; miss++; }
+        return sub;
+      });
+      return miss;
+    }
+
+    let missing=0, reused=0, fetched=0, idx=0;
+    const total=items.length;
+    const rebuilt=[];
+    for(const src of items){
+      idx++;
+      const item=Object.assign({},src);
+      if(item.imagesStripped){
+        const hadVisual=/m:[1-9]|:[1-9]/.test(item.imageSig||''); // 저장 시점에 이미지가 있었는지
+        const local=localMap[item.id];
+        if(local && item.imageSig && local.sig===item.imageSig){
+          // 로컬에 동일 구성 이미지가 있음 → 다운로드 생략, 로컬 것 재사용
+          dressItem(item, local.thumb, local.subThumbs); reused++;
+          setStatus(`불러오는 중 (${idx}/${total})\n로컬 재사용 ${reused} · 다운로드 ${fetched}\n${(src&&src.title||'제목 없음').slice(0,40)}`,'loading');
+        }else if(item.imageFileId){
+          setStatus(`이미지 불러오는 중 (${idx}/${total})\n로컬 재사용 ${reused} · 다운로드 ${fetched+1}\n${(src&&src.title||'제목 없음').slice(0,40)}`,'loading');
+          try{
+            const imgData=await readDriveFile(item.imageFileId);
+            const subT={};
+            (Array.isArray(imgData.subs)?imgData.subs:[]).forEach(s=>{ if(s&&s.id&&s.thumb) subT[s.id]=s.thumb; });
+            dressItem(item, imgData.thumb||'', subT); fetched++;
+          }catch(e){ if(hadVisual)missing++; dressItem(item,'',{}); }
+        }else{
+          // 저장 당시에도 이미지가 없던 항목(또는 업로드 실패 표시) → 껍데기 상태 유지
+          dressItem(item,'',{});
+          if(item.imageUploadError&&hadVisual)missing++;
+        }
+        delete item.imagesStripped; delete item.imageSig; delete item.imageFileId; delete item.imageUploadError;
+      }
+      rebuilt.push(item);
+    }
+    state.items=rebuilt;
+    if(!state.view) state.view='default';
+    if(!Array.isArray(state.tagFilter)) state.tagFilter=[];
+    if(!Array.isArray(state.loraFilter)) state.loraFilter=[];
+    if(!Array.isArray(state.expandedIds)) state.expandedIds=[];
+    state.selectedId=state.items[0]?.id||null;
+    if(typeof saveResultGalleryToIndexedDBNow==='function') await saveResultGalleryToIndexedDBNow();
+    else if(typeof save==='function') save();
+    if(typeof render==='function') render();
+    if(reused||fetched) safeToast(`☁️ 복원: 로컬 재사용 ${reused} · 새로 받음 ${fetched}`);
+    if(missing>0) safeToast(`⚠ 이미지 파일 ${missing}개를 못 찾아 해당 항목은 ☁ 껍데기로 복원했어. 원본 PNG를 드롭하면 자동으로 채워져.`);
+  }
+  // ===== /Result Gallery 전용 =====
+
   async function applyDriveState(slot){
     const incoming=slot.state || slot;
     try{
@@ -284,6 +492,18 @@
         else if(typeof save==='function') save();
         if(typeof render==='function') render();
         return;
+      }
+    }catch(e){throw new Error('Drive 데이터를 적용하지 못했어: '+(e.message||e));}
+
+    try{
+      if(typeof GIST_FILE_NAME!=='undefined' && GIST_FILE_NAME==='result_gallery_data.json'){
+        const rgItems=(incoming&&incoming.items)||slot.items||[];
+        // v2 분리형 슬롯(imagesStripped)이면 이미지 파일을 fetch해 재조립하고,
+        // 구형 슬롯(thumb 통째)이면 아래 기존 경로로 그대로 복원한다.
+        if(Array.isArray(rgItems)&&rgItems.some(x=>x&&x.imagesStripped)){
+          await applyDriveStateRG({items:rgItems});
+          return;
+        }
       }
     }catch(e){throw new Error('Drive 데이터를 적용하지 못했어: '+(e.message||e));}
 
@@ -583,6 +803,7 @@
 
   async function uploadDriveSlot(){
     if(isLoRALabApp()) return await uploadDriveSlotLoRA();
+    if(isResultGalleryApp()) return await uploadDriveSlotRG();
     try{
       setStatus('Drive 저장 중...','loading');
       if(typeof saveResultGalleryToIndexedDBNow==='function') await saveResultGalleryToIndexedDBNow();
@@ -620,6 +841,10 @@
       if(isLoRALabApp()){
         // v2 분리형 메인 파일을 먼저 찾고, 없으면 구형 단일 파일로 폴백한다.
         file=await findDriveFileByName(loraMainFileName());
+        if(!file) file=await findDriveFile();
+      }else if(isResultGalleryApp()){
+        // v2 분리형 메인 파일을 먼저 찾고, 없으면 구형 단일 파일로 폴백한다.
+        file=await findDriveFileByName(rgMainFileName());
         if(!file) file=await findDriveFile();
       }else{
         file=await findDriveFile();
