@@ -33,6 +33,8 @@ header{display:flex;align-items:center;gap:10px;border-bottom:.5px solid var(--b
 .gallery-mode{grid-template-columns:1fr}
 .gallery-mode aside.panel,.gallery-mode .detail-panel{display:none}
 .gallery-mode #list{grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
+.list-sentinel{grid-column:1/-1;text-align:center;color:var(--text3);font-size:12px;padding:14px;border:.5px dashed var(--border);border-radius:var(--radius);background:var(--bg2);cursor:pointer;font-family:inherit;width:100%}
+.list-sentinel:hover{color:var(--accent);border-color:var(--accent)}
 .gallery-mode .card{padding:0;min-height:0;overflow:hidden}
 .gallery-mode .card-thumb{display:flex}
 .gallery-mode .card-title{padding:10px 34px 0 10px;font-size:12px}
@@ -654,12 +656,13 @@ const LB_SPEED_DEFAULT=3000;
 const LB_MOBILE_MQ='(max-width:760px)';
 const STATUSES=['계획','학습중','테스트중','성공','실패','보류'];
 const PURPOSES=['캐릭터','스타일','의상','그림체','포즈','기타'];
+const LIST_CHUNK=120; // 리스트 청크 렌더 단위(무한 스크롤 1회 표시 수)
 let state={cards:[],selectedId:null,statusFilter:'전체',purposeFilter:'전체',baseFilter:'전체',query:'',selectMode:false,selected:new Set(),sort:'updatedDesc',metaFilter:'all',imgFilter:'all',favOnly:false,view:'list'};
 const $=id=>document.getElementById(id);
 const now=()=>new Date().toISOString();
 const fmtBytes=n=>{if(!n)return'0KB';const u=['B','KB','MB','GB'];let i=0,x=n;while(x>=1024&&i<u.length-1){x/=1024;i++}return `${x.toFixed(i?1:0)} ${u[i]}`};
 function utf8Bytes(s){try{return new Blob([s]).size}catch(e){return new TextEncoder().encode(s).length}}
-function estimateGistPayloadBytes(){try{return utf8Bytes(JSON.stringify({version:1,slots:[{savedAt:new Date().toISOString(),device:'예상',cards:getCardsForGist()}]},null,2))}catch(e){return 0}}
+function estimateGistPayloadBytes(){try{return utf8Bytes(JSON.stringify({version:1,slots:[{savedAt:new Date().toISOString(),device:'예상',cards:getCardsForGist()}]}))}catch(e){return 0}}
 function uid(){return 'lora_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8)}
 function blankCard(extra={}){const t=now();return {id:uid(),title:'새 LoRA 실험',status:'계획',purpose:'기타',fav:false,fileName:'',fileSize:0,uploadedAt:'',metaRead:false,metaError:'',baseModel:'',datasetCount:'',resolution:'',captionMethod:'',triggerWord:'',repeat:'',epoch:'',totalSteps:'',batchSize:'',learningRate:'',textEncoderLR:'',unetLR:'',optimizer:'',scheduler:'',networkType:'',rankDim:'',alpha:'',weightDecay:'',testPrompt:'',resultReview:'',recommendedWeight:'',nextExperiment:'',notes:'',rawMetadata:{},images:[],coverImageId:'',imageIndex:0,representativeImage:'',representativeImageName:'',imageMatchedAt:'',collapsed:false,createdAt:t,updatedAt:t,...extra}}
 function saveUiState(){
@@ -1093,7 +1096,7 @@ function cardHtml(c){
   const imgs=getCardImages(c);
   const img=activeImage(c);
   const idx=imgs.length?((Number(c.imageIndex)||0)%imgs.length+imgs.length)%imgs.length:0;
-  const thumb=gallery?`<div class="card-thumb" data-act="thumb">${img?`<img src="${img.dataUrl}" alt="">${imgs.length>1?`<button class="img-nav prev" data-act="img-prev" title="이전 이미지">‹</button><button class="img-nav next" data-act="img-next" title="다음 이미지">›</button><span class="img-count">${idx+1} / ${imgs.length}</span>`:''}`:'<span class="noimg">대표이미지 없음<br>LoRA 이름 들어간 이미지를 드롭해봐</span>'}</div>`:'';
+  const thumb=gallery?`<div class="card-thumb" data-act="thumb">${img?`<img src="${img.dataUrl}" alt="" loading="lazy" decoding="async">${imgs.length>1?`<button class="img-nav prev" data-act="img-prev" title="이전 이미지">‹</button><button class="img-nav next" data-act="img-next" title="다음 이미지">›</button><span class="img-count">${idx+1} / ${imgs.length}</span>`:''}`:'<span class="noimg">대표이미지 없음<br>LoRA 이름 들어간 이미지를 드롭해봐</span>'}</div>`:'';
   return `<article class="card ${imgs.length>1?'has-multi':''} ${state.selectedId===c.id?'active':''} ${state.selected.has(c.id)?'selected':''}" data-id="${c.id}">${thumb}<div class="fav ${c.fav?'on':''}" data-act="fav">${c.fav?'★':'☆'}</div><div class="card-actions"><button class="mini-btn" data-act="edit" title="편집">✎</button><button class="mini-btn" data-act="fold">${collapsed?'＋':'－'}</button></div><div class="card-title">${escapeHtml(c.title||c.fileName||'이름 없음')}</div><div class="card-file">${escapeHtml(c.fileName||'수동 기록')} ${c.fileSize?`· ${fmtBytes(c.fileSize)}`:''}</div><div class="card-meta"><span class="pill ${statusClass(c)}">${escapeHtml(c.status)}</span><span class="pill purpose">${escapeHtml(c.purpose)}</span><span class="pill meta">${escapeHtml(meta)}</span>${c.recommendedWeight?`<span class="pill">weight ${escapeHtml(c.recommendedWeight)}</span>`:''}<span class="pill ${imgs.length===2?'ok':'img-warn'}">image ${imgs.length}</span></div>${collapsed?'':`<div class="card-quick"><b>base</b><span>${escapeHtml(c.baseModel||'-')}</span><b>trigger</b><span>${escapeHtml(c.triggerWord||'-')}</span><b>steps</b><span>${escapeHtml(c.totalSteps||'-')}</span><b>rank</b><span>${escapeHtml(c.rankDim||'-')}</span><b>alpha</b><span>${escapeHtml(c.alpha||'-')}</span><b>LR</b><span>${escapeHtml(c.learningRate||c.unetLR||'-')}</span></div><div class="card-summary">${escapeHtml(c.resultReview||c.nextExperiment||c.notes||c.testPrompt||'아직 평가 메모 없음')}</div>`}</article>`}
 
 let lightboxCardId=null;
@@ -1302,12 +1305,13 @@ function bindCardEl(el){
 function refreshCardEl(id){
   const c=state.cards.find(x=>x.id===id);
   const el=document.querySelector('#list .card[data-id="'+CSS.escape(id)+'"]');
-  if(!c||!el){render();return}
+  if(!c){render();return}
+  if(!el)return; // 아직 렌더 안 된 청크의 카드: DOM에 없으니 갱신 불필요 (해당 청크가 붙을 때 state 기준으로 새로 그려짐)
   // 이 카드가 더 이상 현재 필터를 통과하지 않으면 목록에서 즉시 제거 (필터 불일치 방지)
   if(!passesFilter(c)){
     el.remove();
     state.selected.delete(id);
-    if(!$('list').querySelector('.card'))$('list').innerHTML='<div class="empty">조건에 맞는 LoRA 카드가 없음.</div>';
+    if(!$('list').querySelector('.card'))renderList(); // 뒤 청크에 매칭 카드가 남았으면 이어 그리고, 없으면 renderList가 빈 안내를 띄움
     renderStats();
     return;
   }
@@ -1325,11 +1329,45 @@ function setActiveCardEl(id){
   const el=document.querySelector('#list .card[data-id="'+CSS.escape(id)+'"]');
   if(el)el.classList.add('active');
 }
+/* === 리스트 렌더: 청크(무한 스크롤) ===
+   카드 목록은 LIST_CHUNK 개씩 끊어 DOM에 붙이고, 하단 감지선(sentinel)에 스크롤이 닿으면 다음 청크를 이어 붙인다.
+   전체 선택·일괄 작업·슬라이드쇼 재생목록(buildLbPlaylist)은 전부 filtered()/state 기반이라 청크 렌더의 영향을 받지 않는다. */
+let listItems=[];   // 현재 필터 결과 (renderList 시점 스냅샷)
+let listShown=0;    // DOM에 붙은 카드 수
+const listObserver=(typeof IntersectionObserver==='function')
+  ? new IntersectionObserver(entries=>{entries.forEach(en=>{if(en.isIntersecting)appendListChunk()})},{rootMargin:'600px 0px'})
+  : null;
+function appendListChunk(){
+  const box=$('list');
+  const slice=listItems.slice(listShown,listShown+LIST_CHUNK);
+  if(!slice.length)return;
+  const oldS=box.querySelector('.list-sentinel');
+  if(oldS){if(listObserver)listObserver.unobserve(oldS);oldS.remove();}
+  const tpl=document.createElement('template');
+  tpl.innerHTML=slice.map(cardHtml).join('');
+  const nodes=[...tpl.content.children];
+  nodes.forEach(n=>{box.appendChild(n);bindCardEl(n);});
+  listShown+=slice.length;
+  if(listShown<listItems.length){
+    const sBtn=document.createElement('button');
+    sBtn.type='button';
+    sBtn.className='list-sentinel';
+    sBtn.textContent=`남은 ${listItems.length-listShown}개 · 스크롤하면 이어서 표시돼`;
+    sBtn.onclick=()=>appendListChunk(); // IntersectionObserver 미지원 대비 수동 폴백
+    box.appendChild(sBtn);
+    if(listObserver)listObserver.observe(sBtn);
+  }
+}
 function renderList(){
-  const arr=filtered();
-  $('list').classList.toggle('select-mode',state.selectMode);
-  $('list').innerHTML=arr.length?arr.map(cardHtml).join(''):'<div class="empty">조건에 맞는 LoRA 카드가 없음.</div>';
-  $('list').querySelectorAll('.card').forEach(bindCardEl);
+  listItems=filtered();
+  const box=$('list');
+  box.classList.toggle('select-mode',state.selectMode);
+  const oldS=box.querySelector('.list-sentinel');
+  if(oldS&&listObserver)listObserver.unobserve(oldS);
+  if(!listItems.length){box.innerHTML='<div class="empty">조건에 맞는 LoRA 카드가 없음.</div>';return}
+  box.innerHTML='';
+  listShown=0;
+  appendListChunk();
 }
 function renderDetail(){
   const c=selectedCard();const body=$('detail-body');
@@ -1512,7 +1550,7 @@ async function pushSlot(token, gistId, deviceLabel){
   const body={
     description:'LoRA Lab — LoRA 실험 카드 데이터',
     public:false,
-    files:{[GIST_FILE_NAME]:{content:JSON.stringify({version:1,slots},null,2)}}
+    files:{[GIST_FILE_NAME]:{content:JSON.stringify({version:1,slots})}}
   };
   try{
     let url='https://api.github.com/gists', method='POST';

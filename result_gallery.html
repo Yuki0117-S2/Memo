@@ -507,7 +507,7 @@ function uid(){return 'r'+Date.now()+Math.random().toString(36).slice(2,7)}
 function esc(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 function bytes(n){if(!n)return '0KB'; if(n<1024)return n+'B'; if(n<1024*1024)return (n/1024).toFixed(n<10240?1:0)+'KB'; return (n/1024/1024).toFixed(2)+'MB'}
 function utf8Bytes(s){try{return new Blob([s]).size}catch(e){return new TextEncoder().encode(s).length}}
-function estimateGistPayloadBytes(){try{return utf8Bytes(JSON.stringify({version:1,slots:[{savedAt:new Date().toISOString(),device:'예상',state:stripStateForSync(state)}]},null,2))}catch(e){return 0}}
+function estimateGistPayloadBytes(){try{return utf8Bytes(JSON.stringify({version:1,slots:[{savedAt:new Date().toISOString(),device:'예상',state:stripStateForSync(state)}]}))}catch(e){return 0}}
 function uniq(a){return [...new Set((a||[]).map(x=>String(x).trim()).filter(Boolean))]}
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),1700)}
 function showModal({message,danger,confirmText,cancelText,alert,visualHTML}){return new Promise(resolve=>{const ov=$('#confirm-overlay'),msgEl=$('#confirm-message'),okBtn=$('#confirm-ok'),cancelBtn=$('#confirm-cancel');msgEl.textContent=message;const visEl=$('#confirm-visual');if(visEl){visEl.innerHTML=visualHTML||'';visEl.style.display=visualHTML?'':'none';}okBtn.textContent=confirmText||'확인';okBtn.className='cm-btn '+(danger?'cm-danger':'cm-accent');cancelBtn.textContent=cancelText||'취소';cancelBtn.style.display=alert?'none':'';ov.classList.add('open');okBtn.focus();function done(val){ov.classList.remove('open');if(visEl){visEl.innerHTML='';visEl.style.display='none';}okBtn.onclick=null;cancelBtn.onclick=null;ov.onclick=null;document.removeEventListener('keydown',onKey,true);resolve(val)}function onKey(e){if(e.key==='Enter'){e.preventDefault();e.stopPropagation();done(true)}else if(e.key==='Escape'){e.preventDefault();e.stopPropagation();done(alert?true:false)}}okBtn.onclick=()=>done(true);cancelBtn.onclick=()=>done(false);ov.onclick=e=>{if(e.target===ov)done(alert?true:false)};document.addEventListener('keydown',onKey,true)})}
@@ -2188,7 +2188,7 @@ async function pushSlot(token, gistId, deviceLabel){
   const body={
     description:'Workshop — 작업실 통합 데이터',
     public:false,
-    files:{[GIST_FILE_NAME]:{content:JSON.stringify({version:1,slots},null,2)}}
+    files:{[GIST_FILE_NAME]:{content:JSON.stringify({version:1,slots})}}
   };
   try{
     let url='https://api.github.com/gists', method='POST';
