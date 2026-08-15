@@ -35,7 +35,7 @@ header{display:flex;align-items:center;gap:10px;border-bottom:.5px solid var(--b
 .gallery-mode #list{grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
 .list-sentinel{grid-column:1/-1;text-align:center;color:var(--text3);font-size:12px;padding:14px;border:.5px dashed var(--border);border-radius:var(--radius);background:var(--bg2);cursor:pointer;font-family:inherit;width:100%}
 .list-sentinel:hover{color:var(--accent);border-color:var(--accent)}
-.gallery-mode .card{padding:0;min-height:0;overflow:hidden}
+.gallery-mode .card{padding:0;min-height:0;overflow:hidden;content-visibility:auto;contain-intrinsic-size:auto 380px}
 .gallery-mode .card-thumb{display:flex}
 .gallery-mode .card-title{padding:10px 34px 0 10px;font-size:12px}
 .gallery-mode .card-file{padding:0 10px;margin-top:2px}
@@ -1096,7 +1096,7 @@ function cardHtml(c){
   const imgs=getCardImages(c);
   const img=activeImage(c);
   const idx=imgs.length?((Number(c.imageIndex)||0)%imgs.length+imgs.length)%imgs.length:0;
-  const thumb=gallery?`<div class="card-thumb" data-act="thumb">${img?`<img src="${img.dataUrl}" alt="" loading="lazy" decoding="async">${imgs.length>1?`<button class="img-nav prev" data-act="img-prev" title="이전 이미지">‹</button><button class="img-nav next" data-act="img-next" title="다음 이미지">›</button><span class="img-count">${idx+1} / ${imgs.length}</span>`:''}`:'<span class="noimg">대표이미지 없음<br>LoRA 이름 들어간 이미지를 드롭해봐</span>'}</div>`:'';
+  const thumb=gallery?`<div class="card-thumb" data-act="thumb">${img?`<img class="lazy-thumb" alt="" decoding="async">${imgs.length>1?`<button class="img-nav prev" data-act="img-prev" title="이전 이미지">‹</button><button class="img-nav next" data-act="img-next" title="다음 이미지">›</button><span class="img-count">${idx+1} / ${imgs.length}</span>`:''}`:'<span class="noimg">대표이미지 없음<br>LoRA 이름 들어간 이미지를 드롭해봐</span>'}</div>`:'';
   return `<article class="card ${imgs.length>1?'has-multi':''} ${state.selectedId===c.id?'active':''} ${state.selected.has(c.id)?'selected':''}" data-id="${c.id}">${thumb}<div class="fav ${c.fav?'on':''}" data-act="fav">${c.fav?'★':'☆'}</div><div class="card-actions"><button class="mini-btn" data-act="edit" title="편집">✎</button><button class="mini-btn" data-act="fold">${collapsed?'＋':'－'}</button></div><div class="card-title">${escapeHtml(c.title||c.fileName||'이름 없음')}</div><div class="card-file">${escapeHtml(c.fileName||'수동 기록')} ${c.fileSize?`· ${fmtBytes(c.fileSize)}`:''}</div><div class="card-meta"><span class="pill ${statusClass(c)}">${escapeHtml(c.status)}</span><span class="pill purpose">${escapeHtml(c.purpose)}</span><span class="pill meta">${escapeHtml(meta)}</span>${c.recommendedWeight?`<span class="pill">weight ${escapeHtml(c.recommendedWeight)}</span>`:''}<span class="pill ${imgs.length===2?'ok':'img-warn'}">image ${imgs.length}</span></div>${collapsed?'':`<div class="card-quick"><b>base</b><span>${escapeHtml(c.baseModel||'-')}</span><b>trigger</b><span>${escapeHtml(c.triggerWord||'-')}</span><b>steps</b><span>${escapeHtml(c.totalSteps||'-')}</span><b>rank</b><span>${escapeHtml(c.rankDim||'-')}</span><b>alpha</b><span>${escapeHtml(c.alpha||'-')}</span><b>LR</b><span>${escapeHtml(c.learningRate||c.unetLR||'-')}</span></div><div class="card-summary">${escapeHtml(c.resultReview||c.nextExperiment||c.notes||c.testPrompt||'아직 평가 메모 없음')}</div>`}</article>`}
 
 let lightboxCardId=null;
@@ -1275,8 +1275,35 @@ function bindImageLightbox(){
   });
 }
 
+/* === 카드 썸네일 지연 주입 ===
+   카드 HTML 문자열에는 base64 dataUrl을 넣지 않는다.
+   (넣으면 청크 1회 innerHTML 파싱 문자열이 수십 MB로 불어나 스크롤이 끊긴다)
+   <img>는 src 없이 렌더하고, 뷰포트 근처(THUMB_ROOT_MARGIN)에 들어올 때
+   state.cards에서 activeImage()를 찾아 src를 주입한다.
+   한 번 주입한 src는 비우지 않는다 — 되돌아 스크롤할 때 다시 회색이 되는 걸 막기 위함. */
+const THUMB_ROOT_MARGIN='1000px 0px';
+function hydrateCardThumb(el){
+  if(!el)return;
+  const im=el.querySelector('.card-thumb img.lazy-thumb');
+  if(!im||im.dataset.loaded==='1')return;
+  const c=state.cards.find(x=>x.id===el.dataset.id);
+  const src=c?((activeImage(c)||{}).dataUrl||''):'';
+  if(!src)return;
+  im.src=src;
+  im.dataset.loaded='1';
+  if(thumbObserver)thumbObserver.unobserve(el);
+}
+const thumbObserver=(typeof IntersectionObserver==='function')
+  ? new IntersectionObserver(entries=>{entries.forEach(en=>{if(en.isIntersecting)hydrateCardThumb(en.target)})},{rootMargin:THUMB_ROOT_MARGIN})
+  : null;
+function observeCardThumb(el){
+  if(!el||!el.querySelector('.card-thumb img.lazy-thumb'))return;
+  if(thumbObserver)thumbObserver.observe(el);
+  else hydrateCardThumb(el); // IntersectionObserver 미지원 대비 즉시 주입 폴백
+}
 function bindCardEl(el){
   const id=el.dataset.id;
+  observeCardThumb(el);
   let touchStartX=0,touchStartY=0;
   const thumb=el.querySelector('.card-thumb');
   if(thumb){
@@ -1321,6 +1348,9 @@ function refreshCardEl(id){
   if(!neu){render();return}
   el.replaceWith(neu);
   bindCardEl(neu);
+  // 이 경로(‹ › 이미지 넘김, 즐겨찾기, 접기)는 이미 화면에 보이는 카드다.
+  // 옵저버 콜백을 기다리면 한 프레임 회색으로 깜빡이므로 즉시 주입한다.
+  hydrateCardThumb(neu);
 }
 // 활성 표시만 교체 (목록 재생성 없이)
 function setActiveCardEl(id){
