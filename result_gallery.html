@@ -55,6 +55,8 @@ header{display:flex;align-items:center;gap:10px;border-bottom:.5px solid var(--b
 .split.gallery-view{grid-template-columns:1fr}
 .split.gallery-view aside.panel,.split.gallery-view section.detail-panel{display:none}
 .gallery-view #list{grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+/* 화면 밖 카드는 레이아웃·페인트를 건너뛴다. 높이는 마지막 실측값을 기억(auto). */
+#list .card{content-visibility:auto;contain-intrinsic-size:auto 340px}
 .gallery-view .card .thumb{cursor:zoom-in}
 .gallery-view .card-info{padding:11px}
 .gallery-view .card-title{font-size:13px;padding-right:4px}
@@ -1060,7 +1062,7 @@ function cardHtml(it){
   const expanded=state.expandedIds.includes(it.id);
   const tagsArr=it.tags||[];
   const tagsMini=tagsArr.slice(0,5).map(t=>`<span class="tag-mini">#${esc(t)}</span>`).join('')+(tagsArr.length>5?`<span class="tag-mini">+${tagsArr.length-5}</span>`:'');
-  return `<article class="card ${it.id===state.selectedId?'active':''}${selectMode&&selectedIds.has(it.id)?' selected':''}" data-id="${it.id}"><div class="fav ${it.fav?'on':''}">${it.fav?'★':'☆'}</div><div class="thumb${it.thumbStripped?' stripped':''}">${it.thumb?`<img src="${it.thumb}" alt="" loading="lazy" decoding="async">`:it.thumbStripped?'<span class="sync-noimg" title="원본 PNG를 다시 드롭하면 자동으로 채워져"><span class="sn-icon">☁</span>다른 기기에서<br>동기화됨<span class="sn-sub">원본 PNG 드롭 시 자동 매칭</span></span>':'<span class="noimg">이미지 없음</span>'}</div><div class="card-info"><div class="card-title">${esc(it.title)}</div><div class="card-meta"><span class="pill ${statusClass(it.status)}">${esc(it.status)}</span><span class="pill">${stars(it.score)}</span>${(g=>g?`<span class="pill meta ${g}">${g==='nai'?'NAI':'Comfy'}</span>`:'')(genOf(it))}${(n=>`<span class="pill imgs${n>1?' multi':''}" title="이미지 수 (대표+보조)">${n}장</span>`)(imgCountOf(it))}</div><div class="card-tags-mini">${tagsMini}</div><div class="card-note">${esc(it.notes||it.meta?.model||it.meta?.source||'메모 없음')}</div><button class="card-expand-btn" data-expand="${it.id}"><span class="ce-arrow">${expanded?'▴':'▾'}</span><span class="ce-label">${expanded?'정보 접기':'정보 보기'}</span></button><div class="card-expanded ${expanded?'open':''}"${expanded?' data-filled="1"':''} data-eid="${it.id}">${expanded?cardExpandedHTML(it):''}</div></div></article>`;
+  return `<article class="card ${it.id===state.selectedId?'active':''}${selectMode&&selectedIds.has(it.id)?' selected':''}" data-id="${it.id}"><div class="fav ${it.fav?'on':''}">${it.fav?'★':'☆'}</div><div class="thumb${it.thumbStripped?' stripped':''}">${it.thumb?`<img class="lazy-thumb" alt="" decoding="async">`:it.thumbStripped?'<span class="sync-noimg" title="원본 PNG를 다시 드롭하면 자동으로 채워져"><span class="sn-icon">☁</span>다른 기기에서<br>동기화됨<span class="sn-sub">원본 PNG 드롭 시 자동 매칭</span></span>':'<span class="noimg">이미지 없음</span>'}</div><div class="card-info"><div class="card-title">${esc(it.title)}</div><div class="card-meta"><span class="pill ${statusClass(it.status)}">${esc(it.status)}</span><span class="pill">${stars(it.score)}</span>${(g=>g?`<span class="pill meta ${g}">${g==='nai'?'NAI':'Comfy'}</span>`:'')(genOf(it))}${(n=>`<span class="pill imgs${n>1?' multi':''}" title="이미지 수 (대표+보조)">${n}장</span>`)(imgCountOf(it))}</div><div class="card-tags-mini">${tagsMini}</div><div class="card-note">${esc(it.notes||it.meta?.model||it.meta?.source||'메모 없음')}</div><button class="card-expand-btn" data-expand="${it.id}"><span class="ce-arrow">${expanded?'▴':'▾'}</span><span class="ce-label">${expanded?'정보 접기':'정보 보기'}</span></button><div class="card-expanded ${expanded?'open':''}"${expanded?' data-filled="1"':''} data-eid="${it.id}">${expanded?cardExpandedHTML(it):''}</div></div></article>`;
 }
 /* 펼침 영역 내부 버튼(프롬프트 복사·보조 승격·보조 삭제) 바인딩. scope는 카드 하나 또는 card-expanded 하나 */
 function bindExpandedControls(scope){
@@ -1093,8 +1095,35 @@ function bindExpandedControls(scope){
     save();render();toast('보조 이미지 삭제했어');
   });
 }
+/* === 카드 썸네일 지연 주입 ===
+   카드 HTML 문자열에는 base64 thumb를 넣지 않는다.
+   (넣으면 청크 1회 innerHTML 파싱 문자열이 수십 MB로 불어나 스크롤이 끊긴다)
+   <img>는 src 없이 렌더하고, 뷰포트 근처(THUMB_ROOT_MARGIN)에 들어올 때
+   state.items에서 thumb를 찾아 주입한다.
+   한 번 주입한 src는 비우지 않는다 — 되돌아 스크롤할 때 다시 회색이 되는 걸 막기 위함. */
+const THUMB_ROOT_MARGIN='1000px 0px';
+function hydrateCardThumb(el){
+  if(!el)return;
+  const im=el.querySelector('.thumb img.lazy-thumb');
+  if(!im||im.dataset.loaded==='1')return;
+  const it=state.items.find(x=>x.id===el.dataset.id);
+  const src=it?(it.thumb||''):'';
+  if(!src)return;
+  im.src=src;
+  im.dataset.loaded='1';
+  if(thumbObserver)thumbObserver.unobserve(el);
+}
+const thumbObserver=(typeof IntersectionObserver==='function')
+  ? new IntersectionObserver(entries=>{entries.forEach(en=>{if(en.isIntersecting)hydrateCardThumb(en.target)})},{rootMargin:THUMB_ROOT_MARGIN})
+  : null;
+function observeCardThumb(el){
+  if(!el||!el.querySelector('.thumb img.lazy-thumb'))return;
+  if(thumbObserver)thumbObserver.observe(el);
+  else hydrateCardThumb(el); // IntersectionObserver 미지원 대비 즉시 주입 폴백
+}
 /* 카드 1장 이벤트 바인딩. 청크로 나중에 붙는 카드도 동일하게 이 함수를 거친다 */
 function bindCardEl(cardEl){
+  observeCardThumb(cardEl); // 리스트 뷰에도 썸네일이 있으므로 아래 조기 return보다 앞에서 등록
   cardEl.onclick=()=>{if(selectMode){toggleCardSelect(cardEl.dataset.id,cardEl);return;}openEdit(cardEl.dataset.id)};
   const fav=cardEl.querySelector('.fav');
   if(fav)fav.onclick=e=>{e.stopPropagation();if(selectMode){toggleCardSelect(cardEl.dataset.id,cardEl);return;}const it=state.items.find(x=>x.id===cardEl.dataset.id);if(it){it.fav=!it.fav;save();render()}};
