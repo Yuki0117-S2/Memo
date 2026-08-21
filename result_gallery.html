@@ -1210,13 +1210,36 @@ function appendListChunk(){
     if(listObserver)listObserver.observe(s);
   }
 }
+/* 0개 표시의 범인을 화면에 자백시킨다: 지금 결과를 조이고 있는 필터 목록 */
+function activeFilterDesc(){
+  const f=[];
+  if(state.status!=='전체')f.push('상태: '+state.status);
+  if(state.query.trim())f.push('검색어 "'+state.query.trim()+'"');
+  if(state.scoreFilter!=='all')f.push('점수 필터');
+  if((state.imgCountFilter||'all')!=='all')f.push('이미지 수 필터');
+  if(state.favOnly)f.push('즐겨찾기만');
+  if(state.genFilter.length)f.push('출처: '+state.genFilter.map(g=>g==='nai'?'NAI':g==='comfy'?'Comfy':'메타없음').join('·'));
+  if(state.naiVerFilter.length)f.push('NAI 버전: '+state.naiVerFilter.join('·'));
+  if(state.tagFilter.length)f.push('태그: '+state.tagFilter.map(t=>'#'+t).join(', '));
+  if(state.loraFilter.length)f.push('LoRA: '+state.loraFilter.join(', '));
+  return f;
+}
 function renderList(){
   listItems=filtered(); const box=$('#list');
   $('#view-info').textContent=listItems.length+'개 표시';
   $('#total-count').textContent=state.items.length+'개';
   const oldS=box.querySelector('.list-sentinel');
   if(oldS&&listObserver)listObserver.unobserve(oldS);
-  if(!listItems.length){box.innerHTML='<div class="empty">이미지가 없어. ComfyUI · NovelAI 원본 PNG를 추가해봐.</div>';box.classList.toggle('select-mode',selectMode);return}
+  if(!listItems.length){
+    const f=state.items.length?activeFilterDesc():[];
+    if(f.length){
+      const loraNai=state.loraFilter.length&&(state.naiVerFilter.length||state.genFilter.includes('nai'));
+      box.innerHTML=`<div class="empty">조건에 맞는 카드가 없어 (전체 ${state.items.length}장).<br>지금 걸려있는 필터:<br><b style="color:var(--text2)">${f.map(esc).join(' · ')}</b>${loraNai?'<br><span style="font-size:11px">참고: LoRA 필터는 NAI 카드와 절대 안 겹쳐 (NAI엔 LoRA가 없음)</span>':''}<br><button class="btn ghost" id="empty-clear-btn" style="margin-top:12px">필터 전부 풀기</button></div>`;
+      const b=box.querySelector('#empty-clear-btn'); if(b)b.onclick=()=>$('#clear-filter-btn').click();
+    } else {
+      box.innerHTML='<div class="empty">이미지가 없어. ComfyUI · NovelAI 원본 PNG를 추가해봐.</div>';
+    }
+    box.classList.toggle('select-mode',selectMode);return}
   box.innerHTML='';
   listShown=0;
   appendListChunk();
@@ -1578,7 +1601,11 @@ function renderGenChips(){
     if(c.dataset.nver!==undefined){
       const v=c.dataset.nver;
       const i=state.naiVerFilter.indexOf(v);
-      if(i>=0)state.naiVerFilter.splice(i,1); else state.naiVerFilter.push(v);
+      if(i>=0)state.naiVerFilter.splice(i,1);
+      else {
+        state.naiVerFilter.push(v);
+        if(!state.genFilter.includes('nai'))state.genFilter.push('nai'); // 버전을 골랐다 = NAI를 보겠다 → 시각 상태 일치
+      }
       save();render();return;
     }
     const g=c.dataset.gen;
