@@ -1583,7 +1583,8 @@ function renderGenChips(){
     }
     const g=c.dataset.gen;
     const i=state.genFilter.indexOf(g);
-    if(i>=0)state.genFilter.splice(i,1); else state.genFilter.push(g);
+    if(i>=0){state.genFilter.splice(i,1); if(g==='nai')state.naiVerFilter=[];} // NAI를 끄면 버전 선택도 같이 비운다
+    else state.genFilter.push(g);
     save();render();
   });
 }
