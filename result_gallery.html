@@ -481,6 +481,7 @@ body.eo-open{overflow:hidden}
     <div class="confirm-message" id="confirm-message"></div>
     <div id="confirm-visual" style="display:none"></div>
     <div class="confirm-btn-row">
+      <button class="cm-btn cm-ghost" id="confirm-third" style="display:none"></button>
       <button class="cm-btn cm-ghost" id="confirm-cancel">취소</button>
       <button class="cm-btn cm-accent" id="confirm-ok">확인</button>
     </div>
@@ -542,8 +543,8 @@ async function gunzipFromB64(b64){
 }
 function uniq(a){return [...new Set((a||[]).map(x=>String(x).trim()).filter(Boolean))]}
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),1700)}
-function showModal({message,danger,confirmText,cancelText,alert,visualHTML}){return new Promise(resolve=>{const ov=$('#confirm-overlay'),msgEl=$('#confirm-message'),okBtn=$('#confirm-ok'),cancelBtn=$('#confirm-cancel');msgEl.textContent=message;const visEl=$('#confirm-visual');if(visEl){visEl.innerHTML=visualHTML||'';visEl.style.display=visualHTML?'':'none';}okBtn.textContent=confirmText||'확인';okBtn.className='cm-btn '+(danger?'cm-danger':'cm-accent');cancelBtn.textContent=cancelText||'취소';cancelBtn.style.display=alert?'none':'';ov.classList.add('open');okBtn.focus();function done(val){ov.classList.remove('open');if(visEl){visEl.innerHTML='';visEl.style.display='none';}okBtn.onclick=null;cancelBtn.onclick=null;ov.onclick=null;document.removeEventListener('keydown',onKey,true);resolve(val)}function onKey(e){if(e.key==='Enter'){e.preventDefault();e.stopPropagation();done(true)}else if(e.key==='Escape'){e.preventDefault();e.stopPropagation();done(alert?true:false)}}okBtn.onclick=()=>done(true);cancelBtn.onclick=()=>done(false);ov.onclick=e=>{if(e.target===ov)done(alert?true:false)};document.addEventListener('keydown',onKey,true)})}
-function showConfirm(message,opts={}){return showModal({message,danger:opts.danger,confirmText:opts.confirmText,cancelText:opts.cancelText,visualHTML:opts.visualHTML})}
+function showModal({message,danger,confirmText,cancelText,thirdText,alert,visualHTML}){return new Promise(resolve=>{const ov=$('#confirm-overlay'),msgEl=$('#confirm-message'),okBtn=$('#confirm-ok'),cancelBtn=$('#confirm-cancel'),thirdBtn=$('#confirm-third');msgEl.textContent=message;const visEl=$('#confirm-visual');if(visEl){visEl.innerHTML=visualHTML||'';visEl.style.display=visualHTML?'':'none';}okBtn.textContent=confirmText||'확인';okBtn.className='cm-btn '+(danger?'cm-danger':'cm-accent');cancelBtn.textContent=cancelText||'취소';cancelBtn.style.display=alert?'none':'';if(thirdBtn){thirdBtn.textContent=thirdText||'';thirdBtn.style.display=(thirdText&&!alert)?'':'none';}ov.classList.add('open');okBtn.focus();function done(val){ov.classList.remove('open');if(visEl){visEl.innerHTML='';visEl.style.display='none';}okBtn.onclick=null;cancelBtn.onclick=null;if(thirdBtn){thirdBtn.onclick=null;thirdBtn.style.display='none';}ov.onclick=null;document.removeEventListener('keydown',onKey,true);resolve(val)}function onKey(e){if(e.key==='Enter'){e.preventDefault();e.stopPropagation();done(true)}else if(e.key==='Escape'){e.preventDefault();e.stopPropagation();done(alert?true:false)}}okBtn.onclick=()=>done(true);cancelBtn.onclick=()=>done(false);if(thirdBtn)thirdBtn.onclick=()=>done('third');ov.onclick=e=>{if(e.target===ov)done(alert?true:false)};document.addEventListener('keydown',onKey,true)})}
+function showConfirm(message,opts={}){return showModal({message,danger:opts.danger,confirmText:opts.confirmText,cancelText:opts.cancelText,thirdText:opts.thirdText,visualHTML:opts.visualHTML})}
 function showAlert(message,opts={}){return showModal({message,alert:true,confirmText:opts.confirmText||'확인'})}
 
 function normalizeStateShape(s){
@@ -1045,16 +1046,17 @@ async function addFiles(files){
     if(!sigGroups.has(sig))sigGroups.set(sig,[]);
     sigGroups.get(sig).push(ni);
   }
-  let merged=0;
+  let merged=0, discarded=0;
   for(const [sig,list] of sigGroups){
     const target=state.items.find(it=>mergeSigOfItem(it)===sig);
     if(target){
       const names=list.slice(0,6).map(x=>'· '+x.fileName).join('\n')+(list.length>6?`\n... 외 ${list.length-6}장`:'');
-      const attach=await showConfirm(`${list.length}장이 기존 카드 "${target.title||target.fileName}" 와 같은 조합이야.\n그림체가 맞는지 아래에서 눈으로 대조해봐.\n\n${names}\n\n이 카드에 이어서 붙일까?`,{confirmText:'붙이기',cancelText:'새 카드로',visualHTML:mergeVisualHTML([
+      const attach=await showConfirm(`${list.length}장이 기존 카드 "${target.title||target.fileName}" 와 같은 조합이야.\n그림체가 맞는지 아래에서 눈으로 대조해봐.\n\n${names}\n\n이 카드에 이어서 붙일까?`,{confirmText:'붙이기',cancelText:'새 카드로',thirdText:'건너뛰기 (추가 안 함)',visualHTML:mergeVisualHTML([
         {label:'기존 카드 (대표+보조)',color:'#8888CC',thumbs:cardVisualThumbs(target)},
         {label:`붙일 이미지 ${list.length}장`,color:'#BB6688',thumbs:list.map(x=>({t:x.thumb,cap:x.fileName}))}
       ])});
-      if(attach){
+      if(attach==='third'){discarded+=list.length;continue;} // 이 조합은 이미 충분 → 이번 이미지들 버림
+      if(attach===true){
         target.subs=target.subs||[];
         list.forEach(x=>{target.subs.push(itemToSub(x));merged++;});
         target.updatedAt=Date.now();
@@ -1081,6 +1083,7 @@ async function addFiles(files){
   if(merged) parts.push(merged+'개 기존 카드에 붙임');
   if(filled) parts.push(filled+'개 썸네일 채움');
   if(skipped) parts.push(skipped+'개 중복 건너뜀');
+  if(discarded) parts.push(discarded+'개 조합 포화로 버림');
   toast(parts.length?parts.join(' · '):'추가된 게 없어');
 }
 function filtered(){
