@@ -337,7 +337,7 @@ body.eo-open{overflow:hidden}
         <div class="stat"><b id="stat-items">0</b><span>이미지</span></div>
         <div class="stat"><b id="stat-meta">0</b><span>메타 감지</span></div>
         <div class="stat"><b id="stat-fav">0</b><span>즐겨찾기</span></div>
-        <div class="stat" title="현재 데이터를 JSON으로 직렬화했을 때의 UTF-8 실측 바이트. IndexedDB 실제 점유량과는 다를 수 있어."><b id="stat-store">0KB</b><span>저장량 추정</span></div><div class="stat" title="Gist 업로드 시 예상 크기. 썸네일이 제외된 경량 페이로드 기준이야."><b id="stat-gist">0KB</b><span>Gist 예상</span></div>
+        <div class="stat" title="현재 데이터를 JSON으로 직렬화했을 때의 UTF-8 실측 바이트. IndexedDB 실제 점유량과는 다를 수 있어."><b id="stat-store">0KB</b><span>저장량 추정</span></div><div class="stat" title="Gist 업로드 시 슬롯 1개의 압축(gzip) 실측 크기. 실제 업로드는 최대 3슬롯이라 이 값의 최대 3배야."><b id="stat-gist">0KB</b><span>Gist 예상</span></div>
       </div>
     </div>
   </aside>
@@ -461,7 +461,7 @@ body.eo-open{overflow:hidden}
         <input class="gist-input" type="text" id="gist-id-input" placeholder="처음엔 비워두기">
         <button class="gist-copy-btn" id="gist-copy-btn" title="Gist ID 복사">📋</button>
       </div>
-      <div class="gist-hint">💡 작업실의 다른 도구(CD Idea / Archive)랑 같은 Gist를 공유해. 동기화엔 <b>메타데이터 + 평가</b>만 올라가 (썸네일 · rawMeta 제외). 다른 기기에서 원본 PNG를 다시 드롭하면 같은 파일명+크기로 자동 매칭돼서 썸네일이 채워져.</div>
+      <div class="gist-hint">💡 작업실의 다른 도구(CD Idea / Archive)랑 같은 Gist를 공유해. 동기화엔 <b>메타데이터 + 평가</b>만 gzip 압축(WGZ1)으로 올라가 (썸네일 · rawMeta 제외). <b>압축 업로드 후엔 구버전 갤러리가 이 Gist를 못 읽으니 모든 기기를 갱신해!</b> 다른 기기에서 원본 PNG를 다시 드롭하면 같은 파일명+크기로 자동 매칭돼서 썸네일이 채워져.</div>
     </div>
     <div class="gist-status" id="gist-status"></div>
     <div class="gist-btn-row">
@@ -512,6 +512,34 @@ function esc(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&l
 function bytes(n){if(!n)return '0KB'; if(n<1024)return n+'B'; if(n<1024*1024)return (n/1024).toFixed(n<10240?1:0)+'KB'; return (n/1024/1024).toFixed(2)+'MB'}
 function utf8Bytes(s){try{return new Blob([s]).size}catch(e){return new TextEncoder().encode(s).length}}
 function estimateGistPayloadBytes(){try{return utf8Bytes(JSON.stringify({version:1,slots:[{savedAt:new Date().toISOString(),device:'예상',state:stripStateForSync(state)}]}))}catch(e){return 0}}
+/* ── Gist 압축 채널 (WGZ1) ──
+   프롬프트 텍스트는 반복이 심해 gzip 압축률이 매우 높다 (실측 수 배~십수 배).
+   업로드: 'WGZ1:' + base64(gzip(JSON)) / 다운로드: 접두어 감지 시 해제, 없으면 구형 JSON 그대로.
+   주의: 압축 업로드가 시작되면 구버전 갤러리는 이 Gist 파일을 못 읽는다 → 모든 기기 갱신 필수. */
+const GIST_SLOT_LIMIT=3;      // 5→3: 압축과 병행해 총 페이로드 축소
+const GZ_MARK='WGZ1:';
+const GZ_OK=typeof CompressionStream!=='undefined'&&typeof DecompressionStream!=='undefined';
+async function collectStream(readable){
+  const reader=readable.getReader(); const chunks=[]; let len=0;
+  for(;;){const {done,value}=await reader.read(); if(done)break; chunks.push(value); len+=value.length;}
+  const out=new Uint8Array(len); let o=0; chunks.forEach(c=>{out.set(c,o);o+=c.length});
+  return out;
+}
+async function gzipToB64(str){
+  const cs=new CompressionStream('gzip');
+  const w=cs.writable.getWriter();
+  w.write(new TextEncoder().encode(str)); w.close();
+  const b=await collectStream(cs.readable);
+  let bin=''; for(let i=0;i<b.length;i+=0x8000)bin+=String.fromCharCode.apply(null,b.subarray(i,i+0x8000));
+  return btoa(bin);
+}
+async function gunzipFromB64(b64){
+  const bin=atob(b64); const bytes=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+  const ds=new DecompressionStream('gzip');
+  const w=ds.writable.getWriter(); w.write(bytes); w.close();
+  return new TextDecoder().decode(await collectStream(ds.readable));
+}
 function uniq(a){return [...new Set((a||[]).map(x=>String(x).trim()).filter(Boolean))]}
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),1700)}
 function showModal({message,danger,confirmText,cancelText,alert,visualHTML}){return new Promise(resolve=>{const ov=$('#confirm-overlay'),msgEl=$('#confirm-message'),okBtn=$('#confirm-ok'),cancelBtn=$('#confirm-cancel');msgEl.textContent=message;const visEl=$('#confirm-visual');if(visEl){visEl.innerHTML=visualHTML||'';visEl.style.display=visualHTML?'':'none';}okBtn.textContent=confirmText||'확인';okBtn.className='cm-btn '+(danger?'cm-danger':'cm-accent');cancelBtn.textContent=cancelText||'취소';cancelBtn.style.display=alert?'none':'';ov.classList.add('open');okBtn.focus();function done(val){ov.classList.remove('open');if(visEl){visEl.innerHTML='';visEl.style.display='none';}okBtn.onclick=null;cancelBtn.onclick=null;ov.onclick=null;document.removeEventListener('keydown',onKey,true);resolve(val)}function onKey(e){if(e.key==='Enter'){e.preventDefault();e.stopPropagation();done(true)}else if(e.key==='Escape'){e.preventDefault();e.stopPropagation();done(alert?true:false)}}okBtn.onclick=()=>done(true);cancelBtn.onclick=()=>done(false);ov.onclick=e=>{if(e.target===ov)done(alert?true:false)};document.addEventListener('keydown',onKey,true)})}
@@ -1284,8 +1312,27 @@ function renderStoreStatsNow(){
     se.textContent=bytes(store);
   }
   const ge=$('#stat-gist');
-  if(ge){ try{ ge.textContent=bytes(estimateGistPayloadBytes()) }catch(e){ console.warn('Gist 예상치 계산 실패',e) } }
+  if(ge){ try{
+    const raw=estimateGistPayloadBytes();
+    if(!GZ_OK){ ge.textContent=bytes(raw); }
+    else if(gzStatCache.rawBytes===raw){ ge.textContent=gzStatCache.text; } // 데이터 불변 → 재압축 생략
+    else {
+      ge.textContent=bytes(raw)+' 압축중…';
+      const tok=++gzStatCache.token;
+      (async()=>{
+        try{
+          const payload=JSON.stringify({version:1,slots:[{savedAt:new Date().toISOString(),device:'예상',state:stripStateForSync(state)}]});
+          const gzBytes=utf8Bytes(GZ_MARK)+ (await gzipToB64(payload)).length; // base64는 ASCII=1바이트/문자
+          if(tok!==gzStatCache.token)return; // 그 사이 데이터가 또 바뀜 → 이 결과는 폐기
+          gzStatCache.rawBytes=raw;
+          gzStatCache.text=bytes(gzBytes)+' (압축, 원본 '+bytes(raw)+')';
+          const el=$('#stat-gist'); if(el)el.textContent=gzStatCache.text;
+        }catch(e){ console.warn('압축 예상치 계산 실패',e); const el=$('#stat-gist'); if(el)el.textContent=bytes(raw); }
+      })();
+    }
+  }catch(e){ console.warn('Gist 예상치 계산 실패',e) } }
 }
+const gzStatCache={rawBytes:-1,text:'',token:0};
 function renderStats(){
   $('#stat-items').textContent=state.items.length;
   $('#stat-meta').textContent=state.items.filter(i=>i.meta&&i.meta.metaFound).length;
@@ -2316,8 +2363,12 @@ async function readGistFileContent(file){
 async function readGistSlotsFromData(data){
   const file=data.files&&data.files[GIST_FILE_NAME];
   if(!file) return null;
-  const fc=await readGistFileContent(file);
+  let fc=await readGistFileContent(file);
   if(!fc) return null;
+  if(fc.startsWith(GZ_MARK)){ // 압축 형식(WGZ1) → 해제. 접두어 없으면 구형 JSON 그대로.
+    if(!GZ_OK) throw new Error('압축된 Gist인데 이 환경은 압축 해제를 지원하지 않아');
+    fc=await gunzipFromB64(fc.slice(GZ_MARK.length));
+  }
   const parsed=JSON.parse(fc);
   return parsed.slots||[];
 }
@@ -2347,16 +2398,26 @@ async function pushSlot(token, gistId, deviceLabel){
     device:deviceLabel,
     state:stripStateForSync(state)
   });
-  if(slots.length>5) slots=slots.slice(0,5);
-  const body={
-    description:'Workshop — 작업실 통합 데이터',
-    public:false,
-    files:{[GIST_FILE_NAME]:{content:JSON.stringify({version:1,slots})}}
+  if(slots.length>GIST_SLOT_LIMIT) slots=slots.slice(0,GIST_SLOT_LIMIT);
+  const buildContent=async ss=>{
+    const raw=JSON.stringify({version:1,slots:ss});
+    return GZ_OK ? GZ_MARK+await gzipToB64(raw) : raw; // 압축 미지원 환경은 구형 그대로 (읽기는 양쪽 다 됨)
   };
-  try{
+  const attempt=async ss=>{
+    const body={description:'Workshop — 작업실 통합 데이터',public:false,
+      files:{[GIST_FILE_NAME]:{content:await buildContent(ss)}}};
     let url='https://api.github.com/gists', method='POST';
     if(gistId){ url='https://api.github.com/gists/'+gistId; method='PATCH'; }
-    const res=await fetch(url,{method,headers:{'Authorization':'token '+token,'Content-Type':'application/json','Accept':'application/vnd.github.v3+json'},body:JSON.stringify(body)});
+    return fetch(url,{method,headers:{'Authorization':'token '+token,'Content-Type':'application/json','Accept':'application/vnd.github.v3+json'},body:JSON.stringify(body)});
+  };
+  try{
+    let res=await attempt(slots);
+    let shrunk=false;
+    if(!res.ok&&res.status===422&&slots.length>1){ // 용량 퇴짜 → 히스토리 버리고 최신 1슬롯만 재시도
+      setGistStatus('용량 초과(422) → 슬롯 1개로 줄여서 재시도 중...','loading');
+      res=await attempt(slots.slice(0,1));
+      shrunk=res.ok;
+    }
     if(!res.ok){
       const err=await res.json().catch(()=>({}));
       setGistStatus('오류: '+(err.message||res.status),'err');
@@ -2366,9 +2427,9 @@ async function pushSlot(token, gistId, deviceLabel){
     localStorage.setItem(GIST_TOKEN_KEY,token);
     localStorage.setItem(GIST_ID_KEY,data.id);
     $('#gist-id-input').value=data.id;
-    setGistStatus('업로드 완료! Gist ID를 복사해서 다른 기기에서 써봐.','ok');
+    setGistStatus(shrunk?'용량 때문에 히스토리 없이 최신 1슬롯만 올렸어. 데이터 다이어트를 고민해봐.':'업로드 완료! Gist ID를 복사해서 다른 기기에서 써봐.',shrunk?'ok':'ok');
     setSyncIndicator('ok');
-    toast('☁ Gist 업로드 완료');
+    toast(shrunk?'☁ Gist 업로드 (1슬롯 축소)':'☁ Gist 업로드 완료');
     startAutoSave();
   }catch(e){
     setGistStatus('네트워크 오류: '+e.message,'err');
