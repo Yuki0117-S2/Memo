@@ -49,6 +49,7 @@ header{display:flex;align-items:center;gap:10px;border-bottom:.5px solid var(--b
 .fchip.active.lora{background:var(--accent3);color:#fff;border-color:var(--accent3)}
 .fchip.active.gen-nai{background:var(--accent2);color:#5a3348;border-color:var(--accent2)}
 .fchip.active.gen-none{background:#884499;color:#fff;border-color:#884499}
+.fchip.nver{border-style:dashed}.fchip.active.nver{background:#CCAA88;color:#fff;border-color:#CCAA88;border-style:solid}
 .fchip .fc-count{font-size:9px;opacity:.7;font-weight:700}
 
 /* 갤러리 뷰: 사이드/상세 패널 숨김 */
@@ -305,6 +306,7 @@ body.eo-open{overflow:hidden}
     <button class="btn ghost" id="sim-scan-btn" title="오타로 갈라진 작가명 통합">유사 작가</button>
     <button class="btn ghost" id="dup-scan-btn" title="작가 조합(가중치 포함)이 같은 카드 찾기">중복 검사</button>
     <button class="btn ghost" id="merge-scan-btn" title="같은 조합(NAI: 작가+가중치 / Comfy: 프롬프트+LoRA) 카드를 한 카드로 묶기">소급 병합</button>
+    <button class="btn ghost" id="ver-split-btn" title="한 카드 안에 NAI 버전(V4.5·V5 등)이 섞여 있으면 버전별 카드로 분리">버전 분리</button>
     <button class="btn ghost" id="clear-filter-btn">필터 초기화</button>
     <div class="view-toggle">
       <button class="vt-btn active" data-view="default" title="기본 뷰 (3분할 편집)">기본</button>
@@ -501,7 +503,7 @@ const LB_MOBILE_MQ='(max-width:720px)';
    (WebP의 ALPH 청크는 무손실이라 RGB만 손실 압축되고 알파 비트는 보존됨) */
 const STEALTH_SIGS={'stealth_pnginfo':false,'stealth_pngcomp':true,'stealth_rgbinfo':false,'stealth_rgbcomp':true};
 const STEALTH_SIG_LEN=15;
-let state={items:[],selectedId:null,status:'전체',query:'',sort:'new',scoreFilter:'all',imgCountFilter:'all',favOnly:false,view:'default',tagFilter:[],loraFilter:[],genFilter:[],expandedIds:[]};
+let state={items:[],selectedId:null,status:'전체',query:'',sort:'new',scoreFilter:'all',imgCountFilter:'all',favOnly:false,view:'default',tagFilter:[],loraFilter:[],genFilter:[],naiVerFilter:[],expandedIds:[]};
 let selectMode=false;
 let selectedIds=new Set();
 const $=s=>document.querySelector(s);
@@ -531,6 +533,7 @@ function normalizeStateShape(s){
   if(!Array.isArray(s.tagFilter))s.tagFilter=[];
   if(!Array.isArray(s.loraFilter))s.loraFilter=[];
   if(!Array.isArray(s.genFilter))s.genFilter=[];
+  if(!Array.isArray(s.naiVerFilter))s.naiVerFilter=[];
   if(!s.artistAliases||typeof s.artistAliases!=='object')s.artistAliases={};
   if(!Array.isArray(s.artistPairsIgnored))s.artistPairsIgnored=[];
   if(!Array.isArray(s.expandedIds))s.expandedIds=[];
@@ -550,6 +553,7 @@ function stripUiState(s){
     tagFilter:Array.isArray(s.tagFilter)?s.tagFilter:[],
     loraFilter:Array.isArray(s.loraFilter)?s.loraFilter:[],
     genFilter:Array.isArray(s.genFilter)?s.genFilter:[],
+    naiVerFilter:Array.isArray(s.naiVerFilter)?s.naiVerFilter:[],
     artistAliases:(s.artistAliases&&typeof s.artistAliases==='object')?s.artistAliases:{},
     artistPairsIgnored:Array.isArray(s.artistPairsIgnored)?s.artistPairsIgnored:[],
     expandedIds:Array.isArray(s.expandedIds)?s.expandedIds:[],
@@ -563,6 +567,7 @@ function applyUiState(ui){
   if(Array.isArray(ui.tagFilter))state.tagFilter=ui.tagFilter;
   if(Array.isArray(ui.loraFilter))state.loraFilter=ui.loraFilter;
   if(Array.isArray(ui.genFilter))state.genFilter=ui.genFilter;
+  if(Array.isArray(ui.naiVerFilter))state.naiVerFilter=ui.naiVerFilter;
   if(ui.artistAliases&&typeof ui.artistAliases==='object')state.artistAliases=ui.artistAliases;
   if(Array.isArray(ui.artistPairsIgnored))state.artistPairsIgnored=ui.artistPairsIgnored;
   if(Array.isArray(ui.expandedIds))state.expandedIds=ui.expandedIds;
@@ -866,6 +871,28 @@ function genOf(it){
   if(!m.metaFound)return '';
   return String(m.source||'').startsWith('NovelAI')?'nai':'comfy';
 }
+/* ── NAI 버전 파생 (저장 안 함 → 기존 카드에도 소급 적용) ──
+   meta.model = PNG Source 청크 원문. 예: "NovelAI Diffusion V4.5 B9F340FD".
+   V3는 "Stable Diffusion XL [해시]" 표기라 별도 매핑. 미래 버전(V5 등)은 정규식이 자동으로 잡는다. */
+function naiVerFromModel(model){
+  const s=String(model||'');
+  let m=s.match(/NovelAI[^Vv]*V(\d+(?:\.\d+)?)/i);
+  if(!m)m=s.match(/\bV(\d+(?:\.\d+)?)\b/);
+  if(m)return 'V'+m[1];
+  if(/stable diffusion xl/i.test(s))return 'V3';
+  if(/stable diffusion/i.test(s))return 'V1·V2';
+  return '';
+}
+function naiVerOfMeta(m){
+  if(!m)return '';
+  const gen=m.gen||(String(m.source||'').startsWith('NovelAI')?'nai':'');
+  return gen==='nai'?naiVerFromModel(m.model):'';
+}
+/* 필터/칩용 키: NAI인데 버전을 못 읽으면 '기타' */
+function naiVerKey(it){
+  if(genOf(it)!=='nai')return '';
+  return naiVerOfMeta(it&&it.meta)||'기타';
+}
 async function makeThumb(file){
   const url=await readAsDataURL(file);
   return new Promise(resolve=>{
@@ -1038,6 +1065,7 @@ function filtered(){
     const icf=state.imgCountFilter; if(icf&&icf!=='all'){const n=imgCountOf(it); if(icf==='1'){if(n!==1)return false;} else if(n<Number(icf))return false;}
     if(state.tagFilter.length){const tags=(it.tags||[]); if(!state.tagFilter.every(t=>tags.includes(t)))return false;}
     if(state.genFilter.length&&!state.genFilter.includes(genKey(it)))return false;
+    if(state.naiVerFilter.length){const v=naiVerKey(it); if(!v||!state.naiVerFilter.includes(v))return false;}
     if(state.loraFilter.length){const lns=(it.meta?.loras||[]).map(l=>cleanLoraName(l.name)); if(!state.loraFilter.every(l=>lns.includes(l)))return false;}
     if(q){const m=it.meta||{}; const hay=[it.title,it.fileName,it.status,(it.tags||[]).join(' '),it.notes,m.model,(m.loras||[]).map(l=>l.name).join(' '),m.positive,m.negative].join(' ').toLowerCase(); if(!hay.includes(q))return false;}
     return true;
@@ -1062,7 +1090,7 @@ function cardHtml(it){
   const expanded=state.expandedIds.includes(it.id);
   const tagsArr=it.tags||[];
   const tagsMini=tagsArr.slice(0,5).map(t=>`<span class="tag-mini">#${esc(t)}</span>`).join('')+(tagsArr.length>5?`<span class="tag-mini">+${tagsArr.length-5}</span>`:'');
-  return `<article class="card ${it.id===state.selectedId?'active':''}${selectMode&&selectedIds.has(it.id)?' selected':''}" data-id="${it.id}"><div class="fav ${it.fav?'on':''}">${it.fav?'★':'☆'}</div><div class="thumb${it.thumbStripped?' stripped':''}">${it.thumb?`<img class="lazy-thumb" alt="" decoding="async">`:it.thumbStripped?'<span class="sync-noimg" title="원본 PNG를 다시 드롭하면 자동으로 채워져"><span class="sn-icon">☁</span>다른 기기에서<br>동기화됨<span class="sn-sub">원본 PNG 드롭 시 자동 매칭</span></span>':'<span class="noimg">이미지 없음</span>'}</div><div class="card-info"><div class="card-title">${esc(it.title)}</div><div class="card-meta"><span class="pill ${statusClass(it.status)}">${esc(it.status)}</span><span class="pill">${stars(it.score)}</span>${(g=>g?`<span class="pill meta ${g}">${g==='nai'?'NAI':'Comfy'}</span>`:'')(genOf(it))}${(n=>`<span class="pill imgs${n>1?' multi':''}" title="이미지 수 (대표+보조)">${n}장</span>`)(imgCountOf(it))}</div><div class="card-tags-mini">${tagsMini}</div><div class="card-note">${esc(it.notes||it.meta?.model||it.meta?.source||'메모 없음')}</div><button class="card-expand-btn" data-expand="${it.id}"><span class="ce-arrow">${expanded?'▴':'▾'}</span><span class="ce-label">${expanded?'정보 접기':'정보 보기'}</span></button><div class="card-expanded ${expanded?'open':''}"${expanded?' data-filled="1"':''} data-eid="${it.id}">${expanded?cardExpandedHTML(it):''}</div></div></article>`;
+  return `<article class="card ${it.id===state.selectedId?'active':''}${selectMode&&selectedIds.has(it.id)?' selected':''}" data-id="${it.id}"><div class="fav ${it.fav?'on':''}">${it.fav?'★':'☆'}</div><div class="thumb${it.thumbStripped?' stripped':''}">${it.thumb?`<img class="lazy-thumb" alt="" decoding="async">`:it.thumbStripped?'<span class="sync-noimg" title="원본 PNG를 다시 드롭하면 자동으로 채워져"><span class="sn-icon">☁</span>다른 기기에서<br>동기화됨<span class="sn-sub">원본 PNG 드롭 시 자동 매칭</span></span>':'<span class="noimg">이미지 없음</span>'}</div><div class="card-info"><div class="card-title">${esc(it.title)}</div><div class="card-meta"><span class="pill ${statusClass(it.status)}">${esc(it.status)}</span><span class="pill">${stars(it.score)}</span>${(g=>{if(!g)return '';const v=g==='nai'?naiVerKey(it):'';return `<span class="pill meta ${g}">${g==='nai'?('NAI'+(v&&v!=='기타'?' '+v:'')):'Comfy'}</span>`})(genOf(it))}${(n=>`<span class="pill imgs${n>1?' multi':''}" title="이미지 수 (대표+보조)">${n}장</span>`)(imgCountOf(it))}</div><div class="card-tags-mini">${tagsMini}</div><div class="card-note">${esc(it.notes||it.meta?.model||it.meta?.source||'메모 없음')}</div><button class="card-expand-btn" data-expand="${it.id}"><span class="ce-arrow">${expanded?'▴':'▾'}</span><span class="ce-label">${expanded?'정보 접기':'정보 보기'}</span></button><div class="card-expanded ${expanded?'open':''}"${expanded?' data-filled="1"':''} data-eid="${it.id}">${expanded?cardExpandedHTML(it):''}</div></div></article>`;
 }
 /* 펼침 영역 내부 버튼(프롬프트 복사·보조 승격·보조 삭제) 바인딩. scope는 카드 하나 또는 card-expanded 하나 */
 function bindExpandedControls(scope){
@@ -1374,7 +1402,10 @@ function itemArtists(it){return parseArtistTags(it&&it.meta&&it.meta.positive)}
    NAI의 "2.14::" 와 Comfy의 ":1.15" 는 가중치 스케일 자체가 달라 교차 비교가 무의미하기 때문. */
 function itemArtistSig(it){
   const sig=artistSignature(it&&it.meta&&it.meta.positive);
-  return sig?genOf(it)+'#'+sig:'';
+  if(!sig)return '';
+  const g=genOf(it);
+  // NAI는 버전까지 같아야 같은 조합으로 본다 (V4.5와 V5는 같은 작가라도 결과물이 다르므로 중복 아님)
+  return g==='nai'?g+'#'+(naiVerOfMeta(it.meta)||'?')+'#'+sig:g+'#'+sig;
 }
 /* ── 카드 병합 판정용 서명 ──
    NAI  : 작가 조합 + 가중치 (기존 itemArtistSig와 같은 키)
@@ -1389,7 +1420,7 @@ function comfyMergeSig(m){
 function mergeSigOfMeta(m){
   if(!m)return '';
   const gen=m.gen||(String(m.source||'').startsWith('NovelAI')?'nai':(m.metaFound?'comfy':''));
-  if(gen==='nai'){const sig=artistSignature(m.positive);return sig?'nai#'+sig:'';}
+  if(gen==='nai'){const sig=artistSignature(m.positive);return sig?'nai#'+(naiVerFromModel(m.model)||'?')+'#'+sig:'';} // 버전이 다르면 서명도 달라져 따로 묶임
   if(gen==='comfy'){const sig=comfyMergeSig(m);return sig?'comfy#'+sig:'';}
   return '';
 }
@@ -1463,6 +1494,63 @@ async function runMergeScan(){
   }
   toast(mergedGroups?`${mergedGroups}그룹 병합 · 카드 ${mergedCards}장을 보조로 묶었어${skippedGroups?` · ${skippedGroups}그룹 건너뜀`:''}`:'묶은 카드 없음');
 }
+/* ── 소급 버전 분리: 한 카드에 NAI 버전이 섞였으면 버전별 새 카드로 추출 ──
+   규칙: 자동 분리 없음, 카드마다 반드시 확인. 대표의 버전은 남고, 다른 버전 보조들만 빠져나간다.
+   버전을 못 읽는 보조(meta 유실 등)는 안전하게 원래 카드에 남긴다.
+   새 카드: 첫 보조가 대표, 나머지는 그 카드의 보조. 상태·점수·태그·메모는 원본에서 승계(즐겨찾기는 초기화).
+   태그 중 원본 대표의 model 문자열은 새 버전 model로 교체해 오표기를 막는다. */
+function subToNewItem(src,sb,restSubs){
+  const srcModel=src&&src.meta&&src.meta.model;
+  const tags=(src.tags||[]).filter(t=>!srcModel||t!==srcModel);
+  if(sb.meta&&sb.meta.model&&!tags.includes(sb.meta.model))tags.push(sb.meta.model);
+  const n={id:uid(),title:sb.fileName||(src.title||'분리된 카드'),fileName:sb.fileName||'',size:sb.size,type:'',fileHash:sb.fileHash,
+    createdAt:Date.now(),updatedAt:Date.now(),status:src.status,score:src.score,fav:false,
+    tags:uniq(tags),notes:src.notes||'',meta:sb.meta,subs:(restSubs||[]).slice()};
+  if(sb.thumbStripped){n.thumbStripped=true;}else{n.thumb=sb.thumb;}
+  return n;
+}
+async function runVerSplitScan(){
+  const jobs=[];
+  state.items.forEach(it=>{
+    if(genOf(it)!=='nai'||!(it.subs||[]).length)return;
+    const mainV=naiVerOfMeta(it.meta)||'기타';
+    const move=new Map(); // 버전 → 빠져나갈 보조들
+    (it.subs||[]).forEach(sb=>{
+      const v=sb&&naiVerOfMeta(sb.meta); // 못 읽으면 '' → 원래 카드에 남김
+      if(!v||v===mainV)return;
+      if(!move.has(v))move.set(v,[]);
+      move.get(v).push(sb);
+    });
+    if(move.size)jobs.push({it,mainV,move});
+  });
+  if(!jobs.length){toast('버전이 섞인 카드가 없어');return}
+  const totalOut=jobs.reduce((a,j)=>a+[...j.move.values()].reduce((x,l)=>x+l.length,0),0);
+  const start=await showConfirm(
+    `버전이 섞인 카드 ${jobs.length}장 발견 (분리 대상 보조 ${totalOut}장).\n카드마다 하나씩 물어볼게.\n\n· 대표의 버전은 그 카드에 남아\n· 다른 버전 보조들은 버전별 새 카드로 빠져나가\n· 새 카드는 상태·점수·태그·메모를 승계해 (즐겨찾기는 초기화)\n· 버전을 못 읽는 보조는 건드리지 않아`,
+    {confirmText:'시작',cancelText:'취소'});
+  if(!start)return;
+  let splitCards=0, newCards=0, skipped=0;
+  for(const {it,mainV,move} of jobs){
+    if(!state.items.includes(it))continue; // 진행 중 다른 경로로 삭제됐을 가능성 방어
+    const stay=(it.subs||[]).filter(sb=>{const v=sb&&naiVerOfMeta(sb.meta);return !v||v===mainV});
+    const groups=[{label:`남는 카드 (${mainV})`,color:'#8888CC',thumbs:[{t:it.thumb,cap:'대표'},...stay.map(s=>({t:s&&s.thumb,cap:s&&s.fileName||''}))]}];
+    for(const [v,list] of move)groups.push({label:`분리 → ${v} (${list.length}장, 첫 장이 대표)`,color:'#BB6688',thumbs:list.map(s=>({t:s.thumb,cap:s.fileName||''}))});
+    const ok=await showConfirm(
+      `"${it.title||it.fileName||'(제목 없음)'}"\n대표는 ${mainV}인데 다른 버전 보조가 섞여 있어.\n아래에서 눈으로 대조하고 결정해.\n\n${[...move.entries()].map(([v,l])=>`· ${v} → 새 카드 (${l.length}장)`).join('\n')}`,
+      {confirmText:'분리',cancelText:'건너뛰기',visualHTML:mergeVisualHTML(groups)});
+    if(!ok){skipped++;continue}
+    const moving=new Set(); move.forEach(list=>list.forEach(sb=>moving.add(sb)));
+    it.subs=(it.subs||[]).filter(sb=>!moving.has(sb));
+    it.updatedAt=Date.now();
+    const idx=state.items.indexOf(it);
+    const created=[];
+    for(const [,list] of move){created.push(subToNewItem(it,list[0],list.slice(1)));newCards++;}
+    state.items.splice(idx+1,0,...created); // 원본 바로 뒤에 끼워 맥락 유지
+    splitCards++;
+  }
+  if(splitCards){save();render();}
+  toast(splitCards?`${splitCards}장 분리 · 새 카드 ${newCards}장 생성${skipped?` · ${skipped}장 건너뜀`:''}`:'분리한 카드 없음');
+}
 function tagCounts(){const m=new Map();state.items.forEach(it=>(it.tags||[]).forEach(t=>{const k=String(t).trim();if(k)m.set(k,(m.get(k)||0)+1)}));return [...m.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'ko'))}
 function loraCounts(){const m=new Map();state.items.forEach(it=>((it.meta&&it.meta.loras)||[]).forEach(l=>{const n=cleanLoraName(l.name);if(n)m.set(n,(m.get(n)||0)+1)}));return [...m.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'ko'))}
 /* 카드의 총 이미지 수 = 대표 1 + 보조 (동기화 껍데기도 이미지로 센다) */
@@ -1474,8 +1562,25 @@ function renderGenChips(){
   const box=$('#gen-chips');if(!box)return;
   const counts=genCounts();
   const defs=[['comfy','Comfy'],['nai','NAI'],['none','메타없음']].filter(([g])=>counts.get(g));
-  box.innerHTML=defs.length?defs.map(([g,label])=>`<button class="fchip gen-${g} ${state.genFilter.includes(g)?'active':''}" data-gen="${g}">${label}<span class="fc-count">${counts.get(g)}</span></button>`).join(''):'<span class="chip-empty">카드 없음 — ComfyUI 또는 NovelAI 원본 PNG를 추가해봐</span>';
+  let html=defs.length?defs.map(([g,label])=>`<button class="fchip gen-${g} ${state.genFilter.includes(g)?'active':''}" data-gen="${g}">${label}<span class="fc-count">${counts.get(g)}</span></button>`).join(''):'<span class="chip-empty">카드 없음 — ComfyUI 또는 NovelAI 원본 PNG를 추가해봐</span>';
+  // ── NAI 버전 칩: NAI 카드가 있을 때만. 정렬은 높은 버전 먼저, '기타'는 맨 뒤 ──
+  const verCounts=new Map();
+  state.items.forEach(it=>{const v=naiVerKey(it); if(v)verCounts.set(v,(verCounts.get(v)||0)+1)});
+  if(verCounts.size){
+    const vs=[...verCounts.entries()].sort((a,b)=>{
+      if(a[0]==='기타')return 1; if(b[0]==='기타')return -1;
+      return b[0].localeCompare(a[0],'en',{numeric:true});
+    });
+    html+=vs.map(([v,n])=>`<button class="fchip nver ${state.naiVerFilter.includes(v)?'active':''}" data-nver="${esc(v)}" title="NAI ${esc(v)} 카드만 보기">${esc(v)}<span class="fc-count">${n}</span></button>`).join('');
+  }
+  box.innerHTML=html;
   box.querySelectorAll('.fchip').forEach(c=>c.onclick=()=>{
+    if(c.dataset.nver!==undefined){
+      const v=c.dataset.nver;
+      const i=state.naiVerFilter.indexOf(v);
+      if(i>=0)state.naiVerFilter.splice(i,1); else state.naiVerFilter.push(v);
+      save();render();return;
+    }
     const g=c.dataset.gen;
     const i=state.genFilter.indexOf(g);
     if(i>=0)state.genFilter.splice(i,1); else state.genFilter.push(g);
@@ -1569,7 +1674,7 @@ function renderDupScan(){
       }).join('');
       return `<div class="ds-group">
         <div class="ds-artists" style="display:flex;gap:8px;align-items:flex-start">
-          <span style="flex:1">그룹 ${gi+1} · 작가 ${itemArtists(arr[0]).length}명 · 카드 ${arr.length}장<br>${names}</span>
+          <span style="flex:1">그룹 ${gi+1} · 작가 ${itemArtists(arr[0]).length}명 · 카드 ${arr.length}장${(v=>v?` · <span style="color:#CCAA88;font-weight:700">${esc(v)}</span>`:'')(naiVerKey(arr[0]))}<br>${names}</span>
           <button class="ds-toggle" data-g="${gi}">원문 대조 ▾</button>
         </div>
         <div class="ds-tiles">${tiles}</div>
@@ -2053,7 +2158,7 @@ document.addEventListener('click',e=>{const m=$('#ctx-menu');if(m&&!m.contains(e
 document.addEventListener('contextmenu',e=>{if(selectMode)return;if(e.target.closest('input,textarea,select'))return;const card=e.target.closest('#list .card');const main=e.target.closest('main.panel');if(card){e.preventDefault();const it=state.items.find(x=>x.id===card.dataset.id);if(it)openCtxMenu(e.clientX,e.clientY,cardMenuItems(it))}else if(main){e.preventDefault();openCtxMenu(e.clientX,e.clientY,boardMenuItems())}});
 let lastTap={t:0,x:0,y:0};document.addEventListener('touchend',e=>{if(selectMode)return;if(!e.changedTouches||!e.changedTouches[0])return;const t=e.changedTouches[0],now=Date.now(),dt=now-lastTap.t,dx=Math.abs(t.clientX-lastTap.x),dy=Math.abs(t.clientY-lastTap.y);if(dt<350&&dx<25&&dy<25){if(t.target.closest&&t.target.closest('input,textarea,select,button,a'))return;const card=t.target.closest&&t.target.closest('#list .card');const main=t.target.closest&&t.target.closest('main.panel');if(card){const it=state.items.find(x=>x.id===card.dataset.id);if(it){e.preventDefault();openCtxMenu(t.clientX,t.clientY,cardMenuItems(it))}}else if(main){e.preventDefault();openCtxMenu(t.clientX,t.clientY,boardMenuItems())}lastTap.t=0}else lastTap={t:now,x:t.clientX,y:t.clientY}},{passive:false});
 
-$('#pick-btn').onclick=()=>$('#file-input').click();$('#file-input').onchange=e=>addFiles(e.target.files);$('#export-btn').onclick=exportData;$('#import-btn').onclick=()=>$('#import-input').click();$('#import-input').onchange=e=>{if(e.target.files[0])importData(e.target.files[0])};$('#clear-filter-btn').onclick=()=>{state.status='전체';state.query='';state.scoreFilter='all';state.imgCountFilter='all';state.favOnly=false;state.tagFilter=[];state.loraFilter=[];state.genFilter=[];save();render()};
+$('#pick-btn').onclick=()=>$('#file-input').click();$('#file-input').onchange=e=>addFiles(e.target.files);$('#export-btn').onclick=exportData;$('#import-btn').onclick=()=>$('#import-input').click();$('#import-input').onchange=e=>{if(e.target.files[0])importData(e.target.files[0])};$('#clear-filter-btn').onclick=()=>{state.status='전체';state.query='';state.scoreFilter='all';state.imgCountFilter='all';state.favOnly=false;state.tagFilter=[];state.loraFilter=[];state.genFilter=[];state.naiVerFilter=[];save();render()};
 $('#search').oninput=e=>{state.query=e.target.value;save();render()};$('#search-clear').onclick=()=>{state.query='';save();render()};$('#sort-select').onchange=e=>{state.sort=e.target.value;save();render()};$('#score-filter').onchange=e=>{state.scoreFilter=e.target.value;save();render()};$('#imgcount-filter').onchange=e=>{state.imgCountFilter=e.target.value;save();render()};$('#fav-only').onchange=e=>{state.favOnly=e.target.checked;save();render()};
 $('#save-detail-btn').onclick=saveDetail;['#d-title','#d-status','#d-score','#d-tags','#d-notes'].forEach(s=>$(s).addEventListener('change',saveDetail));$('#copy-positive-btn').onclick=()=>{navigator.clipboard.writeText(current()?.meta?.positive||'');toast('Positive 복사했어')};$('#copy-negative-btn').onclick=()=>{navigator.clipboard.writeText(current()?.meta?.negative||'');toast('Negative 복사했어')};$('#toggle-fav-btn').onclick=()=>{const it=current();if(!it)return;it.fav=!it.fav;save();render()};$('#delete-btn').onclick=async()=>{const it=current();if(!it)return;if(!await showConfirm('이 결과를 삭제할까? 원본 파일은 삭제되지 않아.',{danger:true}))return;state.items=state.items.filter(x=>x.id!==it.id);state.selectedId=state.items[0]?.id||null;save();render();toast('삭제했어')};$('#open-lightbox-btn').onclick=openLightbox;bindLightbox();
 /* === patch: 오버레이 바인딩 === */
@@ -2065,6 +2170,7 @@ $('#d-img').onclick=()=>openLightbox(); // 상세/오버레이 미리보기 → 
 $('#artist-export-btn').onclick=exportArtistTxt;
 $('#dup-scan-btn').onclick=openDupScan;
 $('#merge-scan-btn').onclick=runMergeScan;
+$('#ver-split-btn').onclick=runVerSplitScan;
 $('#sim-scan-btn').onclick=openSimScan;
 $('#sim-close').onclick=closeSimScan;
 $('#sim-reset').onclick=resetArtistMerges;
@@ -2295,6 +2401,7 @@ function showSlotPicker(slots, token, gistId){
       if(!Array.isArray(state.tagFilter)) state.tagFilter=[];
       if(!Array.isArray(state.loraFilter)) state.loraFilter=[];
       if(!Array.isArray(state.genFilter)) state.genFilter=[];
+      if(!Array.isArray(state.naiVerFilter)) state.naiVerFilter=[];
       if(!Array.isArray(state.expandedIds)) state.expandedIds=[];
       // 매칭되는 로컬 썸네일 복구
       let restored=0;
