@@ -174,6 +174,22 @@ body.lb-open{overflow:hidden}
 @media(max-width:720px){#app{padding:.75rem .8rem 2rem}.split{grid-template-columns:1fr}.toolbar{width:100%}.btn{padding:7px 10px}.panel-body{padding:10px}.logo{width:100%;margin-bottom:2px}#list{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.card-info{padding:8px}.row{flex-direction:column;align-items:stretch}.kv{grid-template-columns:78px 1fr}.preview-img{max-height:70vh;overflow:auto}}
 @media(max-width:380px){#list{grid-template-columns:1fr}}
 /* 커스텀 confirm/alert 모달 — 네이티브 confirm 대체 (포커스 먹통 해결) */
+/* === 병합/붙이기 모달 전용 확대 뷰 (모달 위에 덮인다) === */
+.cmv-item[data-cmv]{cursor:zoom-in}
+#cmv-zoom{position:fixed;inset:0;z-index:10090;background:rgba(0,0,0,.92);display:none;align-items:center;justify-content:center;padding:22px 54px 64px;touch-action:none}
+#cmv-zoom.open{display:flex}
+#cz-img{max-width:100%;max-height:100%;object-fit:contain;border-radius:8px;display:block}
+#cz-noimg{color:#DDAACC;font-size:13px;display:none;text-align:center;line-height:1.7}
+.cz-nav{position:absolute;top:50%;transform:translateY(-50%);width:42px;height:64px;border:0;border-radius:10px;background:rgba(255,255,255,.10);color:#fff;font-size:26px;line-height:1;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center}
+.cz-nav:hover{background:rgba(136,136,204,.55)}
+.cz-nav.prev{left:8px}.cz-nav.next{right:8px}
+.cz-close{position:absolute;right:10px;top:10px;width:36px;height:36px;border:0;border-radius:50%;background:rgba(255,255,255,.12);color:#fff;font-size:16px;cursor:pointer;font-family:inherit}
+.cz-close:hover{background:#BB6688}
+.cz-bar{position:absolute;left:0;right:0;bottom:0;padding:11px 16px;display:flex;align-items:center;gap:10px;background:rgba(0,0,0,.55);font-size:12px;color:#DDAACC}
+#cz-label{font-weight:800;flex-shrink:0}
+#cz-cap{color:#fff;opacity:.8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+#cz-count{flex-shrink:0;font-weight:700;color:#CCAA88}
+@media(max-width:720px){#cmv-zoom{padding:12px 8px 58px}.cz-nav{width:34px;height:56px;font-size:22px;background:rgba(255,255,255,.16)}.cz-bar{font-size:11px;padding:9px 12px;gap:7px}}
 #confirm-overlay{position:fixed;inset:0;z-index:10080;background:rgba(0,0,0,0.55);display:none;align-items:center;justify-content:center;padding:20px}
 #confirm-overlay.open{display:flex}
 .confirm-modal{background:var(--bg);border:.5px solid var(--border2);border-radius:var(--radius);padding:22px;width:min(460px,100%);max-height:min(80dvh,700px);display:flex;flex-direction:column;gap:18px;box-shadow:0 12px 40px rgba(0,0,0,0.3)}
@@ -306,6 +322,7 @@ body.eo-open{overflow:hidden}
     <button class="btn ghost" id="sim-scan-btn" title="오타로 갈라진 작가명 통합">유사 작가</button>
     <button class="btn ghost" id="dup-scan-btn" title="작가 조합(가중치 포함)이 같은 카드 찾기">중복 검사</button>
     <button class="btn ghost" id="merge-scan-btn" title="같은 조합(NAI: 작가+가중치 / Comfy: 프롬프트+LoRA) 카드를 한 카드로 묶기">소급 병합</button>
+    <button class="btn ghost" id="merge-reset-btn" title="소급 병합에서 '건너뛰기'로 제외해둔 카드 짝 기록을 전부 지워">제외 기록 초기화</button>
     <button class="btn ghost" id="ver-split-btn" title="한 카드 안에 NAI 버전(V4.5·V5 등)이 섞여 있으면 버전별 카드로 분리">버전 분리</button>
     <button class="btn ghost" id="clear-filter-btn">필터 초기화</button>
     <div class="view-toggle">
@@ -427,6 +444,14 @@ body.eo-open{overflow:hidden}
   </div>
 </div>
 
+<div id="cmv-zoom" aria-hidden="true">
+  <button class="cz-close" id="cz-close" type="button" title="닫기 (Esc)">✕</button>
+  <button class="cz-nav prev" id="cz-prev" type="button" title="이전 (←)">‹</button>
+  <img id="cz-img" alt="">
+  <div id="cz-noimg">☁ 다른 기기에서 동기화됨<br>원본 PNG를 드롭하면 채워져</div>
+  <button class="cz-nav next" id="cz-next" type="button" title="다음 (→)">›</button>
+  <div class="cz-bar"><span id="cz-label"></span><span id="cz-cap"></span><span id="cz-count"></span></div>
+</div>
 <div id="lightbox" aria-hidden="true">
   <div class="lb-shell">
     <button class="lb-close" type="button" id="lb-close" title="닫기">×</button>
@@ -504,7 +529,7 @@ const LB_MOBILE_MQ='(max-width:720px)';
    (WebP의 ALPH 청크는 무손실이라 RGB만 손실 압축되고 알파 비트는 보존됨) */
 const STEALTH_SIGS={'stealth_pnginfo':false,'stealth_pngcomp':true,'stealth_rgbinfo':false,'stealth_rgbcomp':true};
 const STEALTH_SIG_LEN=15;
-let state={items:[],selectedId:null,status:'전체',query:'',sort:'new',scoreFilter:'all',imgCountFilter:'all',favOnly:false,view:'default',tagFilter:[],loraFilter:[],genFilter:[],naiVerFilter:[],expandedIds:[]};
+let state={items:[],selectedId:null,status:'전체',query:'',sort:'new',scoreFilter:'all',imgCountFilter:'all',favOnly:false,view:'default',tagFilter:[],loraFilter:[],genFilter:[],naiVerFilter:[],expandedIds:[],mergePairsIgnored:[]};
 let selectMode=false;
 let selectedIds=new Set();
 const $=s=>document.querySelector(s);
@@ -543,7 +568,7 @@ async function gunzipFromB64(b64){
 }
 function uniq(a){return [...new Set((a||[]).map(x=>String(x).trim()).filter(Boolean))]}
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),1700)}
-function showModal({message,danger,confirmText,cancelText,thirdText,alert,visualHTML}){return new Promise(resolve=>{const ov=$('#confirm-overlay'),msgEl=$('#confirm-message'),okBtn=$('#confirm-ok'),cancelBtn=$('#confirm-cancel'),thirdBtn=$('#confirm-third');msgEl.textContent=message;const visEl=$('#confirm-visual');if(visEl){visEl.innerHTML=visualHTML||'';visEl.style.display=visualHTML?'':'none';}okBtn.textContent=confirmText||'확인';okBtn.className='cm-btn '+(danger?'cm-danger':'cm-accent');cancelBtn.textContent=cancelText||'취소';cancelBtn.style.display=alert?'none':'';if(thirdBtn){thirdBtn.textContent=thirdText||'';thirdBtn.style.display=(thirdText&&!alert)?'':'none';}ov.classList.add('open');okBtn.focus();function done(val){ov.classList.remove('open');if(visEl){visEl.innerHTML='';visEl.style.display='none';}okBtn.onclick=null;cancelBtn.onclick=null;if(thirdBtn){thirdBtn.onclick=null;thirdBtn.style.display='none';}ov.onclick=null;document.removeEventListener('keydown',onKey,true);resolve(val)}function onKey(e){if(e.key==='Enter'){e.preventDefault();e.stopPropagation();done(true)}else if(e.key==='Escape'){e.preventDefault();e.stopPropagation();done(alert?true:false)}}okBtn.onclick=()=>done(true);cancelBtn.onclick=()=>done(false);if(thirdBtn)thirdBtn.onclick=()=>done('third');ov.onclick=e=>{if(e.target===ov)done(alert?true:false)};document.addEventListener('keydown',onKey,true)})}
+function showModal({message,danger,confirmText,cancelText,thirdText,alert,visualHTML}){return new Promise(resolve=>{const ov=$('#confirm-overlay'),msgEl=$('#confirm-message'),okBtn=$('#confirm-ok'),cancelBtn=$('#confirm-cancel'),thirdBtn=$('#confirm-third');msgEl.textContent=message;const visEl=$('#confirm-visual');if(visEl){visEl.innerHTML=visualHTML||'';visEl.style.display=visualHTML?'':'none';}okBtn.textContent=confirmText||'확인';okBtn.className='cm-btn '+(danger?'cm-danger':'cm-accent');cancelBtn.textContent=cancelText||'취소';cancelBtn.style.display=alert?'none':'';if(thirdBtn){thirdBtn.textContent=thirdText||'';thirdBtn.style.display=(thirdText&&!alert)?'':'none';}ov.classList.add('open');okBtn.focus();function done(val){closeCmvZoom();ov.classList.remove('open');if(visEl){visEl.innerHTML='';visEl.style.display='none';}okBtn.onclick=null;cancelBtn.onclick=null;if(thirdBtn){thirdBtn.onclick=null;thirdBtn.style.display='none';}ov.onclick=null;document.removeEventListener('keydown',onKey,true);resolve(val)}function onKey(e){if(e.key==='Enter'){e.preventDefault();e.stopPropagation();done(true)}else if(e.key==='Escape'){e.preventDefault();e.stopPropagation();done(alert?true:false)}}okBtn.onclick=()=>done(true);cancelBtn.onclick=()=>done(false);if(thirdBtn)thirdBtn.onclick=()=>done('third');ov.onclick=e=>{if(e.target===ov)done(alert?true:false)};document.addEventListener('keydown',onKey,true)})}
 function showConfirm(message,opts={}){return showModal({message,danger:opts.danger,confirmText:opts.confirmText,cancelText:opts.cancelText,thirdText:opts.thirdText,visualHTML:opts.visualHTML})}
 function showAlert(message,opts={}){return showModal({message,alert:true,confirmText:opts.confirmText||'확인'})}
 
@@ -565,6 +590,7 @@ function normalizeStateShape(s){
   if(!Array.isArray(s.naiVerFilter))s.naiVerFilter=[];
   if(!s.artistAliases||typeof s.artistAliases!=='object')s.artistAliases={};
   if(!Array.isArray(s.artistPairsIgnored))s.artistPairsIgnored=[];
+  if(!Array.isArray(s.mergePairsIgnored))s.mergePairsIgnored=[]; // 소급 병합에서 '건너뛰기'한 카드 짝 (id1|id2)
   if(!Array.isArray(s.expandedIds))s.expandedIds=[];
   return s;
 }
@@ -585,6 +611,7 @@ function stripUiState(s){
     naiVerFilter:Array.isArray(s.naiVerFilter)?s.naiVerFilter:[],
     artistAliases:(s.artistAliases&&typeof s.artistAliases==='object')?s.artistAliases:{},
     artistPairsIgnored:Array.isArray(s.artistPairsIgnored)?s.artistPairsIgnored:[],
+    mergePairsIgnored:Array.isArray(s.mergePairsIgnored)?s.mergePairsIgnored:[],
     expandedIds:Array.isArray(s.expandedIds)?s.expandedIds:[],
     savedAt:new Date().toISOString()
   };
@@ -599,6 +626,7 @@ function applyUiState(ui){
   if(Array.isArray(ui.naiVerFilter))state.naiVerFilter=ui.naiVerFilter;
   if(ui.artistAliases&&typeof ui.artistAliases==='object')state.artistAliases=ui.artistAliases;
   if(Array.isArray(ui.artistPairsIgnored))state.artistPairsIgnored=ui.artistPairsIgnored;
+  if(Array.isArray(ui.mergePairsIgnored))state.mergePairsIgnored=ui.mergePairsIgnored;
   if(Array.isArray(ui.expandedIds))state.expandedIds=ui.expandedIds;
 }
 function saveUiState(){try{localStorage.setItem(UI_STORE_KEY,JSON.stringify(stripUiState(state)))}catch(e){console.warn('UI 상태 저장 실패',e)}}
@@ -962,6 +990,26 @@ async function processFile(file,buffer){
   const tags=[]; if(meta.model)tags.push(meta.model.replace(/\.(safetensors|ckpt)$/i,'')); (meta.loras||[]).slice(0,4).forEach(l=>tags.push(l.name.replace(/\.(safetensors|ckpt)$/i,'')));
   return {id:uid(),title:file.name,fileName:file.name,size:file.size,type:file.type||'',fileHash,thumb:img.thumb,createdAt:Date.now(),updatedAt:Date.now(),status:'보류',score:0,fav:false,tags:uniq(tags),notes:'',meta};
 }
+/* ── 신규 카드로 투입 ──
+   같은 조합 2장 이상이면 "한 카드로 묶을까?"를 반드시 한 번 묻는다.
+   기존 카드에 '붙이기'를 거절한 경우에도 이 경로를 타야 낱장으로 흩어지지 않는다.
+   (NAI 서버 변경처럼 서명이 같은데 그림체만 달라진 묶음을 손으로 가를 때 필요)
+   반환값은 보조로 들어간 장수. */
+async function pushAsNewCards(list,singles){
+  if(list.length>1){
+    const bundle=await showConfirm(`이번에 넣은 ${list.length}장이 서로 같은 조합이야.\n한 카드로 묶을까? (첫 장이 대표가 돼)`,{confirmText:'한 카드로',cancelText:'각각 새 카드',visualHTML:mergeVisualHTML([
+      {label:`묶일 이미지 ${list.length}장 (첫 장이 대표)`,color:'#8888CC',thumbs:list.map((x,i)=>({t:x.thumb,cap:i===0?'대표':x.fileName}))}
+    ])});
+    if(bundle){
+      const head=list[0];
+      head.subs=list.slice(1).map(itemToSub);
+      singles.push(head);
+      return list.length-1;
+    }
+  }
+  singles.push(...list);
+  return 0;
+}
 async function addFiles(files){
   const arr=[...files].filter(f=>f && (f.type.startsWith('image/') || /\.(png|jpe?g|webp)$/i.test(f.name)));
   if(!arr.length){toast('이미지 파일이 없어');return}
@@ -1062,18 +1110,10 @@ async function addFiles(files){
         target.updatedAt=Date.now();
         continue;
       }
-      singles.push(...list);
-    } else if(list.length>1){
-      const bundle=await showConfirm(`이번에 넣은 ${list.length}장이 서로 같은 조합이야.\n한 카드로 묶을까? (첫 장이 대표가 돼)`,{confirmText:'한 카드로',cancelText:'각각 새 카드',visualHTML:mergeVisualHTML([
-        {label:`묶일 이미지 ${list.length}장 (첫 장이 대표)`,color:'#8888CC',thumbs:list.map((x,i)=>({t:x.thumb,cap:i===0?'대표':x.fileName}))}
-      ])});
-      if(bundle){
-        const head=list[0];
-        head.subs=list.slice(1).map(itemToSub);
-        merged+=list.length-1;
-        singles.push(head);
-      } else singles.push(...list);
-    } else singles.push(...list);
+      merged+=await pushAsNewCards(list,singles); // '새 카드로'여도 2장 이상이면 묶을지 한 번 더 묻는다
+    } else {
+      merged+=await pushAsNewCards(list,singles);
+    }
   }
   for(const ni of singles){state.items.unshift(ni);ok++;}
   state.selectedId=state.items[0]?.id||null;
@@ -1501,13 +1541,64 @@ function mergeSigOfItem(it){return mergeSigOfMeta(it&&it.meta)}
 /* ── 병합 확인 모달용 썸네일 비교 HTML ──
    groups: [{label, color?, thumbs:[{t, cap?}]}]  · t 없으면 ☁(동기화 껍데기) 표시
    그림체가 실제로 같은지 눈으로 대조하고 결정하라는 용도. 최대 12칸 + "+N" 표기. */
+let cmvZoomList=[], cmvZoomPos=-1;
+let cmvTouchX=0, cmvTouchY=0, cmvSwiped=false; // 스와이프 판정용 (성공 시 뒤따르는 click으로 닫히는 것 방지)
 function mergeVisualHTML(groups){
+  /* 확대 뷰용 평탄 목록. 화면엔 그룹당 12장까지만 그리지만 목록엔 전부 담아
+     '+N'으로 접힌 것들도 좌우 이동으로 볼 수 있게 한다. 이 모달이 들고 있는 이미지만 담는다. */
+  cmvZoomList=[]; cmvZoomPos=-1;
+  groups.forEach(g=>{(g.thumbs||[]).forEach(x=>cmvZoomList.push({t:x.t,cap:x.cap||'',label:g.label||'',color:g.color||'#8888CC'}))});
+  let base=0;
   return '<div class="cmv">'+groups.map(g=>{
     const thumbs=g.thumbs||[];
+    const start=base; base+=thumbs.length;
     const shown=thumbs.slice(0,12);
     const more=thumbs.length-shown.length;
-    return `<div class="cmv-group"><div class="cmv-label" style="color:${g.color||'#8888CC'}">${esc(g.label)}</div><div class="cmv-grid">${shown.map(x=>`<div class="cmv-item"${x.cap?` title="${esc(x.cap)}"`:''}>${x.t?`<img src="${x.t}" alt="">`:'<span class="cmv-noimg" title="다른 기기에서 동기화됨">☁</span>'}${x.cap?`<span class="cmv-cap">${esc(x.cap)}</span>`:''}</div>`).join('')}${more>0?`<div class="cmv-item cmv-more">+${more}</div>`:''}</div></div>`;
+    return `<div class="cmv-group"><div class="cmv-label" style="color:${g.color||'#8888CC'}">${esc(g.label)}</div><div class="cmv-grid">${shown.map((x,i)=>`<div class="cmv-item" data-cmv="${start+i}"${x.cap?` title="${esc(x.cap)}"`:''}>${x.t?`<img src="${x.t}" alt="">`:'<span class="cmv-noimg" title="다른 기기에서 동기화됨">☁</span>'}${x.cap?`<span class="cmv-cap">${esc(x.cap)}</span>`:''}</div>`).join('')}${more>0?`<div class="cmv-item cmv-more" data-cmv="${start+shown.length}" title="접힌 ${more}장부터 크게 보기">+${more}</div>`:''}</div></div>`;
   }).join('')+'</div>';
+}
+/* ── 모달 전용 확대 뷰 ──
+   기존 라이트박스는 z-index가 모달보다 낮고 state.items를 조회하므로 신규 이미지에 못 쓴다.
+   키 입력은 window 캡처로 잡아 showModal의 document 캡처 핸들러보다 먼저 가로챈다
+   (Esc로 확대만 닫히고 모달은 살아남아야 하므로). */
+function renderCmvZoom(){
+  const e=cmvZoomList[cmvZoomPos]; if(!e)return;
+  const img=$('#cz-img'), no=$('#cz-noimg');
+  if(e.t){img.src=e.t;img.style.display='';no.style.display='none';}
+  else{img.removeAttribute('src');img.style.display='none';no.style.display='block';}
+  const lb=$('#cz-label'); lb.textContent=e.label||''; lb.style.color=e.color||'#8888CC';
+  $('#cz-cap').textContent=e.cap||'';
+  $('#cz-count').textContent=(cmvZoomPos+1)+' / '+cmvZoomList.length;
+  const multi=cmvZoomList.length>1;
+  $('#cz-prev').style.display=multi?'':'none';
+  $('#cz-next').style.display=multi?'':'none';
+}
+function cmvZoomStep(d){
+  if(cmvZoomPos<0||!cmvZoomList.length)return;
+  cmvZoomPos=(cmvZoomPos+d+cmvZoomList.length)%cmvZoomList.length;
+  renderCmvZoom();
+}
+function openCmvZoom(i){
+  if(!cmvZoomList.length)return;
+  cmvZoomPos=Math.max(0,Math.min(cmvZoomList.length-1,Number(i)||0));
+  renderCmvZoom();
+  const box=$('#cmv-zoom'); if(!box)return;
+  box.classList.add('open'); box.setAttribute('aria-hidden','false');
+  window.addEventListener('keydown',cmvZoomKey,true);
+}
+function closeCmvZoom(){
+  const box=$('#cmv-zoom');
+  if(box&&box.classList.contains('open')){box.classList.remove('open');box.setAttribute('aria-hidden','true');}
+  cmvZoomPos=-1;
+  const img=$('#cz-img'); if(img)img.removeAttribute('src');
+  window.removeEventListener('keydown',cmvZoomKey,true);
+}
+function cmvZoomKey(e){
+  if(cmvZoomPos<0)return;
+  if(['Escape','ArrowLeft','ArrowRight','Enter'].includes(e.key)){e.preventDefault();e.stopPropagation();}
+  if(e.key==='Escape')closeCmvZoom();
+  else if(e.key==='ArrowLeft')cmvZoomStep(-1);
+  else if(e.key==='ArrowRight')cmvZoomStep(1);
 }
 function cardVisualThumbs(it){ // 카드의 대표 + 보조 전부
   return [{t:it.thumb,cap:''},...(it.subs||[]).map(s=>({t:s&&s.thumb,cap:''}))];
@@ -1519,53 +1610,105 @@ function itemToSub(x){
   if(x.thumbStripped){sub.thumbStripped=true;delete sub.thumb;}
   return sub;
 }
+/* ── 병합 제외 짝 기록 ──
+   소급 병합에서 '건너뛰기'한 카드들끼리는 다시 묻지 않는다.
+   그룹 통째가 아니라 '짝' 단위로 기억해서, 나중에 같은 조합 카드가 새로 생겨도
+   이미 거절한 짝만 건너뛰고 새로 등장한 짝은 정상적으로 물어본다. */
+function mergePairKey(a,b){return String(a)<String(b)?a+'|'+b:b+'|'+a}
+function mergeIgnoreSet(){return new Set(state.mergePairsIgnored||[])}
+/* 그룹 안의 모든 짝을 기록 (A·B·C → A-B, A-C, B-C) */
+function recordIgnoredPairs(cards,set){
+  for(let i=0;i<cards.length;i++)for(let j=i+1;j<cards.length;j++)set.add(mergePairKey(cards[i].id,cards[j].id));
+}
 /* ── 소급 병합: 이미 쌓인 카드들을 같은 조합끼리 묶는다 ──
    규칙: 자동 병합 없음, 그룹마다 반드시 확인.
    대표 = 가장 먼저 만든 카드(createdAt 최소). 묶이는 카드의 태그는 합집합, 메모는 이어붙임,
    즐겨찾기는 하나라도 켜져 있으면 유지. 상태·점수는 대표 카드 것을 따른다. */
 async function runMergeScan(){
+  let dirty=false;
+  const alive=new Set(state.items.map(it=>it.id));
+  if((state.mergePairsIgnored||[]).length){ // 삭제·병합으로 사라진 카드의 짝 기록은 청소
+    const kept=state.mergePairsIgnored.filter(k=>{const a=String(k).split('|');return alive.has(a[0])&&alive.has(a[1])});
+    if(kept.length!==state.mergePairsIgnored.length){state.mergePairsIgnored=kept;dirty=true;}
+  }
+  const ignored=mergeIgnoreSet();
   const groups=new Map();
   state.items.forEach(it=>{
     const sig=mergeSigOfItem(it); if(!sig)return;
     if(!groups.has(sig))groups.set(sig,[]);
     groups.get(sig).push(it);
   });
-  const targets=[...groups.values()].filter(g=>g.length>1);
-  if(!targets.length){toast('같은 조합으로 묶일 카드가 없어');return}
+  // 짝이 전부 제외 기록에 걸린 그룹은 물어볼 게 없으니 후보에서 뺀다
+  const targets=[...groups.values()].filter(g=>g.length>1&&g.some((a,i)=>g.some((b,j)=>j>i&&!ignored.has(mergePairKey(a.id,b.id)))));
+  const hidden=(state.mergePairsIgnored||[]).length;
+  if(!targets.length){
+    if(dirty)save();
+    toast(hidden?`묶을 카드가 없어 (제외 기록 ${hidden}건)`:'같은 조합으로 묶일 카드가 없어');return;
+  }
   const total=targets.reduce((a,g)=>a+g.length,0);
   const start=await showConfirm(
-    `같은 조합 그룹 ${targets.length}개 (카드 ${total}장) 발견.\n그룹마다 하나씩 물어볼게.\n\n· 가장 먼저 만든 카드가 대표가 돼\n· 묶이는 카드의 태그는 대표에 합쳐지고, 메모는 이어 붙여져\n· 묶이는 카드의 상태·점수는 사라지고 대표 것을 따라가`,
+    `같은 조합 그룹 ${targets.length}개 (카드 ${total}장) 발견.${hidden?`\n이미 제외해둔 짝 ${hidden}건은 빼고 물어볼게.`:''}\n하나씩 물어볼게.\n\n· 가장 먼저 만든 카드가 대표가 돼\n· 묶이는 카드의 태그는 대표에 합쳐지고, 메모는 이어 붙여져\n· 묶이는 카드의 상태·점수는 사라지고 대표 것을 따라가\n· 건너뛴 짝은 기억해서 다음부터 안 물어봐`,
     {confirmText:'시작',cancelText:'취소'});
-  if(!start)return;
-  let mergedCards=0, mergedGroups=0, skippedGroups=0;
+  if(!start){ if(dirty)save(); return; }
+  let mergedCards=0, mergedCount=0, skipped=0, newIgnored=0;
   for(const g of targets){
     g.sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
-    const head=g[0], rest=g.slice(1);
-    const names=rest.slice(0,6).map(x=>'· '+(x.title||x.fileName||'(제목 없음)')).join('\n')+(rest.length>6?`\n... 외 ${rest.length-6}장`:'');
-    const ok=await showConfirm(`대표: "${head.title||head.fileName||'(제목 없음)'}"\n그림체가 맞는지 아래에서 눈으로 대조해봐.\n\n다음 ${rest.length}장을 이 카드의 보조로 붙일까?\n${names}`,{confirmText:'붙이기',cancelText:'건너뛰기',visualHTML:mergeVisualHTML([
-      {label:'대표 카드 (대표+보조)',color:'#8888CC',thumbs:cardVisualThumbs(head)},
-      {label:`붙일 카드 ${rest.length}장`,color:'#BB6688',thumbs:rest.map(x=>({t:x.thumb,cap:x.title||x.fileName||''}))}
-    ])});
-    if(!ok){skippedGroups++;continue}
-    head.subs=head.subs||[];
-    rest.forEach(x=>{
-      head.subs.push(itemToSub(x));
-      (x.subs||[]).forEach(sb=>{if(sb)head.subs.push(sb)}); // 묶이는 카드가 이미 보조를 갖고 있으면 그대로 승계
-      head.fav=head.fav||!!x.fav;
-      head.tags=[...new Set([...(head.tags||[]),...(x.tags||[])])];
-      if(x.notes&&String(x.notes).trim())head.notes=(head.notes?head.notes+'\n':'')+x.notes;
-      mergedCards++;
-    });
-    const ids=new Set(rest.map(x=>x.id));
-    state.items=state.items.filter(x=>!ids.has(x.id));
-    head.updatedAt=Date.now();
-    mergedGroups++;
+    let pool=g.slice();
+    for(let i=0;i<pool.length;i++){
+      const head=pool[i];
+      const rest=pool.slice(i+1).filter(x=>!ignored.has(mergePairKey(head.id,x.id))); // 이미 거절한 짝은 다시 안 묻는다
+      if(!rest.length)continue;
+      const names=rest.slice(0,6).map(x=>'· '+(x.title||x.fileName||'(제목 없음)')).join('\n')+(rest.length>6?`\n... 외 ${rest.length-6}장`:'');
+      const ok=await showConfirm(`대표: "${head.title||head.fileName||'(제목 없음)'}"\n그림체가 맞는지 아래에서 눈으로 대조해봐.\n\n다음 ${rest.length}장을 이 카드의 보조로 붙일까?\n${names}\n\n건너뛰면 이 짝은 기억해서 다음부터 안 물어봐.`,{confirmText:'붙이기',cancelText:'건너뛰기',visualHTML:mergeVisualHTML([
+        {label:'대표 카드 (대표+보조)',color:'#8888CC',thumbs:cardVisualThumbs(head)},
+        {label:`붙일 카드 ${rest.length}장`,color:'#BB6688',thumbs:rest.map(x=>({t:x.thumb,cap:x.title||x.fileName||''}))}
+      ])});
+      if(!ok){ // 건너뛰기 → 이 묶음 안의 모든 짝을 제외 기록에 저장
+        const before=ignored.size;
+        recordIgnoredPairs([head,...rest],ignored);
+        newIgnored+=ignored.size-before;
+        skipped++;
+        continue;
+      }
+      head.subs=head.subs||[];
+      rest.forEach(x=>{
+        head.subs.push(itemToSub(x));
+        (x.subs||[]).forEach(sb=>{if(sb)head.subs.push(sb)}); // 묶이는 카드가 이미 보조를 갖고 있으면 그대로 승계
+        head.fav=head.fav||!!x.fav;
+        head.tags=[...new Set([...(head.tags||[]),...(x.tags||[])])];
+        if(x.notes&&String(x.notes).trim())head.notes=(head.notes?head.notes+'\n':'')+x.notes;
+        mergedCards++;
+      });
+      const ids=new Set(rest.map(x=>x.id));
+      state.items=state.items.filter(x=>!ids.has(x.id));
+      pool=pool.filter(x=>!ids.has(x.id)); // 흡수된 카드는 이후 대표 후보에서도 제외
+      head.updatedAt=Date.now();
+      mergedCount++;
+    }
   }
-  if(mergedGroups){
+  if(newIgnored){state.mergePairsIgnored=[...ignored];dirty=true;}
+  if(mergedCount){
+    const alive2=new Set(state.items.map(it=>it.id));
+    state.mergePairsIgnored=(state.mergePairsIgnored||[]).filter(k=>{const a=String(k).split('|');return alive2.has(a[0])&&alive2.has(a[1])});
     if(state.selectedId&&!state.items.some(x=>x.id===state.selectedId))state.selectedId=state.items[0]?.id||null;
-    save();render();
+    dirty=true;
   }
-  toast(mergedGroups?`${mergedGroups}그룹 병합 · 카드 ${mergedCards}장을 보조로 묶었어${skippedGroups?` · ${skippedGroups}그룹 건너뜀`:''}`:'묶은 카드 없음');
+  if(dirty){save();render();}
+  const parts=[];
+  if(mergedCount)parts.push(`${mergedCount}건 병합 · 카드 ${mergedCards}장을 보조로 묶었어`);
+  if(skipped)parts.push(`${skipped}건 건너뜀`);
+  if(newIgnored)parts.push(`제외 짝 ${newIgnored}건 기억`);
+  toast(parts.length?parts.join(' · '):'묶은 카드 없음');
+}
+/* 병합 제외 기록 초기화 */
+async function resetMergeIgnores(){
+  const n=(state.mergePairsIgnored||[]).length;
+  if(!n){toast('제외 기록이 없어');return}
+  const ok=await showConfirm(`소급 병합 제외 기록 ${n}건을 전부 지울까?\n지우면 다음 소급 병합에서 그 짝들을 다시 물어봐.`,{danger:true,confirmText:'초기화'});
+  if(!ok)return;
+  state.mergePairsIgnored=[];
+  save();
+  toast('제외 기록을 초기화했어');
 }
 /* ── 소급 버전 분리: 한 카드에 NAI 버전이 섞였으면 버전별 새 카드로 추출 ──
    규칙: 자동 분리 없음, 카드마다 반드시 확인. 대표의 버전은 남고, 다른 버전 보조들만 빠져나간다.
@@ -2247,7 +2390,21 @@ $('#d-img').onclick=()=>openLightbox(); // 상세/오버레이 미리보기 → 
 /* ③ 선택 칩 → 액션 시트 토글 */
 $('#artist-export-btn').onclick=exportArtistTxt;
 $('#dup-scan-btn').onclick=openDupScan;
+document.addEventListener('click',e=>{
+  const t=e.target&&e.target.closest&&e.target.closest('.cmv-item[data-cmv]');
+  if(!t)return;
+  e.preventDefault();e.stopPropagation();
+  openCmvZoom(t.dataset.cmv);
+},true);
+$('#cz-close').onclick=closeCmvZoom;
+$('#cz-prev').onclick=e=>{e.stopPropagation();cmvZoomStep(-1)};
+$('#cz-next').onclick=e=>{e.stopPropagation();cmvZoomStep(1)};
+$('#cmv-zoom').onclick=e=>{if(cmvSwiped){cmvSwiped=false;return}if(e.target===$('#cmv-zoom')||e.target===$('#cz-img'))closeCmvZoom()};
+/* 스와이프 좌우 이동 (기존 라이트박스와 같은 임계값: 가로 42px 초과 + 세로의 1.2배 초과) */
+$('#cmv-zoom').addEventListener('touchstart',e=>{const t=e.changedTouches&&e.changedTouches[0];if(!t)return;cmvTouchX=t.clientX;cmvTouchY=t.clientY;cmvSwiped=false;},{passive:true});
+$('#cmv-zoom').addEventListener('touchend',e=>{const t=e.changedTouches&&e.changedTouches[0];if(!t)return;const dx=t.clientX-cmvTouchX,dy=t.clientY-cmvTouchY;if(Math.abs(dx)>42&&Math.abs(dx)>Math.abs(dy)*1.2){e.preventDefault();e.stopPropagation();cmvSwiped=true;cmvZoomStep(dx<0?1:-1)}},{passive:false});
 $('#merge-scan-btn').onclick=runMergeScan;
+$('#merge-reset-btn').onclick=resetMergeIgnores;
 $('#ver-split-btn').onclick=runVerSplitScan;
 $('#sim-scan-btn').onclick=openSimScan;
 $('#sim-close').onclick=closeSimScan;
