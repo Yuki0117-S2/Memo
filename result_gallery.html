@@ -521,6 +521,7 @@ const IDB_ITEM_STORE='items';
 const THUMB_MAX=760;
 const META_RAW_LIMIT=20000;
 const LIST_CHUNK=120; // 리스트 청크 렌더 단위(무한 스크롤 1회 표시 수)
+const SIZE_MEASURE_CHUNK=50; // 용량 측정 시 items를 끊어 재는 단위(통짜 문자열 한계 회피)
 const STATUSES=['전체','보류','성공','재작업','폐기'];
 const LB_SPEEDS=[2000,3000,4000,5000];
 const LB_SPEED_DEFAULT=3000;
@@ -537,7 +538,25 @@ function uid(){return 'r'+Date.now()+Math.random().toString(36).slice(2,7)}
 function esc(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 function bytes(n){if(!n)return '0KB'; if(n<1024)return n+'B'; if(n<1024*1024)return (n/1024).toFixed(n<10240?1:0)+'KB'; return (n/1024/1024).toFixed(2)+'MB'}
 function utf8Bytes(s){try{return new Blob([s]).size}catch(e){return new TextEncoder().encode(s).length}}
-function estimateGistPayloadBytes(){try{return utf8Bytes(JSON.stringify({version:1,slots:[{savedAt:new Date().toISOString(),device:'예상',state:stripStateForSync(state)}]}))}catch(e){return 0}}
+/* 통짜 JSON.stringify(state)는 항목이 쌓이면 V8 문자열 한계(64bit 기준 약 512MB)에 걸려
+   RangeError로 죽는다. 썸네일 base64가 state 부피의 대부분이라 수천 장이면 쉽게 넘긴다.
+   그래서 items는 SIZE_MEASURE_CHUNK개씩 끊어 재고 나머지 필드는 따로 재서 합산한다.
+   측정 실패는 0이 아니라 null로 돌려준다. 0KB는 "비었다"는 거짓말이 되기 때문. */
+function measureStateBytes(s){
+  try{
+    if(!s||typeof s!=='object')return 0;
+    let total=0;
+    const shell={};
+    Object.keys(s).forEach(k=>{ if(k!=='items') shell[k]=s[k]; });
+    total+=utf8Bytes(JSON.stringify(shell));
+    const arr=Array.isArray(s.items)?s.items:[];
+    for(let i=0;i<arr.length;i+=SIZE_MEASURE_CHUNK){
+      total+=utf8Bytes(JSON.stringify(arr.slice(i,i+SIZE_MEASURE_CHUNK)));
+    }
+    return total;
+  }catch(e){ console.warn('저장량 측정 실패',e); return null; }
+}
+function estimateGistPayloadBytes(){try{return utf8Bytes(JSON.stringify({version:1,slots:[{savedAt:new Date().toISOString(),device:'예상',state:stripStateForSync(state)}]}))}catch(e){console.warn('Gist 예상치 측정 실패',e);return null}}
 /* ── Gist 압축 채널 (WGZ1) ──
    프롬프트 텍스트는 반복이 심해 gzip 압축률이 매우 높다 (실측 수 배~십수 배).
    업로드: 'WGZ1:' + base64(gzip(JSON)) / 다운로드: 접두어 감지 시 해제, 없으면 구형 JSON 그대로.
@@ -1350,14 +1369,14 @@ function renderStoreStatsNow(){
     // 이전에는 .length*2(UTF-16 가정)로 쟀다. 하지만 state 내용물의 대부분은
     // base64 썸네일 = ASCII라 UTF-8에서 1바이트/문자다. 그래서 실제보다 부풀려졌다.
     // lora_lab / cd_idea와 동일하게 utf8Bytes() 실측으로 통일한다.
-    let store=0;
-    try{ store=utf8Bytes(JSON.stringify(state)); }catch(e){ console.warn('저장량 계산 실패',e); }
-    se.textContent=bytes(store);
+    const store=measureStateBytes(state); // 청크 측정. 실패하면 null
+    se.textContent=(store===null)?'측정 불가':bytes(store);
   }
   const ge=$('#stat-gist');
   if(ge){ try{
     const raw=estimateGistPayloadBytes();
-    if(!GZ_OK){ ge.textContent=bytes(raw); }
+    if(raw===null){ ge.textContent='측정 불가'; }
+    else if(!GZ_OK){ ge.textContent=bytes(raw); }
     else if(gzStatCache.rawBytes===raw){ ge.textContent=gzStatCache.text; } // 데이터 불변 → 재압축 생략
     else {
       ge.textContent=bytes(raw)+' 압축중…';
@@ -2467,23 +2486,37 @@ const GIST_FILE_NAME='result_gallery_data.json';
 const GIST_AUTO_INTERVAL=10*60*1000;
 let gistAutoSaveTimer=null;
 
+/* 아이템 1개를 동기화용으로 깎는다. thumb(base64)와 meta.rawMeta를 처음부터 담지 않는다.
+   원본은 절대 건드리지 않고 새 객체를 만들어 돌려주며, 남는 필드는 얕은 참조로 둔다.
+   (반환값은 JSON.stringify에만 쓰이고 변형되지 않으므로 얕은 참조로 충분하다) */
+function stripItemForSync(it){
+  if(!it||typeof it!=='object')return it;
+  const out={};
+  Object.keys(it).forEach(k=>{
+    if(k==='thumb'||k==='meta'||k==='subs')return;
+    out[k]=it[k];
+  });
+  out.thumbStripped=true;
+  // rawMeta는 디버깅용(ComfyUI 워크플로우 JSON 원본). positive/negative/model/loras 등은 이미 별도 추출돼 있음.
+  // 아이템당 최대 20KB라 동기화에서 빼면 70~80% 절감.
+  if(it.meta&&typeof it.meta==='object'){
+    const m={};
+    Object.keys(it.meta).forEach(k=>{ if(k!=='rawMeta') m[k]=it.meta[k]; });
+    out.meta=m;
+  }else if(it.meta!==undefined){ out.meta=it.meta; }
+  if(Array.isArray(it.subs)) out.subs=it.subs.map(sb=>stripItemForSync(sb)); // 보조 이미지도 같은 규칙
+  else if(it.subs!==undefined){ out.subs=it.subs; }
+  return out;
+}
+/* 예전에는 JSON.parse(JSON.stringify(s))로 state 전체를 깊은 복제한 뒤 썸네일을 지웠다.
+   즉 "다이어트하기 전에 전체를 통짜 문자열로" 만들었고, 항목이 수천 개면 그 문자열이
+   V8 한계를 넘겨 RangeError로 터졌다. 그 결과 용량 표시가 0KB로 보이고 Gist 업로드가
+   '업로드 중...'에서 멈췄다. 이제는 거대 문자열을 아예 만들지 않는다. */
 function stripStateForSync(s){
-  const cloned=JSON.parse(JSON.stringify(s));
-  if(Array.isArray(cloned.items)){
-    cloned.items.forEach(it=>{
-      delete it.thumb;
-      it.thumbStripped=true;
-      // rawMeta는 디버깅용(ComfyUI 워크플로우 JSON 원본). positive/negative/model/loras 등은 이미 별도 추출돼 있음.
-      // 아이템당 최대 20KB라 동기화에서 빼면 70~80% 절감.
-      if(it.meta && it.meta.rawMeta) delete it.meta.rawMeta;
-      (it.subs||[]).forEach(sb=>{ // 보조 이미지도 대표와 같은 규칙으로 strip
-        if(!sb)return;
-        delete sb.thumb;
-        sb.thumbStripped=true;
-        if(sb.meta && sb.meta.rawMeta) delete sb.meta.rawMeta;
-      });
-    });
-  }
+  const shell={};
+  Object.keys(s).forEach(k=>{ if(k!=='items') shell[k]=s[k]; });
+  const cloned=JSON.parse(JSON.stringify(shell)); // items 제외분은 작아서 통짜 복제해도 안전
+  cloned.items=Array.isArray(s.items)?s.items.map(it=>stripItemForSync(it)):[];
   return cloned;
 }
 function openGistModal(){
@@ -2539,7 +2572,13 @@ async function gistUpload(){
   if(!token){setGistStatus('토큰을 입력해줘!','err');return;}
   setGistStatus('업로드 중...','loading');
   save();
-  await pushSlot(token, gistId, '수동');
+  try{
+    await pushSlot(token, gistId, '수동');
+  }catch(e){
+    console.warn('업로드 실패',e);
+    setGistStatus('업로드 실패: '+(e&&e.message||e),'err');
+    setSyncIndicator('err');
+  }
 }
 async function pushSlot(token, gistId, deviceLabel){
   let slots=[];
@@ -2553,11 +2592,20 @@ async function pushSlot(token, gistId, deviceLabel){
       }
     }catch(e){}
   }
-  slots.unshift({
-    savedAt:new Date().toISOString(),
-    device:deviceLabel,
-    state:stripStateForSync(state)
-  });
+  // 이 단계가 try 밖에 있어서, 여기서 터지면 상태가 '업로드 중...'에 영원히 멈춰 있었다.
+  try{
+    slots.unshift({
+      savedAt:new Date().toISOString(),
+      device:deviceLabel,
+      state:stripStateForSync(state)
+    });
+  }catch(e){
+    console.warn('동기화 데이터 준비 실패',e);
+    setGistStatus('업로드 준비 실패: '+(e&&e.message||e),'err');
+    setSyncIndicator('err');
+    toast('업로드 실패: 데이터 준비 중 오류');
+    return;
+  }
   if(slots.length>GIST_SLOT_LIMIT) slots=slots.slice(0,GIST_SLOT_LIMIT);
   const buildContent=async ss=>{
     const raw=JSON.stringify({version:1,slots:ss});
@@ -2694,7 +2742,14 @@ async function gistAutoSave(){
   const gistId=localStorage.getItem(GIST_ID_KEY);
   if(!token||!gistId)return;
   save();
-  await pushSlot(token, gistId, '자동');
+  try{
+    await pushSlot(token, gistId, '자동');
+  }catch(e){
+    console.warn('자동저장 실패',e);
+    setSyncIndicator('err');
+    toast('☁ 자동저장 실패');
+    return;
+  }
   const now=new Date();
   const time=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
   toast('☁ 자동저장 완료 '+time);
