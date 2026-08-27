@@ -764,6 +764,157 @@ function parsePngText(buffer){
   }
   return out;
 }
+/* ── EXIF(TIFF) 리더: WebP/JPEG 공용 ──
+   NAI가 webp/jpg로 나갈 때 프롬프트는 IFD0 의 UserComment(0x9286) 에 JSON 통째로 들어간다.
+   (PNG의 tEXt 묶음과 동일한 {Title,Description,Software,Source,Generation time,Comment} 형태)
+   ComfyUI 계열은 Make(0x010f)="Prompt:{...}" / ImageDescription(0x010e)="Workflow:{...}" 로 넣는다. */
+const EXIF_TYPE_SIZE={1:1,2:1,3:2,4:4,5:8,6:1,7:1,8:2,9:4,10:8,11:4,12:8};
+function exifDecodeValue(u8,dv,base,typ,cnt,valOff,little){
+  const size=(EXIF_TYPE_SIZE[typ]||1)*cnt;
+  let off=valOff;
+  if(size>4){ off=base+dv.getUint32(valOff,little); }
+  if(off<0||off+size>u8.length)return null;
+  if(typ===2){ // ASCII
+    let end=off; const lim=off+size;
+    while(end<lim&&u8[end]!==0)end++;
+    return textDecoder(u8.slice(off,end));
+  }
+  if(typ===7||typ===1){ // UNDEFINED / BYTE
+    let raw=u8.slice(off,off+size);
+    const head=textDecoder(raw.slice(0,8));
+    if(/^ASCII/.test(head))raw=raw.slice(8);
+    else if(/^UNICODE/.test(head)){
+      const body=raw.slice(8);
+      try{
+        const dvv=new DataView(body.buffer,body.byteOffset,body.byteLength);
+        let out='';
+        for(let i=0;i+1<body.length;i+=2)out+=String.fromCharCode(dvv.getUint16(i,little));
+        return out.replace(/\u0000+$/,'');
+      }catch(e){ return textDecoder(body) }
+    }
+    else if(/^JIS|^\u0000{8}/.test(head))raw=raw.slice(8);
+    let end=raw.length; while(end>0&&raw[end-1]===0)end--;
+    return textDecoder(raw.slice(0,end));
+  }
+  return null;
+}
+function parseExifBlock(bytes){
+  try{
+    let u8=bytes;
+    if(textDecoder(u8.slice(0,4))==='Exif')u8=u8.slice(6);   // "Exif\0\0" 헤더 제거
+    if(u8.length<16)return {};
+    const bom=textDecoder(u8.slice(0,2));
+    if(bom!=='II'&&bom!=='MM')return {};
+    const little=(bom==='II');
+    const dv=new DataView(u8.buffer,u8.byteOffset,u8.byteLength);
+    if(dv.getUint16(2,little)!==42)return {};
+    const raw={};
+    const walk=(ifdOff,depth)=>{
+      if(depth>3||ifdOff<=0||ifdOff+2>u8.length)return;
+      const n=dv.getUint16(ifdOff,little);
+      if(n>512)return;
+      for(let i=0;i<n;i++){
+        const e=ifdOff+2+i*12; if(e+12>u8.length)break;
+        const tag=dv.getUint16(e,little), typ=dv.getUint16(e+2,little), cnt=dv.getUint32(e+4,little);
+        if(cnt>1e7)continue;
+        if(tag===0x8769||tag===0x8825){ // ExifIFD / GPSIFD 로 내려가기
+          try{ walk(dv.getUint32(e+8,little),depth+1) }catch(err){}
+          continue;
+        }
+        if(tag!==0x010e&&tag!==0x010f&&tag!==0x0131&&tag!==0x9286&&tag!==0x9c9c)continue;
+        const v=exifDecodeValue(u8,dv,0,typ,cnt,e+8,little);
+        if(typeof v==='string'&&v)raw[tag]=v;
+      }
+    };
+    walk(dv.getUint32(4,little),0);
+    const out={};
+    const uc=raw[0x9286]||raw[0x9c9c]||'';
+    const desc=raw[0x010e]||'', make=raw[0x010f]||'', soft=raw[0x0131]||'';
+    // (a) NAI: UserComment 가 PNG tEXt 묶음과 같은 JSON
+    const j=safeJson(uc);
+    if(j&&typeof j==='object'&&!Array.isArray(j)){
+      for(const k of Object.keys(j)){
+        const v=j[k];
+        out[k]=(typeof v==='string')?v:JSON.stringify(v);
+      }
+    }else if(uc){ out.UserComment=uc; }
+    // (b) ComfyUI: "Prompt:{...}" / "Workflow:{...}" 접두어 형태
+    const strip=(v,label)=>{
+      const m=String(v||'').match(new RegExp('^\\s*'+label+'\\s*:\\s*([\\s\\S]*)$','i'));
+      return m?m[1]:'';
+    };
+    const pv=strip(make,'prompt')||strip(desc,'prompt')||strip(uc,'prompt');
+    const wv=strip(desc,'workflow')||strip(make,'workflow')||strip(uc,'workflow');
+    if(pv&&safeJson(pv))out.prompt=pv;
+    if(wv&&safeJson(wv))out.workflow=wv;
+    if(!out.prompt&&safeJson(make)&&!out.Comment)out.prompt=make;
+    if(!out.workflow&&safeJson(desc)&&!out.Comment)out.workflow=desc;
+    if(!out.Description&&desc&&!/^\s*workflow\s*:/i.test(desc)&&!safeJson(desc))out.Description=desc;
+    if(!out.Software&&soft)out.Software=soft;
+    return out;
+  }catch(e){ return {} }
+}
+/* WebP(RIFF) 컨테이너에서 EXIF / XMP 청크 회수 */
+function parseWebpText(buffer){
+  const u8=new Uint8Array(buffer), dv=new DataView(buffer);
+  if(u8.length<16)return {};
+  if(textDecoder(u8.slice(0,4))!=='RIFF'||textDecoder(u8.slice(8,12))!=='WEBP')return {};
+  let off=12, out={};
+  while(off+8<=u8.length){
+    const type=textDecoder(u8.slice(off,off+4));
+    const len=dv.getUint32(off+4,true);
+    const body=off+8;
+    if(len<0||body+len>u8.length)break;
+    if(type==='EXIF'){ Object.assign(out,parseExifBlock(u8.slice(body,body+len))); }
+    else if(type==='XMP '){ const x=textDecoder(u8.slice(body,body+len)); if(x)out.__xmp=x; }
+    off=body+len+(len%2);
+  }
+  return out;
+}
+/* JPEG 세그먼트에서 APP1(EXIF) / COM(주석) 회수 */
+function parseJpegText(buffer){
+  const u8=new Uint8Array(buffer), dv=new DataView(buffer);
+  if(u8.length<4||u8[0]!==0xFF||u8[1]!==0xD8)return {};
+  let off=2, out={};
+  while(off+4<=u8.length){
+    if(u8[off]!==0xFF)break;
+    const marker=u8[off+1];
+    if(marker===0xD8||marker===0x01||(marker>=0xD0&&marker<=0xD7)){off+=2;continue}
+    if(marker===0xDA||marker===0xD9)break;           // 이미지 데이터 시작
+    const len=dv.getUint16(off+2,false);
+    if(len<2||off+2+len>u8.length)break;
+    const body=off+4, blen=len-2;
+    if(marker===0xE1&&textDecoder(u8.slice(body,body+4))==='Exif'){
+      Object.assign(out,parseExifBlock(u8.slice(body,body+blen)));
+    }else if(marker===0xFE){                          // COM
+      const c=textDecoder(u8.slice(body,body+blen));
+      if(c){ const j=safeJson(c);
+        if(j&&typeof j==='object'&&!Array.isArray(j)){for(const k of Object.keys(j)){const v=j[k];out[k]=(typeof v==='string')?v:JSON.stringify(v)}}
+        else out.__comment=c; }
+    }
+    off=body+blen;
+  }
+  return out;
+}
+/* ── 포맷 판별은 파일명이 아니라 매직바이트로 한다 ──
+   아카라이브 등이 .png 주소로 webp 를 뱉는 경우가 있어서, 확장자를 믿으면 메타를 통째로 놓친다. */
+function sniffImageKind(buffer){
+  const u8=new Uint8Array(buffer);
+  if(u8.length<12)return '';
+  if(u8[0]===0x89&&u8[1]===0x50&&u8[2]===0x4E&&u8[3]===0x47)return 'png';
+  if(u8[0]===0xFF&&u8[1]===0xD8)return 'jpeg';
+  if(textDecoder(u8.slice(0,4))==='RIFF'&&textDecoder(u8.slice(8,12))==='WEBP')return 'webp';
+  return '';
+}
+function parseImageText(buffer){
+  try{
+    const kind=sniffImageKind(buffer);
+    if(kind==='png')return parsePngText(buffer);
+    if(kind==='webp')return parseWebpText(buffer);
+    if(kind==='jpeg')return parseJpegText(buffer);
+    return {};
+  }catch(e){ console.warn('메타 파싱 실패',e); return {} }
+}
 function safeJson(s){if(!s)return null; try{return JSON.parse(s)}catch(e){return null}}
 function nodeEntries(prompt){return Object.entries(prompt||{}).filter(([id,n])=>n&&typeof n==='object')}
 function cls(n){return n.class_type||n.type||''}
@@ -953,7 +1104,7 @@ function parseNaiMetadata(meta,via){
   };
 }
 function parseComfyMetadata(file,buffer){
-  const meta=file.type==='image/png'||file.name.toLowerCase().endsWith('.png')?parsePngText(buffer):{};
+  const meta=parseImageText(buffer);   // 확장자 대신 매직바이트로 PNG/WebP/JPEG 자동 판별
   // ── NAI 판별: Software 청크가 NovelAI. ComfyUI의 prompt/workflow 키와 충돌하지 않음 ──
   if(String(meta.Software||'').trim()==='NovelAI'&&meta.Comment){
     const ex=parseNaiMetadata(meta);
