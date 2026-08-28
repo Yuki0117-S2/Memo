@@ -91,6 +91,15 @@ input[type=range].qr:focus-visible{box-shadow:0 0 0 3px rgba(136,136,204,.28)}
 .rc-in label{font-size:10px;color:var(--text3);font-weight:800;letter-spacing:.5px;text-transform:uppercase}
 .rc-in input{background:var(--bg2);border:.5px solid var(--border2);color:var(--text);border-radius:var(--radius-sm);padding:8px 9px;font-family:var(--mono);font-size:12px;outline:0}
 .rc-in input:focus{border-color:var(--accent)}
+.pv-row{display:grid;grid-template-columns:minmax(90px,1fr) minmax(120px,1.6fr);gap:7px;align-items:center;margin-bottom:6px}
+.pv-row .pv-lb{font-size:11.5px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pv-row .pv-lb b{color:var(--accent);font-family:var(--mono);margin-right:5px}
+.pv-list{max-height:210px;overflow:auto;padding:2px 2px 2px 0;margin:8px 0}
+.pv-memo{border:.5px solid var(--border2);border-radius:var(--radius-sm);padding:9px 11px;margin:10px 0;background:var(--bg2)}
+.pv-memo summary{cursor:pointer;font-size:11.5px;font-weight:800;color:var(--accent3);letter-spacing:.3px}
+.pv-memo .pv-body{font-size:11px;color:var(--text3);line-height:1.75;margin-top:9px}
+.pv-memo code{font-family:var(--mono);background:var(--bg);padding:1px 5px;border-radius:4px;font-size:10.5px}
+.pv-memo b{color:var(--text2)}
 .rc-steps{display:flex;flex-direction:column;gap:11px;margin-top:4px}
 .rc-step{border:.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--bg2);padding:10px 11px}
 .rc-step .t{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:800;color:var(--text);margin-bottom:3px}
@@ -639,6 +648,66 @@ body.lb-open{overflow:hidden}
   </div>
 </div>
 
+<!-- preview JSON 내보내기 -->
+<div class="ov" id="pv-ov">
+  <div class="modal">
+    <div class="modal-title">⇩ preview JSON 내보내기</div>
+    <div class="hint">현재 코드표를 <b>preview 뷰어</b>가 읽는 JSON으로 뽑아. <code>code/</code> 폴더에 올리면 돼.</div>
+
+    <div class="rc-form">
+      <div class="rc-in">
+        <label for="pv-name">세트 이름 (파일명)</label>
+        <input id="pv-name" placeholder="M">
+      </div>
+      <div class="rc-in">
+        <label for="pv-sec">보유 범위를 적을 섹션</label>
+        <select class="inp" id="pv-sec"></select>
+      </div>
+    </div>
+    <div class="hint" id="pv-namewarn" style="color:var(--danger);display:none">영문·숫자·- ·_ 만 써. 한글은 뷰어가 막아.</div>
+
+    <div class="hint">항목마다 <b>가진 코드</b>만 적어. 비우면 전부 가진 걸로 보고 다 그려.</div>
+    <div class="pv-list" id="pv-list"></div>
+
+    <details class="pv-memo">
+      <summary>📌 참고 — 주소 · 올리는 법</summary>
+      <div class="pv-body">
+        <b>뷰어</b> <code>img.wintercards.com/preview.html?set=M</code><br>
+        <b>코드표</b> <code>img.wintercards.com/code/M.json</code><br>
+        <b>이미지</b> <code>img.wintercards.com/작품/캐릭터/이벤트.webp</code><br><br>
+
+        <b>버킷 구조</b> — <code>preview.html</code> 과 <code>code/</code> 는 같은 층에.<br>
+        <code>/preview.html</code> · <code>/code/M.json</code> · <code>/M/G/1.webp</code><br><br>
+
+        <b>보유 범위 형식</b> <code>1-35,50-67</code> — 쉼표로 나누고 범위는 <code>-</code>.
+        단일 숫자도 됨. 비우면 전부.<br><br>
+
+        <b>마지막 섹션이 칸으로 그려져.</b> 앞의 섹션들은 전부 셀렉트박스가 돼.<br><br>
+
+        <b>올릴 때</b> Content-Type은 <code>.json → application/json</code>,
+        <code>.html → text/html</code>.
+        HTML·JSON만 <code>--header-upload "Cache-Control: no-cache, must-revalidate"</code> 를 붙여.
+        <b>이미지엔 붙이지 마.</b><br><br>
+
+        <b>안 바뀌면 캐시</b> — 주소에 <code>&amp;v=2</code> 붙이거나
+        Cloudflare → Caching → Configuration → Purge Cache.<br><br>
+
+        <b>주의</b> — 공개 버킷이라 <code>code/*.json</code> 은 주소를 아는 사람이 다 읽을 수 있어.
+        전체 목록 파일은 올리지 않기로 했음.
+      </div>
+    </details>
+
+    <textarea class="inp" id="pv-text" spellcheck="false" readonly style="min-height:150px"></textarea>
+    <div class="status" id="pv-status"></div>
+
+    <div class="brow">
+      <button class="mbtn mbtn-go" id="pv-copy">📋 복사</button>
+      <button class="mbtn mbtn-alt" id="pv-save">.json 저장</button>
+    </div>
+    <div class="brow"><button class="mbtn mbtn-cancel" id="pv-close">닫기</button></div>
+  </div>
+</div>
+
 <div class="barwrap">
   <div class="bar">
     <span class="stat" id="stat">이미지 0장</span>
@@ -846,6 +915,10 @@ function normalizeState(){
   let q=Math.round(Number(state.webpQ));
   if(!isFinite(q))q=92;
   state.webpQ=Math.min(100,Math.max(1,q));
+  if(!state.pv||typeof state.pv!=='object')state.pv={name:'',sec:'',has:{}};
+  if(typeof state.pv.name!=='string')state.pv.name='';
+  if(typeof state.pv.sec!=='string')state.pv.sec='';
+  if(!state.pv.has||typeof state.pv.has!=='object')state.pv.has={};
   if(!state.rc||typeof state.rc!=='object')state.rc={bucket:'',account:'',local:''};
   ['bucket','account','local'].forEach(k=>{if(typeof state.rc[k]!=='string')state.rc[k]='';});
 }
@@ -1206,6 +1279,94 @@ function openRc(){
   renderRc();
 }
 
+/* ---------- preview JSON 내보내기 ---------- */
+function pvKey(secName,code){return activePreset().id+'\u0000'+secName+'\u0000'+code;}
+
+function pvCountHas(str){
+  if(!str)return 0;
+  const set=new Set();
+  String(str).split(',').forEach(part=>{
+    part=part.trim(); if(!part)return;
+    const m=part.match(/^(\d+)\s*[-~]\s*(\d+)$/);
+    if(m){let a=+m[1],b=+m[2]; if(a>b){const t=a;a=b;b=t;} for(let n=a;n<=b;n++)set.add(String(n));}
+    else set.add(part);
+  });
+  return set.size;
+}
+
+function pvBuild(){
+  const p=activePreset();
+  const out={
+    name:(state.pv.name||p.name||'').trim()||p.name,
+    base:schema.base||'',
+    ext:curExt(),
+    tail:schema.tail||'',
+    sections:[]
+  };
+  schema.sections.forEach(sec=>{
+    out.sections.push({
+      name:sec.name,
+      groups:sec.groups.map(g=>({
+        name:g.name||'',
+        items:g.items.map(it=>{
+          const o={code:it.code,label:it.label};
+          const v=(state.pv.has[pvKey(sec.name,it.code)]||'').trim();
+          if(v)o.has=v;
+          return o;
+        })
+      })).filter(g=>g.items.length)
+    });
+  });
+  return out;
+}
+
+function pvRenderList(){
+  const box=$('#pv-list');
+  const sec=frontSections().filter(s=>s.name===state.pv.sec)[0];
+  if(!sec){box.innerHTML='<div class="hint">앞단 섹션이 없어. 코드표에 섹션을 2개 이상 만들어줘.</div>';return;}
+  const list=sectionItems(sec);
+  if(!list.length){box.innerHTML='<div class="hint">이 섹션에 항목이 없어.</div>';return;}
+  box.innerHTML=list.map(it=>{
+    const v=state.pv.has[pvKey(sec.name,it.code)]||'';
+    const n=pvCountHas(v);
+    return '<div class="pv-row"><span class="pv-lb"><b>'+esc(it.code)+'</b>'+esc(it.label)
+      +(n?' <span style="color:var(--text3)">('+n+')</span>':'')+'</span>'
+      +'<input class="inp pv-has" data-code="'+esc(it.code)+'" value="'+esc(v)+'" placeholder="1-35,50-67"></div>';
+  }).join('');
+  box.querySelectorAll('.pv-has').forEach(inp=>{
+    inp.addEventListener('input',e=>{
+      state.pv.has[pvKey(sec.name,e.target.dataset.code)]=e.target.value;
+      pvRenderText();
+    });
+    inp.addEventListener('change',()=>{save();pvRenderList();});
+  });
+}
+
+function pvRenderText(){
+  const j=pvBuild();
+  $('#pv-text').value=JSON.stringify(j,null,1);
+  const slots=j.sections.length?j.sections[j.sections.length-1].groups.reduce((a,g)=>a+g.items.length,0):0;
+  setStatus('#pv-status','섹션 '+j.sections.length+'개 · 칸 '+slots+'개 · 확장자 '+j.ext,'ok');
+}
+
+function pvCheckName(){
+  const v=($('#pv-name').value||'').trim();
+  $('#pv-namewarn').style.display=(v&&!/^[A-Za-z0-9_-]+$/.test(v))?'block':'none';
+}
+
+function openPv(){
+  if(!schema||!schema.sections.length){toast('코드표를 먼저 만들어줘');return;}
+  const fs=frontSections();
+  if(!fs.some(s=>s.name===state.pv.sec))state.pv.sec=fs.length?fs[fs.length-1].name:'';
+  $('#pv-name').value=state.pv.name||'';
+  $('#pv-sec').innerHTML=fs.map(s=>'<option value="'+esc(s.name)+'">'+esc(s.name)+'</option>').join('');
+  $('#pv-sec').value=state.pv.sec;
+  pvCheckName();
+  pvRenderList();
+  pvRenderText();
+  $('#pv-ov').classList.add('open');
+}
+
 function qHint(v){
   if(v>=97)return '거의 무손실 · 용량 큼';
   if(v>=90)return '고화질 · 권장';
@@ -1250,6 +1411,7 @@ function renderControls(){
   html+='<button class="act" id="compact">⇅ 번호 정리</button>';
   html+='<button class="act" id="bulk">⬚ 일괄 넣기</button>';
   html+='<button class="act" id="rcguide">☁ 업로드 가이드</button>';
+  html+='<button class="act" id="pvexport">⇩ preview JSON</button>';
   html+='<button class="act purple" id="presetMenu">프리셋 관리</button>';
   html+='<button class="act pink" id="clearImgs">이미지 비우기</button>';
   html+='<button class="act" id="reconcileStore" title="저장소를 화면 기준으로 다시 씁니다">⟳ 저장소 정리</button>';
@@ -1276,6 +1438,7 @@ function renderControls(){
   $('#compact').addEventListener('click',openCompact);
   $('#bulk').addEventListener('click',pickBulk);
   $('#rcguide').addEventListener('click',openRc);
+  $('#pvexport').addEventListener('click',openPv);
   $('#presetMenu').addEventListener('click',presetMenu);
   $('#reconcileStore').addEventListener('click',reconcileStore);
   $('#clearImgs').addEventListener('click',async()=>{
@@ -2573,6 +2736,24 @@ window.save=save;window.render=render; // drive_sync.js 호환
     setTimeout(()=>URL.revokeObjectURL(a.href),1000);
   });
 
+  $('#pv-close').addEventListener('click',()=>$('#pv-ov').classList.remove('open'));
+  $('#pv-ov').addEventListener('click',ev=>{if(ev.target.id==='pv-ov')$('#pv-ov').classList.remove('open');});
+  $('#pv-name').addEventListener('input',e=>{state.pv.name=e.target.value;pvCheckName();pvRenderText();});
+  $('#pv-name').addEventListener('change',()=>save());
+  $('#pv-sec').addEventListener('change',e=>{state.pv.sec=e.target.value;save();pvRenderList();pvRenderText();});
+  $('#pv-copy').addEventListener('click',()=>{
+    navigator.clipboard.writeText($('#pv-text').value)
+      .then(()=>toast('복사됨'),()=>toast('복사 실패. 직접 긁어서 복사해줘'));
+  });
+  $('#pv-save').addEventListener('click',()=>{
+    const nm=((state.pv.name||'').trim()||'set').replace(/[^A-Za-z0-9_-]/g,'_');
+    const blob=new Blob([$('#pv-text').value],{type:'application/json'});
+    const a=document.createElement('a');
+    const u=URL.createObjectURL(blob);
+    a.href=u;a.download=nm+'.json';a.click();
+    setTimeout(()=>URL.revokeObjectURL(u),1000);
+    toast(nm+'.json 저장됨');
+  });
   $('#rc-close').addEventListener('click',()=>$('#rc-ov').classList.remove('open'));
   $('#rc-ov').addEventListener('click',ev=>{if(ev.target.id==='rc-ov')$('#rc-ov').classList.remove('open');});
   [['#rc-bucket','bucket'],['#rc-acct','account'],['#rc-local','local']].forEach(([sel,key])=>{
