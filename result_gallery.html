@@ -528,6 +528,15 @@ const IDB_DB_VERSION=1;
 const IDB_ITEM_STORE='items';
 const THUMB_MAX=760;
 const META_RAW_LIMIT=20000;
+/* NAI 메타 확장 스키마 버전. 카드의 meta.naiMetaV 가 이 값보다 낮으면
+   rawMeta(= NAI Comment JSON 원문)를 다시 파싱해 새로 늘어난 필드만 채운다. */
+const NAI_META_V=2;
+/* 마이그레이션 때 rawMeta에서 다시 뽑아 덮어쓸 키 목록.
+   평가 · 태그 · 메모 · 프롬프트 등 사용자가 직접 손댄 값은 절대 포함하지 않는다. */
+const NAI_MIGRATE_KEYS=['naiVariety','naiDecrisper','naiQualityTags','naiUcPreset','naiTransparent',
+  'naiVibe','naiDirectorRef','naiControlNet','naiUpscale','naiSamples','naiQualityBoost',
+  'naiUseCoords','naiUseOrder','naiLegacyUc','naiLegacyV3Extend','naiModelName','naiModelHash'];
+const NAI_META_REPORT_KEY='result_gallery.naiMetaV2.reported'; // 보강 결과 안내를 1회만 띄우기 위한 플래그
 const LIST_CHUNK=120; // 리스트 청크 렌더 단위(무한 스크롤 1회 표시 수)
 const SIZE_MEASURE_CHUNK=50; // 용량 측정 시 items를 끊어 재는 단위(통짜 문자열 한계 회피)
 const STATUSES=['전체','보류','성공','재작업','폐기'];
@@ -1086,8 +1095,16 @@ function parseNaiMetadata(meta,via){
   const positive=naiJoinPrompt(posBase,naiCharCaptions(vp));
   const negative=naiJoinPrompt(negBase,naiCharCaptions(vn));
   const num=v=>(typeof v==='number'&&isFinite(v))?v:undefined;
+  /* 아래 확장 필드는 "키가 메타에 실제로 있었는지"를 구분한다.
+     ''(빈 문자열) = 그 이미지의 메타에 해당 항목 자체가 없음(구버전 V3 등) → 상세 패널에서 행을 만들지 않는다. */
+  const has=k=>Object.prototype.hasOwnProperty.call(c,k);
+  const vp4=c.v4_prompt||{};
+  const vibeStr=Array.isArray(c.reference_strength_multiple)?c.reference_strength_multiple:[];
+  const dirStr=Array.isArray(c.director_reference_strengths)?c.director_reference_strengths:[];
+  const transKey=has('tag_hint_transparent_background')||has('straight_alpha');
   return {
     gen:'nai', source:via==='alpha'?'NovelAI (알파 채널 복구)':'NovelAI', metaFound:true,
+    naiMetaV:NAI_META_V,
     metaVia:via||'text',
     model:meta.Source||'확인 불가',
     loras:[], // NAI엔 LoRA 개념 없음
@@ -1100,7 +1117,27 @@ function parseNaiMetadata(meta,via){
     naiCfgRescale:num(c.cfg_rescale), naiUncondScale:num(c.uncond_scale),
     naiSmea:(c.sm===true)?(c.sm_dyn===true?'SMEA DYN':'SMEA'):(c.sm===false?'끔':''),
     naiGenTime:meta['Generation time']||'',
-    naiSigned:!!c.signed_hash
+    naiSigned:!!c.signed_hash,
+    // ── A그룹: 메타에 키가 있으면 켬/끔을 항상 기록 ──
+    naiVariety: has('skip_cfg_above_sigma')?(c.skip_cfg_above_sigma==null?'끔':'켬 (σ '+c.skip_cfg_above_sigma+' 초과 구간 CFG 생략)'):'',
+    naiDecrisper: has('dynamic_thresholding')?(c.dynamic_thresholding?('켬 (percentile '+(c.dynamic_thresholding_percentile??'?')+' · mimic '+(c.dynamic_thresholding_mimic_scale??'?')+')'):'끔'):'',
+    naiQualityTags: has('tag_hint_qt')?(c.tag_hint_qt?'켬':'끔'):'',
+    naiUcPreset: (has('tag_hint_uc_preset')&&c.tag_hint_uc_preset!=null)?String(c.tag_hint_uc_preset):'', // 숫자↔프리셋명 대응은 NAI 비공개라 원본값 그대로 보관
+    naiTransparent: (c.tag_hint_transparent_background||c.straight_alpha)?'켬':(transKey?'끔':''),
+    naiModelName: c.model_name||'',
+    naiModelHash: c.model_hash||'',
+    // ── 실제로 사용했을 때만 기록 (안 쓴 경우 행 자체를 만들지 않는다) ──
+    naiVibe: vibeStr.length?(vibeStr.length+'개 (강도 '+vibeStr.join(', ')+')'):'',
+    naiDirectorRef: dirStr.length?(dirStr.length+'개 (강도 '+dirStr.join(', ')+')'):'',
+    naiControlNet: c.controlnet_model?(String(c.controlnet_model)+(c.controlnet_strength!=null?' @'+c.controlnet_strength:'')):'',
+    naiUpscale: (c.upscale!=null&&c.upscale!==false)?String(c.upscale):'',
+    // ── B그룹: 기본값과 다를 때만 기록 (기본값이면 행이 늘지 않게 비운다) ──
+    naiSamples: (typeof c.n_samples==='number'&&c.n_samples>1)?String(c.n_samples):'',
+    naiQualityBoost: (c.quality_boost===true)?'켬':'',
+    naiUseCoords: (vp4.use_coords===true)?'켬':'',
+    naiUseOrder: (vp4.use_order===false)?'끔':'',
+    naiLegacyUc: (vp4.legacy_uc===true)?'켬':'',
+    naiLegacyV3Extend: (c.legacy_v3_extend===true)?'켬':''
   };
 }
 function parseComfyMetadata(file,buffer){
@@ -1124,6 +1161,50 @@ function genOf(it){
   if(m.gen)return m.gen;
   if(!m.metaFound)return '';
   return String(m.source||'').startsWith('NovelAI')?'nai':'comfy';
+}
+/* ── NAI 메타 확장 마이그레이션 ──
+   기존 카드는 meta.rawMeta에 NAI Comment JSON 원문(최대 META_RAW_LIMIT=20000자)을 그대로 들고 있다.
+   원본 PNG를 다시 넣지 않아도 이걸 재파싱해서 새로 늘어난 필드만 채울 수 있다.
+   · 평가 · 태그 · 메모 · 프롬프트 · 썸네일은 건드리지 않는다 (NAI_MIGRATE_KEYS에 없음)
+   · Gist로만 받아온 카드는 동기화 때 rawMeta가 빠지므로 손댈 수 없다 → 'noraw'로 집계해 사용자에게 알린다
+   반환값: 'skip'(NAI 아님) 'done'(이미 최신) 'ok'(갱신함) 'noraw'(원본 메타 없음) 'badraw'(JSON 깨짐) */
+function migrateOneNaiMeta(it){
+  const m=it&&it.meta; if(!m||typeof m!=='object')return 'skip';
+  const isNai=(m.gen==='nai')||String(m.source||'').startsWith('NovelAI');
+  if(!isNai)return 'skip';
+  if(Number(m.naiMetaV||0)>=NAI_META_V)return 'done';
+  if(!m.rawMeta)return 'noraw';
+  if(!safeJson(m.rawMeta))return 'badraw'; // 잘렸거나 깨진 원문. naiMetaV를 올리지 않아 나중에 다시 시도된다
+  const ex=parseNaiMetadata({Comment:m.rawMeta,Source:m.model,'Generation time':m.naiGenTime},m.metaVia);
+  NAI_MIGRATE_KEYS.forEach(k=>{const v=ex[k]; if(v!==undefined&&v!=='')m[k]=v;});
+  m.naiMetaV=NAI_META_V;
+  return 'ok';
+}
+function runNaiMetaMigration(){
+  const r={ok:0,done:0,noraw:0,badraw:0,nai:0};
+  const walk=it=>{
+    const res=migrateOneNaiMeta(it);
+    if(res!=='skip'){r.nai++; r[res]++;}
+    if(it&&Array.isArray(it.subs))it.subs.forEach(walk); // 보조 이미지도 같은 규칙
+  };
+  (state.items||[]).forEach(walk);
+  if(r.ok){save(); renderDetail();}
+  return r;
+}
+/* Electron에는 F12 콘솔이 없으므로 결과를 모달로 알린다. 안내는 1회만. */
+async function reportNaiMetaMigration(){
+  let r; try{r=runNaiMetaMigration()}catch(e){console.warn('NAI 메타 마이그레이션 실패',e);return}
+  if(!r.nai)return;
+  if(localStorage.getItem(NAI_META_REPORT_KEY))return;
+  if(!r.ok&&!r.noraw&&!r.badraw){localStorage.setItem(NAI_META_REPORT_KEY,'1');return}
+  const lines=['NAI 메타 항목을 보강했어.','',
+    '· 갱신 완료: '+r.ok+'장',
+    '· 이미 최신: '+r.done+'장'];
+  if(r.noraw)lines.push('· 원본 메타 없음: '+r.noraw+'장');
+  if(r.badraw)lines.push('· 원문 손상: '+r.badraw+'장');
+  if(r.noraw||r.badraw)lines.push('','채우지 못한 카드는 원본 PNG를 다시 드롭하면 메타가 채워져.');
+  localStorage.setItem(NAI_META_REPORT_KEY,'1');
+  await showAlert(lines.join('\n'));
 }
 /* ── NAI 버전 파생 (저장 안 함 → 기존 카드에도 소급 적용) ──
    meta.model = PNG Source 청크 원문. 예: "NovelAI Diffusion V4.5 B9F340FD".
@@ -1529,6 +1610,23 @@ function renderDetail(){const it=current();$('#detail-empty').style.display=it?'
     if(m.naiCfgRescale!=null)rows.push(['CFG Rescale',m.naiCfgRescale]);
     if(m.naiUncondScale!=null)rows.push(['Uncond Scale',m.naiUncondScale]);
     if(m.naiSmea)rows.push(['SMEA',m.naiSmea]);
+    // 확장 항목: 값이 빈 문자열이면 그 이미지 메타에 항목 자체가 없거나 기본값 → 행을 만들지 않는다
+    if(m.naiVariety)rows.push(['Variety+',m.naiVariety]);
+    if(m.naiDecrisper)rows.push(['Decrisper',m.naiDecrisper]);
+    if(m.naiQualityTags)rows.push(['품질 태그',m.naiQualityTags]);
+    if(m.naiUcPreset)rows.push(['UC 프리셋','원본값 '+m.naiUcPreset]);
+    if(m.naiTransparent)rows.push(['투명 배경',m.naiTransparent]);
+    if(m.naiVibe)rows.push(['Vibe Transfer',m.naiVibe]);
+    if(m.naiDirectorRef)rows.push(['Director Ref',m.naiDirectorRef]);
+    if(m.naiControlNet)rows.push(['ControlNet',m.naiControlNet]);
+    if(m.naiUpscale)rows.push(['업스케일',m.naiUpscale]);
+    if(m.naiSamples)rows.push(['생성 장수',m.naiSamples]);
+    if(m.naiQualityBoost)rows.push(['Quality Boost',m.naiQualityBoost]);
+    if(m.naiUseCoords)rows.push(['캐릭터 좌표',m.naiUseCoords]);
+    if(m.naiUseOrder)rows.push(['프롬프트 순서',m.naiUseOrder]);
+    if(m.naiLegacyUc)rows.push(['Legacy UC',m.naiLegacyUc]);
+    if(m.naiLegacyV3Extend)rows.push(['V3 Extend',m.naiLegacyV3Extend]);
+    if(m.naiModelHash&&!String(m.model||'').includes(m.naiModelHash))rows.push(['모델 해시',m.naiModelHash]);
     if(m.denoise!=null)rows.push(['Strength',m.denoise]); // i2i일 때만
     if(m.naiGenTime)rows.push(['생성 시간',(Number(m.naiGenTime)?Number(m.naiGenTime).toFixed(2)+'초':m.naiGenTime)]);
     if(m.metaVia==='alpha')rows.push(['메타 복구','알파 채널 (stealth pnginfo)']);
@@ -3013,6 +3111,7 @@ async function bootResultGallery(){
   await load();
   applyView();
   render();
+  reportNaiMetaMigration(); // 첫 렌더를 막지 않도록 await 하지 않는다
 }
 bootResultGallery();
 
