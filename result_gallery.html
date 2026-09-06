@@ -1145,7 +1145,7 @@ function parseComfyMetadata(file,buffer){
   // ── NAI 판별: Software 청크가 NovelAI. ComfyUI의 prompt/workflow 키와 충돌하지 않음 ──
   if(String(meta.Software||'').trim()==='NovelAI'&&meta.Comment){
     const ex=parseNaiMetadata(meta);
-    ex.rawMeta=String(meta.Comment||'').slice(0,META_RAW_LIMIT);
+    ex.rawMeta=String(meta.Comment||''); // NAI는 자르지 않음 — Comment 원문이 재생성 자료라 전체 보존 (Comfy는 META_RAW_LIMIT 유지)
     return ex;
   }
   const promptRaw=meta.prompt||meta.Prompt||''; const workflowRaw=meta.workflow||meta.Workflow||'';
@@ -1259,7 +1259,7 @@ async function processFile(file,buffer){
     const st=await readStealthFromFile(file);
     if(st&&String(st.Software||'').trim()==='NovelAI'&&st.Comment){
       const ex=parseNaiMetadata(st,'alpha');
-      ex.rawMeta=String(st.Comment||'').slice(0,META_RAW_LIMIT);
+      ex.rawMeta=String(st.Comment||''); // NAI(알파 채널 복구)도 자르지 않음
       meta=ex;
     }
   }
@@ -2810,8 +2810,25 @@ function closeLightbox(doFocus=true){
   document.body.classList.remove('lb-open');
   lightboxItemId=null;
   lbPlaylist=[];lbPos=-1;
+  if(doFocus)lbClickShield();
   // 아이템 데이터를 안 건드렸으니 전체 재렌더 불필요 → 마지막 본 카드만 선택/스크롤
   if(doFocus)focusCardAfterLightbox(lastId);
+}
+/* 뷰어가 닫힌 직후 두 번째 클릭/탭(더블클릭·더블탭 습관)이 뷰어 자리에 있던 카드·상세 패널로
+   그대로 내려가는 '클릭 관통'을 막는다. 닫힌 뒤 짧은 시간 동안 문서 전체의 click/touchend를 한 번 삼키고,
+   전역 더블탭(컨텍스트 메뉴) 카운터도 초기화한다. 뷰어 안 버튼(편집 등)으로 닫는 경로(doFocus=false)에는 걸지 않는다. */
+const LB_SHIELD_MS=350;
+function lbClickShield(){
+  const until=Date.now()+LB_SHIELD_MS;
+  const swallow=e=>{
+    if(Date.now()>until){off();return;}
+    e.stopPropagation();if(e.cancelable)e.preventDefault(); // mousedown까지 막아야 아래 입력칸으로 포커스가 넘어가지 않는다
+  };
+  const EVS=['mousedown','click','touchend'];
+  const off=()=>EVS.forEach(t=>window.removeEventListener(t,swallow,true));
+  EVS.forEach(t=>window.addEventListener(t,swallow,true));
+  setTimeout(off,LB_SHIELD_MS+50);
+  try{if(typeof lastTap==='object'&&lastTap)lastTap.t=0;}catch(_){}
 }
 function focusCardAfterLightbox(id){
   if(!id)return;
