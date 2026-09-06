@@ -2557,7 +2557,175 @@ function boardMenuItems(){return[{icon:'＋',label:'이미지 추가',action:()=
 
 function render(){ normalizeStateShape(state); $('#search').value=state.query;$('#search-clear').classList.toggle('visible',!!state.query);$('#sort-select').value=state.sort;$('#score-filter').value=state.scoreFilter;$('#imgcount-filter').value=state.imgCountFilter||'all';$('#fav-only').checked=state.favOnly;renderStatuses();renderChips();renderList();renderDetail();renderStats();renderCollapseAllBtn()}
 function saveDetail(){const it=current();if(!it)return;it.title=$('#d-title').value.trim()||'제목 없음';it.status=$('#d-status').value;it.score=Number($('#d-score').value)||0;it.tags=uniq($('#d-tags').value.split(','));it.notes=$('#d-notes').value.trim();it.updatedAt=Date.now();save();render();toast('저장했어')}
-function exportData(){const blob=new Blob([JSON.stringify({version:1,exportedAt:new Date().toISOString(),items:state.items},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='result_gallery_export_'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(a.href)}
+/* 내보내기(전체): 카드 단위로 조각내어 Blob에 넣는다.
+   한 덩어리 JSON.stringify는 썸네일 data URL이 쌓이면 문자열 최대 길이(RangeError)에 걸려 조용히 실패하므로,
+   카드마다 따로 직렬화한 조각 배열을 Blob이 이어붙이게 한다. 결과 파일 구조({version,exportedAt,items})는 이전과 동일. */
+function exportData(list){ // list 생략 시 전체 (우클릭 메뉴용)
+  try{
+    const items=Array.isArray(list)?list:(state.items||[]);
+    if(!items.length){toast('내보낼 결과가 없어');return}
+    const parts=['{\n  "version": 1,\n  "exportedAt": '+JSON.stringify(new Date().toISOString())+',\n  "items": [\n'];
+    items.forEach((it,i)=>{parts.push('    '+JSON.stringify(it,null,2).replace(/\n/g,'\n    '));parts.push(i<items.length-1?',\n':'\n')});
+    parts.push('  ]\n}\n');
+    const blob=new Blob(parts,{type:'application/json'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='result_gallery_export_'+new Date().toISOString().slice(0,10)+'.json';
+    a.style.display='none';document.body.appendChild(a);a.click();
+    setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},10000);
+    toast(`${items.length}장 · ${bytes(blob.size)} 내보내기 시작`);
+  }catch(e){toast('내보내기 실패 — '+((e&&e.message)||e));console.error('exportData',e)}
+}
+/* ── 내보내기 선택 모달: 형식(JSON/HTML) → HTML이면 범위(전체/필터/선택) ──
+   슬롯 피커(#slot-picker-overlay) 스타일을 그대로 재사용한다. 취소·바깥 클릭 → null */
+function showPicker(title,sub,options){
+  return new Promise(resolve=>{
+    const existing=document.getElementById('slot-picker-overlay');if(existing)existing.remove();
+    const overlay=document.createElement('div');overlay.id='slot-picker-overlay';
+    const box=document.createElement('div');box.className='slot-picker-box';
+    box.innerHTML=`<div class="slot-picker-title">${esc(title)}</div>`+(sub?`<div class="slot-picker-sub">${esc(sub)}</div>`:'');
+    options.forEach(o=>{
+      const b=document.createElement('button');b.className='slot-btn';
+      b.innerHTML=`<div><div class="slot-title">${esc(o.title)}</div>${o.meta?`<div class="slot-meta">${esc(o.meta)}</div>`:''}</div><span class="slot-arrow">›</span>`;
+      b.onclick=()=>{overlay.remove();resolve(o.value)};box.appendChild(b);
+    });
+    const c=document.createElement('button');c.className='slot-cancel-btn';c.textContent='취소';c.onclick=()=>{overlay.remove();resolve(null)};box.appendChild(c);
+    overlay.appendChild(box);overlay.onclick=e=>{if(e.target===overlay){overlay.remove();resolve(null)}};
+    document.body.appendChild(overlay);
+  });
+}
+async function openExportPicker(){
+  const all=state.items||[];
+  if(!all.length){toast('내보낼 결과가 없어');return}
+  const fmt=await showPicker('내보내기','형식을 골라봐.',[
+    {title:'JSON (백업)',meta:'썸네일·보조 이미지·평가 포함 · 다시 불러오기 가능',value:'json'},
+    {title:'HTML (조회용)',meta:'대표 이미지 1장 + 메타데이터 · 브라우저로 열어보는 단일 파일 · 편집 불가',value:'html'}
+  ]);
+  if(fmt!=='json'&&fmt!=='html')return;
+  const cur=filtered(), sel=selectMode?all.filter(it=>selectedIds.has(it.id)):[];
+  const opts=[{title:'전체',meta:`${all.length}장`,value:'all'},{title:'현재 필터 결과',meta:`${cur.length}장 · 지금 보이는 순서대로`,value:'filtered'}];
+  if(sel.length)opts.push({title:'선택한 카드',meta:`${sel.length}장 (일괄 선택 모드)`,value:'selected'});
+  const scope=await showPicker((fmt==='json'?'JSON':'HTML')+' 내보내기 범위',fmt==='json'?'썸네일·보조 이미지·평가가 그대로 들어가. 불러오기로 되돌릴 수 있어.':'대표 이미지만 들어가. 보조 이미지(subs)는 제외돼.',opts);
+  if(!scope)return;
+  const picked=scope==='all'?all:scope==='filtered'?cur:sel;
+  if(fmt==='json')exportData(picked);else exportHtml(picked);
+}
+function downloadBlob(blob,name){
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;
+  a.style.display='none';document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},10000);
+}
+/* renderDetail의 자동 추출값 표와 같은 항목을 HTML 내보내기용으로 뽑는다 (renderDetail 자체는 건드리지 않음) */
+const EXPORT_NAI_ROWS=[['naiCfgRescale','CFG Rescale'],['naiUncondScale','Uncond Scale'],['naiSmea','SMEA'],['naiVariety','Variety+'],['naiDecrisper','Decrisper'],['naiQualityTags','품질 태그'],['naiUcPreset','UC 프리셋'],['naiTransparent','투명 배경'],['naiVibe','Vibe Transfer'],['naiDirectorRef','Director Ref'],['naiControlNet','ControlNet'],['naiUpscale','업스케일'],['naiSamples','생성 장수'],['naiQualityBoost','Quality Boost'],['naiUseCoords','캐릭터 좌표'],['naiUseOrder','프롬프트 순서'],['naiLegacyUc','Legacy UC'],['naiLegacyV3Extend','V3 Extend'],['naiGenTime','생성 시간']];
+function exportMetaRows(it){
+  const m=it.meta||{},gen=genOf(it);
+  const rows=[['출처',m.source||'확인 불가'],['모델',m.model||'확인 불가']];
+  if(gen!=='nai'){const loras=(m.loras||[]).map(l=>`${l.name}${l.strength_model!=null?' @'+l.strength_model:''}`).join(', ');rows.push(['LoRA',loras||'확인 불가'])}
+  rows.push(['Seed',m.seed??'확인 불가'],['Steps',m.steps??'확인 불가'],['CFG',m.cfg??'확인 불가'],['Sampler',m.sampler||'확인 불가'],['Scheduler',m.scheduler||'확인 불가']);
+  if(gen==='nai'){EXPORT_NAI_ROWS.forEach(([k,l])=>{const v=m[k];if(v!=null&&v!==''&&v!==false)rows.push([l,String(v)])});if(m.denoise!=null)rows.push(['Strength',m.denoise])}
+  else rows.push(['Denoise',m.denoise??'확인 불가']);
+  rows.push(['크기',(m.width&&m.height)?`${m.width}×${m.height}`:'확인 불가'],['파일',it.fileName||'확인 불가']);
+  return rows;
+}
+/* HTML 내보내기(조회 전용): 카드별 대표 썸네일(data URL) + 메타 + 상태/점수/태그/메모.
+   카드 단위 문자열 조각을 Blob에 넣어 대용량에서도 문자열 길이 제한을 피한다. 뷰어 쪽 검색/필터/복사/확대는 내장 스크립트로 처리. */
+function exportHtml(items){
+  try{
+    if(!items||!items.length){toast('내보낼 카드가 없어');return}
+    const date=new Date();
+    const stars=n=>'★'.repeat(Math.max(0,Math.min(5,Number(n)||0)))+'☆'.repeat(5-Math.max(0,Math.min(5,Number(n)||0)));
+    const statuses=uniq(items.map(it=>it.status||'보류'));
+    const head=`<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Result Gallery 내보내기 · ${esc(date.toISOString().slice(0,10))}</title>
+<style>
+:root{--c1:#8888CC;--c2:#DDAACC;--c3:#CCAA88;--c4:#BB6688;--bg:#FAFAFB;--bg2:#F1F1F5;--text:#2A2A33;--text2:#66667A;--text3:#9A9AAE;--border:#E2E2EA;--code:#F4F4F8}
+@media(prefers-color-scheme:dark){:root{--bg:#16161C;--bg2:#1F1F27;--text:#E8E8F0;--text2:#A8A8BC;--text3:#70708A;--border:#2E2E3A;--code:#1C1C24}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:13px/1.55 system-ui,-apple-system,"Segoe UI","Malgun Gothic",sans-serif}
+header{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:.5px solid var(--border);padding:12px 18px;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+header h1{font-size:15px;margin:0 6px 0 0;font-weight:700}header h1 span{color:var(--c1)}
+header .sub{font-size:11px;color:var(--text3)}
+header input,header select{font:inherit;font-size:12px;padding:5px 8px;border:.5px solid var(--border);border-radius:7px;background:var(--bg2);color:var(--text)}
+header #q{min-width:220px}header label{font-size:12px;color:var(--text2);display:flex;align-items:center;gap:4px}
+#cnt{font-size:11px;color:var(--text2);margin-left:auto}
+main{padding:14px 18px 40px;display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:14px}
+article{background:var(--bg2);border:.5px solid var(--border);border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+article[hidden]{display:none}
+.im{background:#000;display:flex;align-items:center;justify-content:center;max-height:420px;cursor:zoom-in}
+.im img{max-width:100%;max-height:420px;object-fit:contain;display:block}
+.im .noimg{color:#888;font-size:12px;padding:40px 0}
+.bd{padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+h2{font-size:13.5px;margin:0;word-break:break-all}
+.row{display:flex;flex-wrap:wrap;gap:5px;align-items:center;font-size:11.5px}
+.pill{border-radius:999px;padding:1px 8px;background:var(--bg);border:.5px solid var(--border);color:var(--text2)}
+.pill.st{border-color:var(--c1);color:var(--c1)}.pill.sc{color:var(--c3)}.pill.fav{border-color:var(--c4);color:var(--c4)}.pill.tag{border-color:var(--c2)}
+dl{display:grid;grid-template-columns:92px 1fr;gap:3px 8px;margin:0;font-size:11.5px}dt{color:var(--text3)}dd{margin:0;word-break:break-all}
+details{border:.5px solid var(--border);border-radius:8px;background:var(--bg)}
+summary{cursor:pointer;padding:6px 10px;font-size:11.5px;color:var(--text2);display:flex;justify-content:space-between;align-items:center}
+summary b{color:var(--text)}
+pre{margin:0;padding:8px 10px;white-space:pre-wrap;word-break:break-word;font:11px/1.5 ui-monospace,Consolas,monospace;background:var(--code);border-top:.5px solid var(--border);max-height:260px;overflow:auto}
+button.cp{font:inherit;font-size:10.5px;padding:2px 8px;border-radius:6px;border:.5px solid var(--c1);background:transparent;color:var(--c1);cursor:pointer}
+button.cp:hover{background:var(--c1);color:#fff}
+.notes{font-size:11.5px;color:var(--text2);white-space:pre-wrap;border-left:2px solid var(--c3);padding-left:8px}
+#lb{position:fixed;inset:0;background:rgba(0,0,0,.9);display:none;align-items:center;justify-content:center;z-index:50;cursor:zoom-out}
+#lb.on{display:flex}#lb img{max-width:96vw;max-height:96vh;object-fit:contain}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--text);color:var(--bg);font-size:12px;padding:8px 16px;border-radius:999px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:60}
+#toast.on{opacity:1}
+@media(max-width:720px){main{grid-template-columns:1fr;padding:10px}header{padding:10px}header #q{min-width:0;flex:1}}
+</style></head><body>
+<header><h1><span>✦</span> Result Gallery</h1><span class="sub">${esc(date.toLocaleString('ko-KR'))} 내보냄 · ${items.length}장 · 조회 전용</span>
+<input id="q" placeholder="제목 / 모델 / 프롬프트 / 태그 / 메모 검색…">
+<select id="st"><option value="">전체 상태</option>${statuses.map(s=>`<option>${esc(s)}</option>`).join('')}</select>
+<select id="sc"><option value="0">전체 점수</option><option value="5">★5</option><option value="4">★4 이상</option><option value="3">★3 이상</option></select>
+<label><input type="checkbox" id="fv"> 즐겨찾기만</label><span id="cnt"></span></header>
+<main>
+`;
+    const parts=[head];
+    items.forEach(it=>{
+      const m=it.meta||{};
+      const q=[it.title,it.fileName,m.model,m.source,(m.loras||[]).map(l=>l.name).join(' '),m.positive,m.negative,(it.tags||[]).join(' '),it.notes,it.status].filter(Boolean).join(' ').toLowerCase();
+      const rows=exportMetaRows(it).map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(String(v))}</dd>`).join('');
+      const img=it.thumb?`<img src="${esc(it.thumb)}" loading="lazy" alt="">`:`<div class="noimg">썸네일 없음 (동기화로 제외됨)</div>`;
+      const tags=(it.tags||[]).map(t=>`<span class="pill tag">${esc(t)}</span>`).join('');
+      parts.push(`<article data-q="${esc(q)}" data-st="${esc(it.status||'보류')}" data-sc="${Number(it.score)||0}" data-fav="${it.fav?1:0}">
+<div class="im">${img}</div>
+<div class="bd">
+<h2>${esc(it.title||it.fileName||'제목 없음')}</h2>
+<div class="row"><span class="pill st">${esc(it.status||'보류')}</span><span class="pill sc">${stars(it.score)}</span>${it.fav?'<span class="pill fav">♥ 즐겨찾기</span>':''}${tags}</div>
+<dl>${rows}</dl>
+<details><summary><b>Positive</b><button class="cp" type="button">복사</button></summary><pre>${esc(m.positive||'확인 불가')}</pre></details>
+<details><summary><b>Negative</b><button class="cp" type="button">복사</button></summary><pre>${esc(m.negative||'확인 불가')}</pre></details>
+${it.notes?`<div class="notes">${esc(it.notes)}</div>`:''}
+</div></article>
+`);
+    });
+    parts.push(`</main>
+<div id="lb"><img alt=""></div><div id="toast"></div>
+<script>
+(function(){
+var $=function(s){return document.querySelector(s)},cards=[].slice.call(document.querySelectorAll('article'));
+function toast(m){var t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toast._t);toast._t=setTimeout(function(){t.classList.remove('on')},1500)}
+function apply(){var q=$('#q').value.trim().toLowerCase(),st=$('#st').value,sc=+$('#sc').value,fv=$('#fv').checked,n=0;
+  cards.forEach(function(c){var ok=(!q||c.dataset.q.indexOf(q)>-1)&&(!st||c.dataset.st===st)&&(+c.dataset.sc>=sc)&&(!fv||c.dataset.fav==='1');c.hidden=!ok;if(ok)n++});
+  $('#cnt').textContent=n+' / '+cards.length+'장'}
+['input','change'].forEach(function(ev){$('#q').addEventListener(ev,apply);$('#st').addEventListener(ev,apply);$('#sc').addEventListener(ev,apply);$('#fv').addEventListener(ev,apply)});
+apply();
+document.addEventListener('click',function(e){
+  var b=e.target.closest('button.cp');
+  if(b){e.preventDefault();e.stopPropagation();var pre=b.closest('details').querySelector('pre'),txt=pre.textContent;
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(function(){toast('복사했어')},function(){fallback(txt)})}else fallback(txt);return}
+  var im=e.target.closest('.im img');
+  if(im){$('#lb img').src=im.src;$('#lb').classList.add('on')}
+});
+function fallback(t){var ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');toast('복사했어')}catch(_){toast('복사 실패')}ta.remove()}
+$('#lb').addEventListener('click',function(){$('#lb').classList.remove('on')});
+document.addEventListener('keydown',function(e){if(e.key==='Escape')$('#lb').classList.remove('on')});
+})();
+<\/script></body></html>`);
+    const blob=new Blob(parts,{type:'text/html;charset=utf-8'});
+    downloadBlob(blob,'result_gallery_'+date.toISOString().slice(0,10)+'.html');
+    toast(`HTML ${items.length}장 · ${bytes(blob.size)} 내보내기 시작`);
+  }catch(e){toast('HTML 내보내기 실패 — '+((e&&e.message)||e));console.error('exportHtml',e)}
+}
 function importData(file){const r=new FileReader();r.onload=()=>{try{const data=JSON.parse(r.result);const items=Array.isArray(data)?data:data.items;if(!Array.isArray(items))throw Error('bad');state.items=[...items,...state.items];state.selectedId=state.items[0]?.id||null;save();render();toast(items.length+'개 불러왔어')}catch(e){toast('불러오기 실패')}};r.readAsText(file)}
 /* === 이미지 뷰어 + 슬라이드쇼 (lora_lab 미러링) ===
    뷰어는 열 때 현재 필터/정렬 결과를 id 배열 스냅샷으로 고정한다.
@@ -2747,7 +2915,7 @@ document.addEventListener('click',e=>{const m=$('#ctx-menu');if(m&&!m.contains(e
 document.addEventListener('contextmenu',e=>{if(selectMode)return;if(e.target.closest('input,textarea,select'))return;const card=e.target.closest('#list .card');const main=e.target.closest('main.panel');if(card){e.preventDefault();const it=state.items.find(x=>x.id===card.dataset.id);if(it)openCtxMenu(e.clientX,e.clientY,cardMenuItems(it))}else if(main){e.preventDefault();openCtxMenu(e.clientX,e.clientY,boardMenuItems())}});
 let lastTap={t:0,x:0,y:0};document.addEventListener('touchend',e=>{if(selectMode)return;if(!e.changedTouches||!e.changedTouches[0])return;const t=e.changedTouches[0],now=Date.now(),dt=now-lastTap.t,dx=Math.abs(t.clientX-lastTap.x),dy=Math.abs(t.clientY-lastTap.y);if(dt<350&&dx<25&&dy<25){if(t.target.closest&&t.target.closest('input,textarea,select,button,a'))return;const card=t.target.closest&&t.target.closest('#list .card');const main=t.target.closest&&t.target.closest('main.panel');if(card){const it=state.items.find(x=>x.id===card.dataset.id);if(it){e.preventDefault();openCtxMenu(t.clientX,t.clientY,cardMenuItems(it))}}else if(main){e.preventDefault();openCtxMenu(t.clientX,t.clientY,boardMenuItems())}lastTap.t=0}else lastTap={t:now,x:t.clientX,y:t.clientY}},{passive:false});
 
-$('#pick-btn').onclick=()=>$('#file-input').click();$('#file-input').onchange=e=>addFiles(e.target.files);$('#export-btn').onclick=exportData;$('#import-btn').onclick=()=>$('#import-input').click();$('#import-input').onchange=e=>{if(e.target.files[0])importData(e.target.files[0])};$('#clear-filter-btn').onclick=()=>{state.status='전체';state.query='';state.scoreFilter='all';state.imgCountFilter='all';state.favOnly=false;state.tagFilter=[];state.loraFilter=[];state.genFilter=[];state.naiVerFilter=[];save();render()};
+$('#pick-btn').onclick=()=>$('#file-input').click();$('#file-input').onchange=e=>addFiles(e.target.files);$('#export-btn').onclick=openExportPicker;$('#import-btn').onclick=()=>$('#import-input').click();$('#import-input').onchange=e=>{if(e.target.files[0])importData(e.target.files[0])};$('#clear-filter-btn').onclick=()=>{state.status='전체';state.query='';state.scoreFilter='all';state.imgCountFilter='all';state.favOnly=false;state.tagFilter=[];state.loraFilter=[];state.genFilter=[];state.naiVerFilter=[];save();render()};
 $('#search').oninput=e=>{state.query=e.target.value;save();render()};$('#search-clear').onclick=()=>{state.query='';save();render()};$('#sort-select').onchange=e=>{state.sort=e.target.value;save();render()};$('#score-filter').onchange=e=>{state.scoreFilter=e.target.value;save();render()};$('#imgcount-filter').onchange=e=>{state.imgCountFilter=e.target.value;save();render()};$('#fav-only').onchange=e=>{state.favOnly=e.target.checked;save();render()};
 $('#collapse-all').onclick=e=>{e.preventDefault();collapseAllCards()};
 $('#save-detail-btn').onclick=saveDetail;['#d-title','#d-status','#d-score','#d-tags','#d-notes'].forEach(s=>$(s).addEventListener('change',saveDetail));$('#copy-positive-btn').onclick=()=>{navigator.clipboard.writeText(current()?.meta?.positive||'');toast('Positive 복사했어')};$('#copy-negative-btn').onclick=()=>{navigator.clipboard.writeText(current()?.meta?.negative||'');toast('Negative 복사했어')};$('#toggle-fav-btn').onclick=()=>{const it=current();if(!it)return;it.fav=!it.fav;save();render()};$('#delete-btn').onclick=async()=>{const it=current();if(!it)return;if(!await showConfirm('이 결과를 삭제할까? 원본 파일은 삭제되지 않아.',{danger:true}))return;state.items=state.items.filter(x=>x.id!==it.id);state.selectedId=state.items[0]?.id||null;save();render();toast('삭제했어')};$('#open-lightbox-btn').onclick=openLightbox;bindLightbox();
