@@ -299,106 +299,503 @@
     return meta;
   }
 
-  async function uploadDriveSlotRG(){
+  // SHA-256은 이미지별로 계산해 카드 전체 base64를 한 문자열로 합치지 않는다.
+  async function rgSha256(text){
+    if(!globalThis.crypto?.subtle)throw new Error('이 환경에서는 안전한 이미지 비교를 사용할 수 없어. 저장을 중단했어.');
+    const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text));
+    return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
+  }
+  async function rgStrongImageSig(it){
+    const hashes=[];
+    for(const sub of (Array.isArray(it.subs)?it.subs:[])){
+      if(sub&&sub.thumb)hashes.push([sub.id||'',await rgSha256(sub.thumb)]);
+    }
+    return 'sha256:'+await rgSha256(JSON.stringify([await rgSha256(it.thumb||''),hashes]));
+  }
+  function rgDriveFileStamp(file){
+    return file?.version&&file?.md5Checksum&&file?.size!=null
+      ?JSON.stringify([String(file.version),file.md5Checksum,String(file.size)]):'';
+  }
+  function rgSameImageContents(a,b){
+    if((a.thumb||'')!==(b.thumb||''))return false;
+    const left=(a.subs||[]).filter(s=>s&&s.thumb),right=(b.subs||[]).filter(s=>s&&s.thumb);
+    return left.length===right.length&&left.every((s,i)=>(s.id||'')===(right[i].id||'')&&s.thumb===right[i].thumb);
+  }
+  async function rgReadFileStamp(id){
+    const params=new URLSearchParams({fields:'id,version,md5Checksum,size'});
+    const file=await (await driveFetch(DRIVE_API+'/'+encodeURIComponent(id)+'?'+params.toString())).json();
+    return file.id===id?rgDriveFileStamp(file):'';
+  }
+  function rgCheckpointStore(scope){
+    // Small, separate records: never touch gallery data or credentials.
+    const prefix='rg_drive_resume_v1:'+scope+':';
+    // Non-browser test harnesses may omit storage entirely.
+    if(typeof localStorage==='undefined'&&typeof document==='undefined')return {persistent:false,get:()=>null,put:()=>{}};
+    return {
+      persistent:true,
+      get(cardId){
+        let raw;
+        try{raw=localStorage.getItem(prefix+cardId);}catch(e){throw new Error('비교 재개 정보를 읽을 수 없어 저장을 중단했어: '+e.message);}
+        try{return raw?JSON.parse(raw):null;}catch{return null;}
+      },
+      put(cardId,entry){
+        try{localStorage.setItem(prefix+cardId,JSON.stringify(entry));}
+        catch(e){throw new Error('완료한 비교의 재개 정보를 저장하지 못했어. 기존 데이터는 지우지 말고 이 오류를 전달해줘: '+e.message);}
+      }
+    };
+  }
+
+  async function rgExistingImageIds(){
+    const ids=new Set();ids.stamps=new Map();let pageToken='';
+    do{
+      const params=new URLSearchParams({spaces:'appDataFolder',fields:'nextPageToken,files(id,version,md5Checksum,size)',
+        q:"name contains 'rg_img_' and 'appDataFolder' in parents and trashed=false",pageSize:'1000'});
+      if(pageToken)params.set('pageToken',pageToken);
+      const data=await (await driveFetch(DRIVE_API+'?'+params.toString())).json();
+      (data.files||[]).forEach(file=>{if(file.id){ids.add(file.id);const stamp=rgDriveFileStamp(file);if(stamp)ids.stamps.set(file.id,stamp);}});pageToken=data.nextPageToken||'';
+    }while(pageToken);
+    return ids;
+  }
+
+  // Read-only preflight: inspect presence/flags, never hash, restore, or remove images.
+  function rgRecordSaveStage(phase,done,total){
+    try{if(typeof localStorage!=='undefined')localStorage.setItem('rg_drive_last_stage_v1',JSON.stringify({phase,done,total,at:new Date().toISOString()}));}catch(_){}
+  }
+  function rgDiagnoseImages(items){
+    const issues=[];let totalImages=0,presentWithFlag=0,emptyWithoutFlag=0;
+    (items||[]).forEach((card,index)=>{
+      const missing=[];
+      function inspect(img,position){
+        totalImages++;
+        if(img.thumb){if(img.thumbStripped)presentWithFlag++;return;}
+        if(!img.thumbStripped){emptyWithoutFlag++;return;}
+        missing.push({position,id:String(img.id||''),fileName:String(img.fileName||img.title||'')});
+      }
+      inspect(card,'대표 이미지');
+      (card.subs||[]).forEach((sub,i)=>inspect(sub,'추가 이미지 '+(i+1)));
+      if(missing.length)issues.push({index:index+1,id:String(card.id||''),title:String(card.title||card.fileName||'제목 없음'),missing});
+    });
+    const missingCount=issues.reduce((n,x)=>n+x.missing.length,0);
+    const lines=['Result Gallery 저장 문제 진단',
+      '검사 카드 '+(items||[]).length+'개 · 이미지 자리 '+totalImages+'개',
+      '저장 차단: '+issues.length+'카드 / '+missingCount+'이미지',
+      '이미지는 있고 제외 표시만 남은 항목: '+presentWithFlag+'개 (저장 차단 안 함)',
+      '이미지와 제외 표시가 모두 없는 항목: '+emptyWithoutFlag+'개 (현재 보호 조건으로 차단 안 함)',
+      '', '이 검사는 현재 메모리의 이미지 유무와 thumbStripped 표시만 확인합니다.',
+      'Drive에 이미지가 남아 있는지, 왜 비었는지, 이미지 파일 내용이 정상인지는 아직 확인하지 않았습니다.',
+      '진단 자체는 로컬 데이터와 Drive를 변경하지 않으며 해시를 계산하지 않습니다.', ''];
     try{
-      setStatus('Drive 저장 중... (이미지 분리 저장)','loading');
-      if(typeof saveResultGalleryToIndexedDBNow==='function') await saveResultGalleryToIndexedDBNow();
-      else if(typeof save==='function') save();
+      const stage=typeof localStorage!=='undefined'?JSON.parse(localStorage.getItem('rg_drive_last_stage_v1')||'null'):null;
+      if(stage?.phase)lines.push('마지막 저장 단계 기록: '+stage.phase+' ('+(stage.done??'?')+'/'+(stage.total??'?')+') · '+stage.at,'이 기록은 중단 위치를 찾기 위한 정보이며 저장 성공을 보장하지 않습니다.','');
+    }catch(_){}
+    for(const issue of issues){
+      lines.push('카드: '+issue.title,'카드 ID: '+issue.id+' / 전체 데이터 순번: '+issue.index);
+      for(const img of issue.missing)lines.push('  - '+img.position+' | 이미지 ID: '+img.id+' | 파일명: '+(img.fileName||'(없음)'));
+      lines.push('');
+    }
+    lines.push(issues.length?'위 목록을 확인하기 전에는 전체 복원이나 카드 삭제를 하지 마세요. 진단 내용을 전달하면 필요한 항목만 복구할 방법을 판단할 수 있습니다.':'현재 보호 조건에 해당하는 항목은 없습니다. Drive 저장 중 발생할 수 있는 다른 오류까지 검사한 결과는 아닙니다.');
+    return {issues,missingCount,text:lines.join('\n')};
+  }
+  function rgShowImageDiagnosis(report){
+    if(typeof document==='undefined')return;
+    const host=document.getElementById('drive-sync-status');if(!host)return;
+    let panel=document.getElementById('rg-drive-diagnosis');
+    if(!panel){
+      panel=document.createElement('div');panel.id='rg-drive-diagnosis';
+      host.insertAdjacentElement('afterend',panel);
+    }
+    panel.replaceChildren();
+    const note=document.createElement('p');note.textContent='저장 문제 진단 — 아래 내용을 선택해 복사하거나 TXT로 저장할 수 있어.';
+    const area=document.createElement('textarea');area.readOnly=true;area.value=report.text;
+    area.setAttribute('aria-label','저장 문제 진단 결과');
+    area.style.cssText='width:100%;height:240px;box-sizing:border-box;font-size:12px;white-space:pre;';
+    const select=document.createElement('button');select.type='button';select.textContent='전체 선택';
+    select.onclick=()=>{area.focus();area.select();};
+    const download=document.createElement('button');download.type='button';download.textContent='진단 TXT 저장';
+    download.onclick=()=>{
+      const url=URL.createObjectURL(new Blob(['\uFEFF'+report.text],{type:'text/plain;charset=utf-8'}));
+      const a=document.createElement('a');a.href=url;a.download='result_gallery_drive_diagnosis.txt';
+      panel.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    };
+    const actions=document.createElement('div');actions.className='drive-sync-actions';
+    select.className=download.className='drive-sub';actions.append(select,download);
+    panel.append(note,area,actions);
+  }
+  function rgCheckImagesBeforeSave(items){
+    const report=rgDiagnoseImages(items);
+    rgShowImageDiagnosis(report);
+    if(report.issues.length)throw new Error('이미지 내용이 비어 있고 제외 표시가 남은 '+report.issues.length+'카드 / '+report.missingCount+'이미지가 있어. 아래 저장 문제 진단에서 카드 이름과 이미지 위치를 확인해줘.');
+    return report;
+  }
 
-      const items=(state&&Array.isArray(state.items))?state.items:[];
-      const mainName=rgMainFileName();
-
-      // 기존 v2 메인 파일에서 이전 슬롯/이미지 참조를 읽어온다(있으면 변경분만 올린다).
-      let prevSlots=[];
-      const mainFile=await findDriveFileByName(mainName);
-      if(mainFile){
-        try{ const d=await readDriveFile(mainFile.id); prevSlots=Array.isArray(d.slots)?d.slots:[]; }catch(e){ prevSlots=[]; }
+  let rgDriveRecovering=false;
+  function rgRecoveryCommitShield(){
+    if(typeof document==='undefined')return ()=>{};
+    const shield=document.createElement('div');
+    shield.style.cssText='position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,.65);color:white;display:grid;place-items:center;font:16px sans-serif;';
+    shield.textContent='복구한 이미지를 로컬에 저장 중… 잠시 기다려줘.';
+    const block=e=>{e.preventDefault();e.stopImmediatePropagation();};
+    document.body.appendChild(shield);document.addEventListener('keydown',block,true);
+    return ()=>{shield.remove();document.removeEventListener('keydown',block,true);};
+  }
+  function rgSameOriginal(a,b){
+    if(a.fileHash&&b.fileHash)return a.fileHash===b.fileHash;
+    return !!a.fileName&&a.fileName===b.fileName&&Number.isFinite(a.size)&&a.size>0&&a.size===b.size;
+  }
+  // Legacy length signatures cannot prove image identity. Require a visible, explicit choice.
+  function rgChooseLegacyHeads(candidates){
+    if(typeof document==='undefined')return Promise.resolve([]);
+    return new Promise(resolve=>{
+      const overlay=document.createElement('div');
+      overlay.id='rg-legacy-head-preview';
+      overlay.style.cssText='position:fixed;inset:0;z-index:2147483646;background:rgba(0,0,0,.7);display:grid;place-items:center;padding:16px;';
+      const box=document.createElement('div');
+      box.setAttribute('role','dialog');box.setAttribute('aria-modal','true');box.setAttribute('aria-label','구형 백업 대표 이미지 선택');
+      box.style.cssText='background:#fff;color:#222;border-radius:12px;padding:20px;width:min(720px,100%);max-height:85vh;overflow:auto;box-sizing:border-box;';
+      const heading=document.createElement('h3');heading.textContent='구형 백업에서 찾은 대표 이미지';
+      const note=document.createElement('p');
+      note.textContent='카드 ID와 원본 정보는 일치하지만, 구형 백업에는 이미지 내용 검증용 해시가 없어 원래 대표 이미지인지 자동으로 확정할 수 없어. 아래에서 선택한 후보만 현재 빈 대표 자리에 채울게. 다른 이미지·메모와 Drive 백업은 그대로 유지돼.';
+      box.append(heading,note);
+      const choices=[];
+      const apply=document.createElement('button');apply.type='button';apply.textContent='선택한 후보로 빈 대표 복구';apply.disabled=true;
+      const update=()=>{apply.disabled=!choices.some(x=>x.check.checked&&!x.check.disabled);};
+      for(const candidate of candidates){
+        const row=document.createElement('div');row.style.cssText='border:1px solid #ccc;border-radius:8px;padding:12px;margin:12px 0;';
+        const name=document.createElement('p');name.textContent=(candidate.target.title||candidate.identity.fileName||candidate.identity.id)+' · 슬롯 '+candidate.slot;
+        const id=document.createElement('small');id.textContent='카드 ID: '+candidate.identity.id;
+        const img=document.createElement('img');img.alt='백업의 대표 이미지 후보';img.style.cssText='display:block;max-width:100%;height:240px;object-fit:contain;margin:10px auto;';
+        const status=document.createElement('p');status.textContent='미리보기 불러오는 중…';
+        const label=document.createElement('label');const check=document.createElement('input');check.type='checkbox';check.disabled=true;check.checked=false;
+        const text=document.createElement('span');text.textContent=' 이 후보를 빈 대표 이미지로 사용';label.append(check,text);
+        choices.push({candidate,check});check.onchange=update;
+        img.onload=()=>{if(img.naturalWidth>0){check.disabled=false;status.textContent='원본 일치는 자동 검증되지 않았어. 사용하려면 직접 선택해줘.';}else img.onerror();update();};
+        img.onerror=()=>{check.disabled=true;check.checked=false;status.textContent='이미지를 표시할 수 없어 이 후보는 복구할 수 없어.';update();};
+        img.src=candidate.thumb;
+        row.append(name,id,img,status,label);box.appendChild(row);
       }
-      const prevRef={};
-      const prevTop=prevSlots[0];
-      if(prevTop && Array.isArray(prevTop.items)){
-        prevTop.items.forEach(it=>{ if(it&&it.id) prevRef[it.id]={imageFileId:it.imageFileId||'', sig:it.imageSig||''}; });
-      }
-
-      // 이미지 파일 목록을 한 번에 조회해둔다(항목별 검색 대신 이 맵을 참조 → 중복 생성 방지 + 속도).
-      setStatus('Drive 이미지 목록 확인 중...','loading');
-      let imgFileMap={};
-      try{ imgFileMap=await listDriveFilesByPrefix('rg_img_'); }catch(e){ imgFileMap={}; }
-
-      let uploaded=0, skipped=0, imgErrors=0, idx=0;
-      const total=items.length;
-      const mainItems=[];
-      for(const it of items){
-        idx++;
-        setStatus(`이미지 저장 중 (${idx}/${total})\n${(it.title||'제목 없음').slice(0,40)}`,'loading');
-        const subs=Array.isArray(it.subs)?it.subs:[];
-        const sig=rgItemImageSig(it);
-        const meta=rgStripItem(it);
-        meta.imagesStripped=true;
-        meta.imageSig=sig;
-
-        const hasVisual=!!it.thumb || subs.some(s=>s&&s.thumb);
-        if(!hasVisual){ meta.imageFileId=''; mainItems.push(meta); continue; }
-
-        const prev=prevRef[it.id];
-        if(prev && prev.imageFileId && prev.sig===sig){
-          meta.imageFileId=prev.imageFileId; mainItems.push(meta); skipped++; continue;
-        }
-        try{
-          const imgName=rgImgFileName(it.id);
-          const existingId=(prev&&prev.imageFileId)||imgFileMap[imgName]||null;
-          const imgPayload={version:1,kind:'result-gallery-item-images',itemId:it.id,thumb:it.thumb||'',subs:subs.filter(s=>s&&s.thumb).map(s=>({id:s.id,thumb:s.thumb}))};
-          let written;
-          try{
-            written=await writeDriveFile(existingId, imgPayload, imgName);
-          }catch(inner){
-            // 재사용하려던 파일 ID가 유효하지 않으면(수동 삭제 등) 새로 생성해 재시도한다.
-            if(existingId) written=await writeDriveFile(null, imgPayload, imgName);
-            else throw inner;
+      const cancel=document.createElement('button');cancel.type='button';cancel.textContent='취소 — 구형 후보 적용 안 함';
+      const actions=document.createElement('div');actions.style.cssText='display:flex;gap:12px;flex-wrap:wrap;margin-top:16px;';actions.append(apply,cancel);box.appendChild(actions);
+      const oldFocus=document.activeElement;
+      const finish=selected=>{document.removeEventListener('keydown',onKey,true);overlay.remove();if(oldFocus?.isConnected)oldFocus.focus();resolve(selected);};
+      const onKey=e=>{
+        e.stopImmediatePropagation();
+        if(e.key==='Escape'){e.preventDefault();finish([]);}
+        else if(e.key==='Tab'){
+          const enabled=[...box.querySelectorAll('button,input')].filter(x=>!x.disabled);
+          const at=enabled.indexOf(document.activeElement);
+          if(at<0||(!e.shiftKey&&at===enabled.length-1)||(e.shiftKey&&at===0)){
+            e.preventDefault();enabled[e.shiftKey?enabled.length-1:0]?.focus();
           }
-          if(written&&written.id) imgFileMap[imgName]=written.id;
-          meta.imageFileId=written.id; mainItems.push(meta); uploaded++;
-        }catch(e){
-          imgErrors++; meta.imageFileId=''; meta.imageUploadError=true; mainItems.push(meta);
+        }
+      };
+      apply.onclick=()=>{const selected=choices.filter(x=>x.check.checked&&!x.check.disabled).map(x=>x.candidate);if(selected.length)finish(selected);};
+      cancel.onclick=()=>finish([]);
+      overlay.appendChild(box);document.body.appendChild(overlay);document.addEventListener('keydown',onKey,true);cancel.focus();
+    });
+  }
+
+  async function rgRecoverMissingHeads(){
+    if(rgDriveRecovering||rgDriveUploading){setStatus('진행 중인 저장/복구가 끝난 뒤 다시 눌러줘.','loading');return;}
+    if(typeof idbReplaceItems!=='function'||typeof saveResultGalleryToIndexedDBNow!=='function'){
+      setStatus('현재 HTML에서 안전한 로컬 저장 기능을 찾지 못했어. 데이터를 변경하지 않았어.','err');return;
+    }
+    const targets=(state.items||[]).filter(it=>!it.thumb&&it.thumbStripped);
+    if(!targets.length){setStatus('복구할 빈 대표 이미지가 없어.','ok');return;}
+    rgDriveRecovering=true;
+    let committed=false,releaseShield=()=>{};
+    const log=[];
+    try{
+      setStatus('기존 Drive 백업에서 빈 대표 이미지 '+targets.length+'장 확인 중…','loading');
+      const mainFile=await findDriveFileByName(rgMainFileName());
+      if(!mainFile)throw new Error('분리형 Drive 백업을 찾지 못했어.');
+      const main=await readDriveFile(mainFile.id);
+      if(main?.kind!=='result-gallery-drive-slots-split'||!Array.isArray(main.slots)||main.slots.some(s=>!Array.isArray(s.items)))throw new Error('백업 목록 형식을 확인할 수 없어.');
+      const found=new Map(),legacyCandidates=new Map();
+      for(const target of targets){
+        const reasons=[];
+        const identity={id:target.id,fileHash:target.fileHash,fileName:target.fileName,size:target.size,rgThumbHash:target.rgThumbHash};
+        if(!target.id||(state.items||[]).filter(it=>it.id===target.id).length!==1){log.push((target.title||target.id)+': 카드 ID 중복/누락으로 건너뜀');continue;}
+        for(let i=0;i<main.slots.length;i++){
+          const matches=main.slots[i].items.filter(it=>it.id===target.id);
+          if(matches.length!==1){reasons.push('슬롯 '+(i+1)+': 일치하는 카드 없음 또는 ID 중복');continue;}
+          const src=matches[0];
+          if(!rgSameOriginal(identity,src)){reasons.push('슬롯 '+(i+1)+': 대표 원본 정보 불일치');continue;}
+          if(!src.imageFileId){reasons.push('슬롯 '+(i+1)+': 이미지 파일 참조 없음');continue;}
+          setStatus('대표 이미지 확인 '+(found.size+1)+' / '+targets.length+' · 슬롯 '+(i+1)+'\n'+(target.title||target.fileName||target.id),'loading');
+          try{
+            const data=await readDriveFile(src.imageFileId);
+            if(data?.kind!=='result-gallery-item-images'||data.itemId!==target.id)throw new Error('이미지 파일의 카드 ID/형식 불일치');
+            if(typeof data.thumb!=='string'||!data.thumb.startsWith('data:image/'))throw new Error('파일에 대표 이미지 내용이 없음');
+            if(String(src.imageSig||'').startsWith('sha256:')){
+              if(await rgStrongImageSig(data)!==src.imageSig)throw new Error('백업 이미지 내용 검증 실패');
+            }else if(/^[a-f0-9]{64}$/.test(identity.rgThumbHash||'')){
+              if(await rgSha256(data.thumb)!==identity.rgThumbHash)throw new Error('기존 대표 이미지 해시와 불일치');
+            }else {
+              if(!/^data:image\/(?:png|jpeg|jpg|webp|gif|bmp|avif);base64,/i.test(data.thumb))throw new Error('미리보기를 지원하지 않는 이미지 형식');
+              if(!legacyCandidates.has(target))legacyCandidates.set(target,{target,thumb:data.thumb,identity,slot:i+1});
+              reasons.push('슬롯 '+(i+1)+': 구형 백업이라 이미지 내용 검증 정보가 부족함 — 미리보기 후보');
+              continue;
+            }
+            // A known original thumbnail hash is an additional identity check.
+            if(/^[a-f0-9]{64}$/.test(identity.rgThumbHash||'')&&await rgSha256(data.thumb)!==identity.rgThumbHash)throw new Error('현재 카드의 대표 이미지 해시와 불일치');
+            found.set(target,{thumb:data.thumb,identity});
+            log.push((target.title||target.fileName||target.id)+': 슬롯 '+(i+1)+'에서 대표 이미지 검증 완료');
+            break;
+          }catch(e){reasons.push('슬롯 '+(i+1)+': '+(e.message||e));}
+        }
+        if(!found.has(target))log.push((target.title||target.fileName||target.id)+(legacyCandidates.has(target)?': 구형 후보 발견 — ':': 복구 못 함 — ')+reasons.join(' / '));
+      }
+      const preview=[...legacyCandidates.values()].filter(candidate=>!found.has(candidate.target));
+      if(preview.length){
+        setStatus('구형 백업 후보 '+preview.length+'장. 미리보기에서 사용할 이미지를 선택해줘.','loading');
+        const selected=await rgChooseLegacyHeads(preview);
+        for(const candidate of preview){
+          if(selected.includes(candidate)){
+            found.set(candidate.target,{thumb:candidate.thumb,identity:candidate.identity});
+            log.push((candidate.target.title||candidate.identity.id)+': 슬롯 '+candidate.slot+' 후보를 사용자 선택으로 복구 요청 (원본 일치 자동 검증 안 됨)');
+          }else log.push((candidate.target.title||candidate.identity.id)+': 구형 후보를 선택하지 않아 적용 안 함');
         }
       }
-
-      // 이미지 업로드가 하나라도 실패하면 메인 파일을 새로 쓰지 않고 중단한다.
-      // 로컬 원본과 기존 백업이 그대로 남으므로 데이터는 안전하다.
-      if(imgErrors>0){
-        setStatus(`이미지 ${imgErrors}개 항목 업로드에 실패해서 저장을 멈췄어.\n로컬 원본과 기존 백업은 그대로야. 잠시 후 다시 시도해줘.`,'err');
-        return;
+      if(found.size){
+        releaseShield=rgRecoveryCommitShield();
+        setStatus('복구 대상 대표 이미지 '+found.size+'장 로컬 저장 중…','loading');
+        // Flush older queued writes before committing replacement copies.
+        if(typeof savePromise!=='undefined')await savePromise;
+        await saveResultGalleryToIndexedDBNow();
+        let filled=0;
+        const next=state.items.map(it=>{
+          const hit=found.get(it);
+          if(!hit)return it;
+          if(it.thumb||!it.thumbStripped||it.id!==hit.identity.id||!rgSameOriginal(it,hit.identity)){
+            log.push((it.title||it.id)+': 조회 중 카드가 변경되어 적용 안 함');return it;
+          }
+          filled++;
+          return {...it,thumb:hit.thumb,thumbStripped:false};
+        });
+        if(filled){
+          await idbReplaceItems(next);
+          state.items=next;committed=true;
+          try{if(typeof render==='function')render();}catch(e){log.push('이미지는 저장됐지만 화면 갱신 실패: '+(e.message||e));}
+          log.unshift('대표 이미지 '+filled+'장 복구 및 로컬 저장 완료.');
+        }
       }
-
-      const maxSlots=getDriveSlotMax();
-      const currentSlot={savedAt:nowIso(),device:deviceName(),app:appLabel(),items:mainItems};
-      const slots=[currentSlot, ...prevSlots].slice(0,maxSlots);
-
-      const payload={version:2,kind:'result-gallery-drive-slots-split',appFile:mainName,updatedAt:nowIso(),slots};
-      const approx=byteSizeOfJson(payload);
-      setStatus(`메인 파일 저장 중...\n메인 크기: ${formatBytes(approx)} (이미지 제외)\n이미지 파일: 신규/갱신 ${uploaded} · 재사용 ${skipped}`,'loading');
-
-      const writtenMain=await writeDriveFile(mainFile?mainFile.id:null, payload, mainName);
-
-      // read-back 검증: 메인을 다시 읽어 이미지 참조 수를 확인한다.
-      let verifyMsg='';
-      try{
-        const rb=await readDriveFile(writtenMain.id);
-        const rbItems=(rb.slots&&rb.slots[0]&&rb.slots[0].items)||[];
-        const refCount=rbItems.filter(x=>x.imageFileId).length;
-        verifyMsg=`\n검증 OK · 이미지 참조 ${refCount}개 확인`;
-      }catch(e){
-        verifyMsg='\n⚠ 검증 재읽기는 실패했지만 저장 자체는 됐을 수 있어. 기존 백업은 그대로야.';
-      }
-
-      setStatus(`Drive 저장 완료! (분리 저장)\n메인: ${writtenMain.name}\n슬롯: ${slots.length}개 · 메인 ${formatBytes(approx)}${verifyMsg}`,'ok');
-      safeToast('☁️ Drive 분리 저장 완료');
+      const report=rgDiagnoseImages(state.items||[]);
+      report.text='부분 복구 결과\n'+log.join('\n')+'\n\n'+report.text;
+      rgShowImageDiagnosis(report);
+      setStatus(log.join('\n')+'\n남은 저장 차단: '+report.issues.length+'카드 / '+report.missingCount+'이미지\n'+(report.issues.length?'복구하지 못한 항목은 아래 결과를 전달해줘.':'이제 Drive에 저장을 눌러줘.')+'\nDrive 백업은 변경하지 않았어.',report.issues.length?'err':'ok');
     }catch(e){
-      setStatus('Drive 저장 실패: '+(e.message||e)+'\n(로컬 원본과 기존 백업은 안전해)','err');
+      setStatus((committed?'복구 저장 이후 오류: ':'부분 복구를 완료하지 못했어: ')+(e.message||e)+'\nDrive 백업과 기존 이미지 파일은 변경하지 않았어.','err');
+    }finally{releaseShield();rgDriveRecovering=false;}
+  }
+
+  function rgJsonEqual(a,b){
+    if(a===b)return true;
+    if(a===null||b===null||typeof a!=='object'||typeof b!=='object')return false;
+    if(Array.isArray(a)!==Array.isArray(b))return false;
+    if(Array.isArray(a)&&a.length!==b.length)return false;
+    const ak=Object.keys(a).filter(k=>a[k]!==undefined),bk=Object.keys(b).filter(k=>b[k]!==undefined);
+    if(ak.length!==bk.length)return false;
+    return ak.every(k=>Object.prototype.hasOwnProperty.call(b,k)&&rgJsonEqual(a[k],b[k]));
+  }
+  async function rgMainBlob(payload){
+    // Serialize at most one card at a time. Blob parts hold encoded bytes, not a whole JSON string.
+    const parts=[],header={...payload};delete header.slots;
+    const headerJson=JSON.stringify(header);
+    parts.push(new Blob([headerJson.slice(0,-1)+(headerJson==='{}'?'':',')+'"slots":[']));
+    for(let si=0;si<payload.slots.length;si++){
+      const slot=payload.slots[si],meta={...slot};delete meta.items;
+      const json=JSON.stringify(meta);
+      parts.push(new Blob([(si?',':'')+json.slice(0,-1)+(json==='{}'?'':',')+'"items":[']));
+      for(let i=0;i<slot.items.length;i++){
+        parts.push(new Blob([(i?',':'')+JSON.stringify(slot.items[i])]));
+        if(i%128===0){
+          rgRecordSaveStage('메인 본문 구성 · 슬롯 '+(si+1),i,slot.items.length);
+          setStatus('메인 백업 구성 · 슬롯 '+(si+1)+' ('+i+'/'+slot.items.length+')','loading');
+          await new Promise(resolve=>setTimeout(resolve,0));
+        }
+      }
+      parts.push(new Blob([']}']));
+    }
+    parts.push(new Blob([']}']));
+    return new Blob(parts,{type:'application/json'});
+  }
+  async function rgWriteMainBlob(fileId,blob,name){
+    const metadata=fileId?{}:{name,parents:['appDataFolder'],mimeType:'application/json'};
+    const boundary='rg_main_'+Math.random().toString(36).slice(2);
+    const body=new Blob(['--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify(metadata)+'\r\n--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n',blob,'\r\n--'+boundary+'--']);
+    const url=DRIVE_UPLOAD+(fileId?'/'+encodeURIComponent(fileId):'')+'?uploadType=multipart&fields=id,name,modifiedTime,version,md5Checksum,size';
+    return await (await driveFetch(url,{method:fileId?'PATCH':'POST',headers:{'Content-Type':'multipart/related; boundary='+boundary},body})).json();
+  }
+
+  let rgDriveUploading=false;
+  async function uploadDriveSlotRG(){
+    if(rgDriveUploading||rgDriveRecovering){setStatus('현재 Drive 저장이 완료될 때까지 기다려줘.','loading');return;}
+    rgDriveUploading=true;
+    let mainWriteStarted=false;
+    const trackingWindow=typeof window!=='undefined'?window:null;
+    let previousProgress,trackingProgress,previousStorageProgress,storageProgress;
+    try{
+      rgCheckImagesBeforeSave(Array.isArray(state?.items)?state.items:[]);
+      setStatus('Drive 저장 준비 중...','loading');
+      rgRecordSaveStage('로컬 캐시 준비',0,state.items?.length||0);
+      if(trackingWindow){
+        previousStorageProgress=trackingWindow.onResultGalleryStorageProgress;
+        storageProgress=p=>{
+          setStatus('로컬 카드 저장 중 ('+p.done+'/'+p.total+')\n이미지 데이터를 한 카드씩 저장하는 중…','loading');
+          if(p.done%256===0||p.done===p.total)rgRecordSaveStage('로컬 카드 저장',p.done,p.total);
+        };
+        trackingWindow.onResultGalleryStorageProgress=storageProgress;
+      }
+      if(typeof trackingWindow?.getResultGalleryImageTracking==='function'){
+        previousProgress=trackingWindow.onResultGalleryTrackingProgress;
+        trackingProgress=p=>setStatus(`로컬 이미지 변경 정보 준비 (${p.done}/${p.total})\n새 이미지 해시 계산 ${p.hashedImages}장`,'loading');
+        trackingWindow.onResultGalleryTrackingProgress=trackingProgress;
+      }
+      if(typeof saveResultGalleryToIndexedDBNow==='function')await saveResultGalleryToIndexedDBNow();
+      else if(typeof save==='function')save();
+      setStatus('Drive 비교용 카드 정보 준비 중…','loading');
+      rgRecordSaveStage('Drive 비교용 카드 정보 준비',0,state.items?.length||0);
+      // 메타는 사본, 큰 이미지 문자열은 참조만 유지하여 저장 중 편집과 분리한다.
+      const items=(Array.isArray(state?.items)?state.items:[]).map(it=>({
+        meta:jsonClone(rgStripItem(it)),thumb:it.thumb||'',
+        tracking:typeof trackingWindow?.getResultGalleryImageTracking==='function'?trackingWindow.getResultGalleryImageTracking(it):null,
+        subs:(it.subs||[]).map(s=>({id:s.id,thumb:s.thumb||''}))
+      }));
+      // Recheck the snapshot after asynchronous local persistence.
+      rgCheckImagesBeforeSave(items.map(item=>({...item.meta,thumb:item.thumb,subs:(item.meta.subs||[]).map((sub,i)=>({...sub,thumb:item.subs[i]?.thumb||''}))})));
+      const cardIds=new Set();
+      for(const item of items){
+        if(!item.meta.id||cardIds.has(item.meta.id))throw new Error('카드 ID가 없거나 중복돼 있어. 저장을 중단했어.');
+        cardIds.add(item.meta.id);
+        const subIds=new Set();
+        for(const sub of item.subs){
+          if(sub.thumb&&(!sub.id||subIds.has(sub.id)))throw new Error('보조 이미지 ID가 없거나 중복돼 있어. 저장을 중단했어.');
+          if(sub.id)subIds.add(sub.id);
+        }
+      }
+      const mainName=rgMainFileName();
+      const mainFile=await findDriveFileByName(mainName);
+      let previous=null,prevSlots=[];
+      const initialMainStamp=mainFile?await rgReadFileStamp(mainFile.id):'';
+      if(mainFile){
+        previous=await readDriveFile(mainFile.id);
+        if(previous?.kind!=='result-gallery-drive-slots-split'||!Array.isArray(previous.slots)||previous.slots.some(s=>!Array.isArray(s.items)))throw new Error('기존 백업 구조를 확인할 수 없어. 기존 백업을 덮어쓰지 않고 중단했어.');
+        prevSlots=previous.slots;
+      }
+      const prevRef=new Map((prevSlots[0]?.items||[]).map(it=>[it.id,it]));
+      setStatus('기존 Drive 이미지 파일 확인 중...','loading');
+      rgRecordSaveStage('Drive 파일 목록 확인',0,items.length);
+      const existing=await rgExistingImageIds();
+      const checkpoint=rgCheckpointStore(mainFile?.id||mainName);
+      const mainItems=new Array(items.length);let uploaded=0,skipped=0,migrated=0,idx=0,cached=0,rehashedCards=0,resumed=0,checkpointed=0;
+      let cursor=0,firstError=null,lastProgress=0;
+      function progress(force=false){
+        const now=Date.now();if(!force&&now-lastProgress<150)return;lastProgress=now;
+        rgRecordSaveStage('Drive 카드 변경 확인',idx,items.length);
+        setStatus('카드 변경 확인 ('+idx+'/'+items.length+')\n새 파일 '+uploaded+' · 재사용 '+skipped+' · 저장된 해시 재사용 '+cached+'카드\n중단 전 작업 재사용 '+resumed+'카드 · 구형 백업 내용 비교 '+migrated+'카드\n재개 정보 기록 '+checkpointed+'카드 · 최대 3카드씩 처리 중','loading');
+      }
+      async function processItem(item,index){
+        const meta=item.meta,prev=prevRef.get(meta.id);
+        const tracked=item.tracking;
+        const sig=tracked?tracked.signature:await rgStrongImageSig(item);
+        if(tracked)cached++;else{
+          rehashedCards++;delete meta.rgImageRevision;delete meta.rgImageSignature;delete meta.rgImageManifest;delete meta.rgTrackingVersion;
+        }
+        meta.imagesStripped=true;meta.imageSig=sig;
+        meta.imageHadVisual=!!item.thumb||item.subs.some(s=>s.thumb);
+        delete meta.imageUploadError;
+        if(!meta.imageHadVisual){meta.imageFileId='';mainItems[index]=meta;idx++;progress();return;}
+        const sameRevision=tracked&&prev?.rgTrackingVersion===tracked.version&&prev.rgImageRevision===tracked.revision&&prev.imageSig===sig;
+        let reusable=prev&&prev.imageFileId&&existing.has(prev.imageFileId)&&(sameRevision||prev.imageSig===sig);
+        let reuseId=reusable?prev.imageFileId:'';
+        if(!reusable){
+          const done=checkpoint.get(meta.id);
+          if(done&&done.sig===sig&&done.stamp&&existing.has(done.id)&&existing.stamps.get(done.id)===done.stamp){
+            reusable=true;reuseId=done.id;resumed++;
+          }
+        }
+        if(!reusable&&prev?.imageFileId&&existing.has(prev.imageFileId)&&!String(prev.imageSig||'').startsWith('sha256:')&&prev.imageSig===rgItemImageSig(item)){
+          const beforeStamp=existing.stamps.get(prev.imageFileId)||'';
+          if(checkpoint.persistent&&!beforeStamp)throw new Error('Drive 파일의 변경 검증 정보를 받지 못해 재개 정보를 안전하게 남길 수 없어. 연결 후 다시 시도해줘.');
+          const legacy=await readDriveFile(prev.imageFileId);
+          if(legacy.kind!=='result-gallery-item-images'||legacy.itemId!==meta.id)throw new Error('기존 이미지 파일의 카드 정보가 일치하지 않아. 저장을 중단했어.');
+          // Exact string equality, not length equality: no second image-hash pass is needed.
+          reusable=rgSameImageContents(item,legacy);migrated++;
+          if(reusable){
+            reuseId=prev.imageFileId;
+            // Both version observations must agree: don't cache content read across a remote edit.
+            if(beforeStamp){
+              const afterStamp=await rgReadFileStamp(reuseId);
+              if(afterStamp!==beforeStamp)throw new Error('비교 중 Drive 이미지 파일이 변경됐어. 기존 백업을 유지하고 중단했어.');
+              checkpoint.put(meta.id,{id:reuseId,sig,stamp:afterStamp});
+              checkpointed++;
+            }
+          }
+        }
+        if(reusable){meta.imageFileId=reuseId;skipped++;}
+        else{
+          const imgPayload={version:1,kind:'result-gallery-item-images',itemId:meta.id,thumb:item.thumb,subs:item.subs.filter(s=>s.thumb)};
+          const name=rgImgFileName(meta.id).replace(/\.json$/,'')+'_'+sig.slice(7)+'.json';
+          const written=await writeDriveFile(null,imgPayload,name);
+          if(!written?.id)throw new Error('새 이미지 파일 ID를 확인하지 못했어.');
+          meta.imageFileId=written.id;uploaded++;
+          // Persist a completed upload too, so a later main-file failure doesn't repeat it.
+          // Metadata from the upload response describes the exact write, without a racing read.
+          const stamp=rgDriveFileStamp(written);
+          if(checkpoint.persistent&&!stamp)throw new Error('업로드는 완료됐지만 파일 변경 검증 정보를 받지 못했어. 기존 메인 백업은 유지돼.');
+          if(stamp){checkpoint.put(meta.id,{id:written.id,sig,stamp});checkpointed++;}
+        }
+        mainItems[index]=meta;idx++;progress();
+      }
+      async function worker(){
+        while(!firstError){
+          const index=cursor++;if(index>=items.length)return;
+          try{await processItem(items[index],index);}catch(e){if(!firstError)firstError=e;}
+        }
+      }
+      await Promise.all(Array.from({length:Math.min(3,items.length)},()=>worker()));
+      progress(true);
+      if(firstError)throw firstError;
+      const currentSlot={savedAt:nowIso(),device:deviceName(),app:appLabel(),items:mainItems};
+      const slots=[currentSlot,...prevSlots].slice(0,getDriveSlotMax());
+      const payload={version:2,kind:'result-gallery-drive-slots-split',appFile:mainName,updatedAt:nowIso(),slots};
+      rgRecordSaveStage('기존 메인 백업 변경 확인',idx,items.length);
+      setStatus('기존 메인 백업 변경 확인 중…','loading');
+      // 이미지 저장 중 다른 기기에서 백업했는지 한 번 더 확인한다.
+      const latestFile=await findDriveFileByName(mainName);
+      if((latestFile?.id||null)!==(mainFile?.id||null))throw new Error('저장 중 Drive 백업이 변경됐어. 다시 저장해줘.');
+      if(mainFile){
+        if(initialMainStamp){
+          if(await rgReadFileStamp(mainFile.id)!==initialMainStamp)throw new Error('다른 저장 작업이 백업을 변경했어. 다시 저장해줘.');
+        }else {
+          const latest=await readDriveFile(mainFile.id);
+          if(!rgJsonEqual(latest,previous))throw new Error('다른 저장 작업이 백업을 변경했어. 다시 저장해줘.');
+        }
+      }
+      rgRecordSaveStage('메인 본문 구성 시작',0,items.length);
+      const mainBlob=typeof Blob!=='undefined'?await rgMainBlob(payload):null;
+      const approx=mainBlob?mainBlob.size:byteSizeOfJson(payload);
+      setStatus(`메인 파일 저장 중...\n새 이미지 파일 ${uploaded} · 기존 재사용 ${skipped}\n메인 ${formatBytes(approx)}`,'loading');
+      mainWriteStarted=true;
+      rgRecordSaveStage('Drive 메인 저장',idx,items.length);
+      const writtenMain=mainBlob?await rgWriteMainBlob(mainFile?.id||null,mainBlob,mainName):await writeDriveFile(mainFile?.id||null,payload,mainName);
+      rgRecordSaveStage('메인 저장 후 내용 검증',idx,items.length);
+      const verified=await readDriveFile(writtenMain.id);
+      if(!rgJsonEqual(verified,payload))throw new Error('저장 후 검증 내용이 일치하지 않아.');
+      setStatus(`Drive 저장 완료!\n새 이미지 파일 ${uploaded} · 기존 재사용 ${skipped}\n슬롯 ${slots.length}개 · 메인 ${formatBytes(approx)}\n저장된 해시 재사용 ${cached}카드 · 전체 해시 계산 ${rehashedCards}카드\n중단 전 작업 재사용 ${resumed}카드\n검증 OK${migrated?' · 기존 형식 내용 비교 '+migrated+'개':''}`,'ok');
+      safeToast('☁️ Drive 저장 완료 · 이전 이미지 파일 보존');
+      rgRecordSaveStage('Drive 저장 완료',idx,items.length);
+    }catch(e){
+      setStatus((mainWriteStarted?'Drive 저장 완료 여부를 확인하지 못했어. 백업 목록을 다시 확인해줘.':'Drive 저장을 중단했어. 기존 메인 백업은 변경하지 않았어.')+'\n'+(e.message||e)+'\n기존 이미지 파일과 로컬 데이터는 삭제하지 않았어. 완료한 작업의 재개 정보가 있으면 재연결 후 다시 저장할 때 재사용해.','err');
+    }finally{
+      if(trackingProgress&&trackingWindow.onResultGalleryTrackingProgress===trackingProgress)trackingWindow.onResultGalleryTrackingProgress=previousProgress;
+      if(storageProgress&&trackingWindow.onResultGalleryStorageProgress===storageProgress)trackingWindow.onResultGalleryStorageProgress=previousStorageProgress;
+      rgDriveUploading=false;
     }
   }
 
   async function applyDriveStateRG(slot){
+    if(rgDriveRecovering)throw new Error("대표 이미지 복구가 진행 중이야. 완료 후 다시 시도해줘.");
     const items=(slot&&Array.isArray(slot.items))?slot.items:[];
     // 복원 전, 현재 로컬 항목에서 id -> {thumb, 보조 thumb 맵, sig}를 만든다.
     // 슬롯의 imageSig와 로컬 sig가 같으면 Drive에서 다시 받지 않고 로컬 이미지를 재사용한다.
@@ -408,7 +805,7 @@
       if(!li||!li.id)return;
       const subT={};
       (Array.isArray(li.subs)?li.subs:[]).forEach(s=>{ if(s&&s.id&&s.thumb) subT[s.id]=s.thumb; });
-      localMap[li.id]={thumb:li.thumb||'', subThumbs:subT, sig:rgItemImageSig(li)};
+      localMap[li.id]={thumb:li.thumb||'', subThumbs:subT, imageSource:li};
     });
 
     // 항목의 껍데기 subs에 thumb 맵(id→dataUrl)을 입힌다. 못 입힌 쪽은 thumbStripped 껍데기로 남겨
@@ -434,9 +831,10 @@
       idx++;
       const item=Object.assign({},src);
       if(item.imagesStripped){
-        const hadVisual=/m:[1-9]|:[1-9]/.test(item.imageSig||''); // 저장 시점에 이미지가 있었는지
+        const hadVisual=!!item.imageHadVisual||!!item.imageFileId||/m:[1-9]|:[1-9]/.test(item.imageSig||''); // 저장 시점에 이미지가 있었는지
         const local=localMap[item.id];
-        if(local && item.imageSig && local.sig===item.imageSig){
+        const localTracking=local&&typeof window!=='undefined'&&typeof window.getResultGalleryImageTracking==='function'?window.getResultGalleryImageTracking(local.imageSource):null;
+        if(local && String(item.imageSig||'').startsWith('sha256:') && (localTracking?localTracking.signature:await rgStrongImageSig(local.imageSource))===item.imageSig){
           // 로컬에 동일 구성 이미지가 있음 → 다운로드 생략, 로컬 것 재사용
           dressItem(item, local.thumb, local.subThumbs); reused++;
           setStatus(`불러오는 중 (${idx}/${total})\n로컬 재사용 ${reused} · 다운로드 ${fetched}\n${(src&&src.title||'제목 없음').slice(0,40)}`,'loading');
@@ -444,16 +842,18 @@
           setStatus(`이미지 불러오는 중 (${idx}/${total})\n로컬 재사용 ${reused} · 다운로드 ${fetched+1}\n${(src&&src.title||'제목 없음').slice(0,40)}`,'loading');
           try{
             const imgData=await readDriveFile(item.imageFileId);
+            if(String(item.imageSig||'').startsWith('sha256:') && (await rgStrongImageSig(imgData))!==item.imageSig)throw new Error('백업 이미지의 내용 검증에 실패했어.');
             const subT={};
             (Array.isArray(imgData.subs)?imgData.subs:[]).forEach(s=>{ if(s&&s.id&&s.thumb) subT[s.id]=s.thumb; });
             dressItem(item, imgData.thumb||'', subT); fetched++;
-          }catch(e){ if(hadVisual)missing++; dressItem(item,'',{}); }
+          }catch(e){ throw new Error('이미지 복원을 중단했어. 로컬 데이터는 아직 변경하지 않았어: '+(e.message||e)); }
         }else{
+          if(hadVisual)throw new Error('백업의 이미지 참조가 누락돼 있어 복원을 중단했어. 로컬 데이터는 아직 변경하지 않았어.');
           // 저장 당시에도 이미지가 없던 항목(또는 업로드 실패 표시) → 껍데기 상태 유지
           dressItem(item,'',{});
           if(item.imageUploadError&&hadVisual)missing++;
         }
-        delete item.imagesStripped; delete item.imageSig; delete item.imageFileId; delete item.imageUploadError;
+        delete item.imagesStripped; delete item.imageSig; delete item.imageFileId; delete item.imageUploadError; delete item.imageHadVisual;
       }
       rebuilt.push(item);
     }
@@ -590,6 +990,20 @@
     q('.drive-sync-close').onclick=closeModal;
     q('#drive-connect-btn').onclick=connectDrive;
     q('#drive-upload-btn').onclick=uploadDriveSlot;
+    if(isResultGalleryApp()){
+      const diagnose=document.createElement('button');diagnose.type='button';diagnose.className='drive-sub';
+      diagnose.id='rg-drive-diagnose-btn';diagnose.textContent='저장 문제 진단';
+      diagnose.onclick=()=>{
+        const report=rgDiagnoseImages(Array.isArray(state?.items)?state.items:[]);
+        rgShowImageDiagnosis(report);
+        setStatus(report.issues.length?'저장 차단 '+report.issues.length+'카드 / '+report.missingCount+'이미지. 아래 진단 내용을 확인해줘.':'현재 이미지 누락 보호 조건에 해당하는 항목은 없어.',report.issues.length?'err':'ok');
+      };
+      q('#drive-upload-btn').parentNode.appendChild(diagnose);
+      const recover=document.createElement('button');recover.type='button';recover.className='drive-sub';
+      recover.id='rg-drive-recover-heads-btn';recover.textContent='빈 대표 이미지 복구';
+      recover.onclick=rgRecoverMissingHeads;diagnose.parentNode.appendChild(recover);
+    }
+
     q('#drive-load-btn').onclick=listDriveSlots;
     q('#drive-forget-btn').onclick=()=>{
       localStorage.removeItem(DRIVE_CLIENT_KEY); accessToken=''; tokenClient=null; setStatus('Drive 설정을 지웠어. 기본 Client ID로 되돌렸어.','ok');
@@ -786,7 +1200,7 @@
     const metadata=fileId?{}:{name:nm,parents:['appDataFolder'],mimeType:'application/json'};
     const mp=multipartBody(metadata,payload);
     const method=fileId?'PATCH':'POST';
-    const url=fileId?`${DRIVE_UPLOAD}/${fileId}?uploadType=multipart&fields=id,name,modifiedTime`:`${DRIVE_UPLOAD}?uploadType=multipart&fields=id,name,modifiedTime`;
+    const url=fileId?`${DRIVE_UPLOAD}/${fileId}?uploadType=multipart&fields=id,name,modifiedTime,version,md5Checksum,size`:`${DRIVE_UPLOAD}?uploadType=multipart&fields=id,name,modifiedTime,version,md5Checksum,size`;
     const res=await driveFetch(url,{method,headers:{'Content-Type':'multipart/related; boundary='+mp.boundary},body:mp.body});
     return await res.json();
   }
