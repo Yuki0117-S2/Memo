@@ -58,14 +58,25 @@ function attachMemoDiagnostics(contents) {
       'gist.upload.previous-read-error','gist.download.start','gist.download.ready',
       'gist.download.error','gist.download.http-error','gist.download.empty',
       'gist.download.cancel','gist.download.apply','gist.download.success',
-      'gist.request.start','gist.request.response','gist.request.error'];
+      'gist.request.start','gist.request.response','gist.request.error',
+      'gist.prepare.phase','gist.upload.response-body-start','gist.upload.response-body-end','gist.upload.local-error',
+      'gist.verify.start','gist.verify.match','gist.verify.mismatch','gist.verify.unavailable'];
     if (!allowed.includes(record.event)) return;
     const fields = {wc};
-    for (const key of ['request','elapsedMs','status','chars','slots','slot']) {
+    for (const key of ['request','elapsedMs','status','chars','slots','slot','heapUsedBytes','heapTotalBytes','heapLimitBytes']) {
       if (Number.isFinite(record[key]) && record[key] >= 0) fields[key] = record[key];
     }
     if (typeof record.online === 'boolean') fields.online = record.online;
-    if (['upload-read','upload-write','download-read','raw-read'].includes(record.stage)) fields.stage = record.stage;
+    if (['copy-start','copy-end','json-start','json-end','compress-start','compress-end','body-start','body-end'].includes(record.phase)) fields.phase = record.phase;
+    if (record.event === 'gist.prepare.phase') {
+      try {
+        const metric = app.getAppMetrics().find(item => item.pid === contents.getOSProcessId());
+        for (const key of ['workingSetSize','privateBytes']) {
+          if (Number.isFinite(metric?.memory?.[key])) fields[key] = metric.memory[key];
+        }
+      } catch (_) {}
+    }
+    if (['upload-read','upload-write','download-read','raw-read','verify-read','verify-raw'].includes(record.stage)) fields.stage = record.stage;
     if (['manual','auto'].includes(record.mode)) fields.mode = record.mode;
     if (['fetch-failed','TypeError','RangeError','SyntaxError','AbortError','other'].includes(record.error)) fields.error = record.error;
     memoDiagnostic(record.event, fields);
@@ -123,13 +134,14 @@ async function memoReadRecentDiagnostics() {
           if (typeof row.event !== 'string' || !/^(app\.ready|renderer\.(gone|unresponsive|responsive)|child\.gone|gist\.[a-z.-]+)$/.test(row.event)) continue;
           if (typeof row.at !== 'string' || !/^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/.test(row.at)) continue;
           const clean = {at:row.at, event:row.event.slice(0,64)};
-          for (const key of ['wc','request','elapsedMs','status','chars','slots','slot','exitCode']) {
+          for (const key of ['wc','request','elapsedMs','status','chars','slots','slot','exitCode','heapUsedBytes','heapTotalBytes','heapLimitBytes','workingSetSize','privateBytes']) {
             if (Number.isFinite(row[key])) clean[key] = row[key];
           }
           const choices = {
             reason:['clean-exit','abnormal-exit','killed','crashed','oom','launch-failed','integrity-failure','memory-eviction','unknown'],
             process:['GPU','other'], endpoint:['github-api','gist-raw'], method:['GET','POST','PATCH','OPTIONS','other'],
-            stage:['upload-read','upload-write','download-read','raw-read'],mode:['manual','auto']
+            stage:['upload-read','upload-write','download-read','raw-read','verify-read','verify-raw'],mode:['manual','auto'],
+            phase:['copy-start','copy-end','json-start','json-end','compress-start','compress-end','body-start','body-end']
           };
           for (const [key, values] of Object.entries(choices)) if (values.includes(row[key])) clean[key] = row[key];
           if (typeof row.online === 'boolean') clean.online = row.online;
