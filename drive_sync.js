@@ -396,7 +396,34 @@
     lines.push(issues.length?'위 목록을 확인하기 전에는 전체 복원이나 카드 삭제를 하지 마세요. 진단 내용을 전달하면 필요한 항목만 복구할 방법을 판단할 수 있습니다.':'현재 보호 조건에 해당하는 항목은 없습니다. Drive 저장 중 발생할 수 있는 다른 오류까지 검사한 결과는 아닙니다.');
     return {issues,missingCount,text:lines.join('\n')};
   }
-  function rgShowImageDiagnosis(report){
+
+  async function rgReadRecentElectronDiagnostics(){
+    const heading='최근 Electron / Gist 기록 (최대 100건 · 시간은 UTC)';
+    let timer;
+    try{
+      if(typeof location==='undefined'||location.origin!=='http://127.0.0.1:37642')throw new Error('unavailable');
+      const controller=new AbortController();
+      timer=setTimeout(()=>controller.abort(),2500);
+      const res=await fetch('/__memo_diagnostics',{headers:{'X-Memo-Diagnostics':'1'},cache:'no-store',signal:controller.signal});
+      if(!res.ok)throw new Error('unavailable');
+      const data=await res.json();
+      if(data.version!==1||!Array.isArray(data.records)||data.unavailable)throw new Error('unavailable');
+      const lines=[heading];
+      if(data.partial)lines.push('일부 로그를 읽지 못했습니다. 읽을 수 있는 기록만 표시합니다.');
+      if(!data.records.length)lines.push('표시할 기록이 없습니다. 기록 없음이 오류 없음을 보장하지는 않습니다.');
+      else{
+        lines.push('renderer.gone: 화면 프로세스 종료 · oom: 메모리 부족 · crashed: 충돌',
+          'renderer.unresponsive: 응답 없음 · child.gone / GPU: GPU 프로세스 종료',
+          'gist: 요청 단계·성공·실패 기록 (기존에 기록된 내용만 표시)');
+        for(const record of data.records.slice(-100))lines.push(JSON.stringify(record));
+      }
+      return lines.join('\n');
+    }catch(_){
+      return heading+'\n로그를 읽지 못했습니다. Electron 앱을 완전히 종료한 뒤 다시 실행해 주세요.\n계속 안 되면 %APPDATA%\\memo-hub\\diagnostics 폴더의 로그를 확인해 주세요.\n위 이미지 진단 결과는 그대로 유효합니다.';
+    }finally{clearTimeout(timer);}
+  }
+
+  function rgShowImageDiagnosis(report,includeLogs=false){
     if(typeof document==='undefined')return;
     const host=document.getElementById('drive-sync-status');if(!host)return;
     let panel=document.getElementById('rg-drive-diagnosis');
@@ -420,11 +447,22 @@
     const actions=document.createElement('div');actions.className='drive-sync-actions';
     select.className=download.className='drive-sub';actions.append(select,download);
     panel.append(note,area,actions);
+    if(includeLogs){
+      const baseText=report.text;
+      area.value=baseText+'\n\n최근 Electron / Gist 기록을 읽는 중…';
+      select.disabled=download.disabled=true;
+      rgReadRecentElectronDiagnostics().then(logText=>{
+        // An upload or another diagnosis may have replaced this panel while reading.
+        if(!panel.contains(area))return;
+        report.text=baseText+'\n\n'+logText;
+        area.value=report.text;
+        select.disabled=download.disabled=false;
+      });
+    }
   }
   function rgCheckImagesBeforeSave(items){
     const report=rgDiagnoseImages(items);
-    rgShowImageDiagnosis(report);
-    if(report.issues.length)throw new Error('이미지 내용이 비어 있고 제외 표시가 남은 '+report.issues.length+'카드 / '+report.missingCount+'이미지가 있어. 아래 저장 문제 진단에서 카드 이름과 이미지 위치를 확인해줘.');
+    if(report.issues.length)throw new Error('이미지 내용이 비어 있고 제외 표시가 남은 '+report.issues.length+'카드 / '+report.missingCount+'이미지가 있어. 저장 문제 진단 버튼을 눌러 카드 이름과 이미지 위치를 확인해줘.');
     return report;
   }
 
@@ -581,7 +619,6 @@
       }
       const report=rgDiagnoseImages(state.items||[]);
       report.text='부분 복구 결과\n'+log.join('\n')+'\n\n'+report.text;
-      rgShowImageDiagnosis(report);
       setStatus(log.join('\n')+'\n남은 저장 차단: '+report.issues.length+'카드 / '+report.missingCount+'이미지\n'+(report.issues.length?'복구하지 못한 항목은 아래 결과를 전달해줘.':'이제 Drive에 저장을 눌러줘.')+'\nDrive 백업은 변경하지 않았어.',report.issues.length?'err':'ok');
     }catch(e){
       setStatus((committed?'복구 저장 이후 오류: ':'부분 복구를 완료하지 못했어: ')+(e.message||e)+'\nDrive 백업과 기존 이미지 파일은 변경하지 않았어.','err');
@@ -995,7 +1032,7 @@
       diagnose.id='rg-drive-diagnose-btn';diagnose.textContent='저장 문제 진단';
       diagnose.onclick=()=>{
         const report=rgDiagnoseImages(Array.isArray(state?.items)?state.items:[]);
-        rgShowImageDiagnosis(report);
+        rgShowImageDiagnosis(report,true);
         setStatus(report.issues.length?'저장 차단 '+report.issues.length+'카드 / '+report.missingCount+'이미지. 아래 진단 내용을 확인해줘.':'현재 이미지 누락 보호 조건에 해당하는 항목은 없어.',report.issues.length?'err':'ok');
       };
       q('#drive-upload-btn').parentNode.appendChild(diagnose);

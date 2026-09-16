@@ -3351,10 +3351,35 @@ function copyGistId(){
   );
 }
 
+
+// Only fixed event labels and small numeric fields cross to the Electron log.
+function rgGistDiagnostic(event, fields={}){
+  try{console.debug('[memo-diag] '+JSON.stringify({event,...fields}));}catch(_){}
+}
+function rgGistErrorKind(e){
+  try{
+    if(e?.message==='Failed to fetch')return 'fetch-failed';
+    return ['TypeError','RangeError','SyntaxError','AbortError'].includes(e?.name)?e.name:'other';
+  }catch(_){return 'other';}
+}
+let rgGistRequestSequence=0;
+async function rgGistFetch(stage,url,options){
+  const request=++rgGistRequestSequence, started=Date.now();
+  rgGistDiagnostic('gist.request.start',{stage,request,online:navigator.onLine});
+  try{
+    const response=await fetch(url,options);
+    rgGistDiagnostic('gist.request.response',{stage,request,status:response.status,elapsedMs:Date.now()-started});
+    return response;
+  }catch(e){
+    rgGistDiagnostic('gist.request.error',{stage,request,error:rgGistErrorKind(e),elapsedMs:Date.now()-started,online:navigator.onLine});
+    throw e;
+  }
+}
+
 async function readGistFileContent(file){
   if(!file) return '';
   if(file.raw_url && (!file.content || file.truncated)){
-    const res=await fetch(file.raw_url,{cache:'no-store'});
+    const res=await rgGistFetch('raw-read',file.raw_url,{cache:'no-store'});
     if(!res.ok) throw new Error('Gist raw 파일 읽기 실패: '+res.status);
     return await res.text();
   }
@@ -3382,23 +3407,26 @@ async function gistUpload(){
   try{
     await pushSlot(token, gistId, '수동');
   }catch(e){
+    rgGistDiagnostic('gist.upload.error',{error:rgGistErrorKind(e)});
     console.warn('업로드 실패',e);
     setGistStatus('업로드 실패: '+(e&&e.message||e),'err');
     setSyncIndicator('err');
   }
 }
 async function pushSlot(token, gistId, deviceLabel){
+  rgGistDiagnostic('gist.upload.start',{mode:deviceLabel==='수동'?'manual':'auto'});
   let slots=[];
   if(gistId){
     try{
-      const r=await fetch('https://api.github.com/gists/'+gistId,{headers:{'Authorization':'token '+token,'Accept':'application/vnd.github.v3+json'}});
+      const r=await rgGistFetch('upload-read','https://api.github.com/gists/'+gistId,{headers:{'Authorization':'token '+token,'Accept':'application/vnd.github.v3+json'}});
       if(r.ok){
         const d=await r.json();
         const remoteSlots=await readGistSlotsFromData(d);
         if(remoteSlots) slots=remoteSlots;
       }
-    }catch(e){}
+    }catch(e){rgGistDiagnostic('gist.upload.previous-read-error',{error:rgGistErrorKind(e)});}
   }
+  rgGistDiagnostic('gist.upload.prepare');
   // 이 단계가 try 밖에 있어서, 여기서 터지면 상태가 '업로드 중...'에 영원히 멈춰 있었다.
   try{
     slots.unshift({
@@ -3407,6 +3435,7 @@ async function pushSlot(token, gistId, deviceLabel){
       state:stripStateForSync(state)
     });
   }catch(e){
+    rgGistDiagnostic('gist.upload.error',{error:rgGistErrorKind(e)});
     console.warn('동기화 데이터 준비 실패',e);
     setGistStatus('업로드 준비 실패: '+(e&&e.message||e),'err');
     setSyncIndicator('err');
@@ -3423,17 +3452,21 @@ async function pushSlot(token, gistId, deviceLabel){
       files:{[GIST_FILE_NAME]:{content:await buildContent(ss)}}};
     let url='https://api.github.com/gists', method='POST';
     if(gistId){ url='https://api.github.com/gists/'+gistId; method='PATCH'; }
-    return fetch(url,{method,headers:{'Authorization':'token '+token,'Content-Type':'application/json','Accept':'application/vnd.github.v3+json'},body:JSON.stringify(body)});
+    const serializedBody=JSON.stringify(body);
+    rgGistDiagnostic('gist.upload.prepared',{chars:serializedBody.length,slots:ss.length});
+    return rgGistFetch('upload-write',url,{method,headers:{'Authorization':'token '+token,'Content-Type':'application/json','Accept':'application/vnd.github.v3+json'},body:serializedBody});
   };
   try{
     let res=await attempt(slots);
     let shrunk=false;
     if(!res.ok&&res.status===422&&slots.length>1){ // 용량 퇴짜 → 히스토리 버리고 최신 1슬롯만 재시도
       setGistStatus('용량 초과(422) → 슬롯 1개로 줄여서 재시도 중...','loading');
+      rgGistDiagnostic('gist.upload.retry',{status:422,slots:1});
       res=await attempt(slots.slice(0,1));
       shrunk=res.ok;
     }
     if(!res.ok){
+      rgGistDiagnostic('gist.upload.http-error',{status:res.status});
       const err=await res.json().catch(()=>({}));
       setGistStatus('오류: '+(err.message||res.status),'err');
       setSyncIndicator('err'); return;
@@ -3442,11 +3475,13 @@ async function pushSlot(token, gistId, deviceLabel){
     localStorage.setItem(GIST_TOKEN_KEY,token);
     localStorage.setItem(GIST_ID_KEY,data.id);
     $('#gist-id-input').value=data.id;
+    rgGistDiagnostic('gist.upload.success');
     setGistStatus(shrunk?'용량 때문에 히스토리 없이 최신 1슬롯만 올렸어. 데이터 다이어트를 고민해봐.':'업로드 완료! Gist ID를 복사해서 다른 기기에서 써봐.',shrunk?'ok':'ok');
     setSyncIndicator('ok');
     toast(shrunk?'☁ Gist 업로드 (1슬롯 축소)':'☁ Gist 업로드 완료');
     startAutoSave();
   }catch(e){
+    rgGistDiagnostic('gist.upload.error',{error:rgGistErrorKind(e)});
     setGistStatus('네트워크 오류: '+e.message,'err');
     setSyncIndicator('err');
   }
@@ -3456,21 +3491,25 @@ async function gistDownload(){
   const gistId=$('#gist-id-input').value.trim();
   if(!token){setGistStatus('토큰을 입력해줘!','err');return;}
   if(!gistId){setGistStatus('Gist ID를 입력해줘!','err');return;}
+  rgGistDiagnostic('gist.download.start');
   setGistStatus('슬롯 목록 가져오는 중...','loading');
   try{
-    const res=await fetch('https://api.github.com/gists/'+gistId,{headers:{'Authorization':'token '+token,'Accept':'application/vnd.github.v3+json'}});
+    const res=await rgGistFetch('download-read','https://api.github.com/gists/'+gistId,{headers:{'Authorization':'token '+token,'Accept':'application/vnd.github.v3+json'}});
     if(!res.ok){
+      rgGistDiagnostic('gist.download.http-error',{status:res.status});
       const err=await res.json().catch(()=>({}));
       setGistStatus('오류: '+(err.message||res.status),'err');
       setSyncIndicator('err'); return;
     }
     const data=await res.json();
     const slots=await readGistSlotsFromData(data);
-    if(!slots){setGistStatus(GIST_FILE_NAME+' 파일을 못 찾았어. CD Idea만 있는 Gist인지 확인해봐.','err');setSyncIndicator('err');return;}
-    if(!slots.length){setGistStatus('불러올 데이터가 없어.','err');return;}
+    if(!slots){rgGistDiagnostic('gist.download.empty');setGistStatus(GIST_FILE_NAME+' 파일을 못 찾았어. CD Idea만 있는 Gist인지 확인해봐.','err');setSyncIndicator('err');return;}
+    if(!slots.length){rgGistDiagnostic('gist.download.empty');setGistStatus('불러올 데이터가 없어.','err');return;}
     setGistStatus('','');
+    rgGistDiagnostic('gist.download.ready',{slots:slots.length});
     showSlotPicker(slots, token, gistId);
   }catch(e){
+    rgGistDiagnostic('gist.download.error',{error:rgGistErrorKind(e)});
     setGistStatus('오류: '+e.message,'err');
     setSyncIndicator('err');
   }
@@ -3491,6 +3530,7 @@ function showSlotPicker(slots, token, gistId){
     btn.className='slot-btn';
     btn.innerHTML=`<div><div class="slot-title">${i===0?'🟢 최신':'📁 슬롯 '+(i+1)}</div><div class="slot-meta">${t} · ${slot.device||'알 수 없음'} · 이미지 ${itemCount}개 (★${favCount})</div></div><span class="slot-arrow">›</span>`;
     btn.onclick=()=>{
+      rgGistDiagnostic('gist.download.apply',{slot:i});
       overlay.remove();
       // 로컬 썸네일 백업 (파일명+크기 기준)
       const localThumbs=new Map();
@@ -3532,16 +3572,17 @@ function showSlotPicker(slots, token, gistId){
       setSyncIndicator('ok');
       toast('☁ Gist 불러오기 완료'+(restored>0?` (썸네일 ${restored}개 복구)`:''));
       startAutoSave();
+      rgGistDiagnostic('gist.download.success');
     };
     box.appendChild(btn);
   });
   const cancelBtn=document.createElement('button');
   cancelBtn.className='slot-cancel-btn';
   cancelBtn.textContent='취소';
-  cancelBtn.onclick=()=>overlay.remove();
+  cancelBtn.onclick=()=>{rgGistDiagnostic('gist.download.cancel');overlay.remove();};
   box.appendChild(cancelBtn);
   overlay.appendChild(box);
-  overlay.onclick=e=>{ if(e.target===overlay) overlay.remove(); };
+  overlay.onclick=e=>{ if(e.target===overlay){rgGistDiagnostic('gist.download.cancel');overlay.remove();} };
   document.body.appendChild(overlay);
 }
 async function gistAutoSave(){
