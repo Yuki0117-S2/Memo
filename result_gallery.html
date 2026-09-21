@@ -651,7 +651,7 @@ function estimateGistPayloadBytes(){try{return utf8Bytes(JSON.stringify({version
    프롬프트 텍스트는 반복이 심해 gzip 압축률이 매우 높다 (실측 수 배~십수 배).
    업로드: 'WGZ1:' + base64(gzip(JSON)) / 다운로드: 접두어 감지 시 해제, 없으면 구형 JSON 그대로.
    주의: 압축 업로드가 시작되면 구버전 갤러리는 이 Gist 파일을 못 읽는다 → 모든 기기 갱신 필수. */
-const GIST_SLOT_LIMIT=3;      // 5→3: 압축과 병행해 총 페이로드 축소
+const GIST_SLOT_LIMIT=2;      // 5→3→2: 압축과 병행해 총 페이로드 축소
 const GZ_MARK='WGZ1:';
 const GZ_OK=typeof CompressionStream!=='undefined'&&typeof DecompressionStream!=='undefined';
 async function collectStream(readable){
@@ -3782,7 +3782,19 @@ function showSlotPicker(slots, token, gistId,onClose=()=>{}){
   overlay.onclick=e=>{ if(e.target===overlay){rgGistDiagnostic('gist.download.cancel');overlay.remove();onClose();} };
   document.body.appendChild(overlay);
 }
+// Drive 수동 저장 중에는 Gist 자동저장을 보류하고, Drive가 끝나면 밀린 저장을 1회 실행한다.
+let rgGistAutoSavePending=false;
+window.onResultGalleryDriveSaveEnd=()=>{
+  if(!rgGistAutoSavePending)return;
+  rgGistAutoSavePending=false;
+  rgGistDiagnostic('gist.autosave.resumed');
+  setTimeout(gistAutoSave,3000);
+};
 async function gistAutoSave(){
+  if(window.rgDriveSaveBusy){
+    if(!rgGistAutoSavePending)rgGistDiagnostic('gist.autosave.deferred');
+    rgGistAutoSavePending=true;return;
+  }
   if(rgGistOperation||exactBusy||limitBusy)return; // 수동 정리 트랜잭션 중에는 기존 상태의 자동 저장을 예약하지 않는다.
   const token=localStorage.getItem(GIST_TOKEN_KEY);
   const gistId=localStorage.getItem(GIST_ID_KEY);

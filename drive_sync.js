@@ -668,6 +668,7 @@
   async function uploadDriveSlotRG(){
     if(rgDriveUploading||rgDriveRecovering){setStatus('현재 Drive 저장이 완료될 때까지 기다려줘.','loading');return;}
     rgDriveUploading=true;
+    try{window.rgDriveSaveBusy=true;}catch(_){}
     let mainWriteStarted=false;
     const trackingWindow=typeof window!=='undefined'?window:null;
     let previousProgress,trackingProgress,previousStorageProgress,storageProgress;
@@ -828,6 +829,7 @@
       if(trackingProgress&&trackingWindow.onResultGalleryTrackingProgress===trackingProgress)trackingWindow.onResultGalleryTrackingProgress=previousProgress;
       if(storageProgress&&trackingWindow.onResultGalleryStorageProgress===storageProgress)trackingWindow.onResultGalleryStorageProgress=previousStorageProgress;
       rgDriveUploading=false;
+      try{window.rgDriveSaveBusy=false;if(typeof window.onResultGalleryDriveSaveEnd==='function')window.onResultGalleryDriveSaveEnd();}catch(_){}
     }
   }
 
