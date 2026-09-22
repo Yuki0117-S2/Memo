@@ -634,6 +634,43 @@
     if(ak.length!==bk.length)return false;
     return ak.every(k=>Object.prototype.hasOwnProperty.call(b,k)&&rgJsonEqual(a[k],b[k]));
   }
+  // Result Gallery 전용: 저장한 메인 파일을 객체로 파싱하지 않고, 올린 Blob과 바이트 단위로 스트리밍 비교한다.
+  // 전체 메인을 한 번 더 객체로 만들지 않아 검증 단계의 메모리 사용을 줄인다.
+  async function rgVerifyMainBlob(fileId,blob){
+    const res=await driveFetch(`${DRIVE_API}/${fileId}?alt=media`);
+    const total=blob.size;
+    if(!res.body||typeof res.body.getReader!=='function'){
+      const got=new Uint8Array(await res.arrayBuffer());
+      if(got.length!==total)return false;
+      const want=new Uint8Array(await blob.arrayBuffer());
+      for(let i=0;i<total;i++)if(got[i]!==want[i])return false;
+      return true;
+    }
+    const reader=res.body.getReader();
+    const WINDOW=4*1024*1024;
+    let offset=0,want=null,wantStart=0;
+    try{
+      for(;;){
+        const {done,value}=await reader.read();
+        if(done)break;
+        let i=0;
+        while(i<value.length){
+          if(offset>=total)return false;
+          if(!want||offset>=wantStart+want.length){
+            wantStart=offset;
+            want=new Uint8Array(await blob.slice(offset,Math.min(total,offset+WINDOW)).arrayBuffer());
+          }
+          const n=Math.min(value.length-i,wantStart+want.length-offset);
+          const w=offset-wantStart;
+          for(let k=0;k<n;k++)if(value[i+k]!==want[w+k])return false;
+          i+=n;offset+=n;
+        }
+      }
+      return offset===total;
+    }finally{
+      try{reader.cancel().catch(()=>{});}catch(_){}
+    }
+  }
   async function rgMainBlob(payload){
     // Serialize at most one card at a time. Blob parts hold encoded bytes, not a whole JSON string.
     const parts=[],header={...payload};delete header.slots;
@@ -818,8 +855,8 @@
       rgRecordSaveStage('Drive 메인 저장',idx,items.length);
       const writtenMain=mainBlob?await rgWriteMainBlob(mainFile?.id||null,mainBlob,mainName):await writeDriveFile(mainFile?.id||null,payload,mainName);
       rgRecordSaveStage('메인 저장 후 내용 검증',idx,items.length);
-      const verified=await readDriveFile(writtenMain.id);
-      if(!rgJsonEqual(verified,payload))throw new Error('저장 후 검증 내용이 일치하지 않아.');
+      const verifiedOk=mainBlob?await rgVerifyMainBlob(writtenMain.id,mainBlob):rgJsonEqual(await readDriveFile(writtenMain.id),payload);
+      if(!verifiedOk)throw new Error('저장 후 검증 내용이 일치하지 않아.');
       setStatus(`Drive 저장 완료!\n새 이미지 파일 ${uploaded} · 기존 재사용 ${skipped}\n슬롯 ${slots.length}개 · 메인 ${formatBytes(approx)}\n저장된 해시 재사용 ${cached}카드 · 전체 해시 계산 ${rehashedCards}카드\n중단 전 작업 재사용 ${resumed}카드\n검증 OK${migrated?' · 기존 형식 내용 비교 '+migrated+'개':''}`,'ok');
       safeToast('☁️ Drive 저장 완료 · 이전 이미지 파일 보존');
       rgRecordSaveStage('Drive 저장 완료',idx,items.length);
