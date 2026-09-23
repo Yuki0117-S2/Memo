@@ -3353,8 +3353,90 @@ function copyGistId(){
 
 
 // Only fixed event labels and small numeric fields cross to the Electron log.
+/* ── Gist 기록 정리 ──
+   업로드 중 단계 기록은 메모리에 모았다가, 실패했을 때만 디스크 로그로 내보낸다. 성공하면 성공 1줄만 남긴다.
+   크래시 대비: 업로드 중에는 '진행 중 표시'(마지막 단계·힙)를 localStorage에 갱신하고,
+   다음 실행 때 표시가 남아 있으면 '업로드 도중 종료됨'으로 Gist 이력에 올린다.
+   Gist 이력은 Gist가 성공하면 요약 1줄로 정리되고, Drive 이력은 건드리지 않는다. */
+const RG_GIST_INFLIGHT_KEY='rg_gist_inflight_v1',RG_GIST_HIST_KEY='rg_gist_fail_history_v1',RG_GIST_SUM_KEY='rg_gist_fail_summary_v1';
+let rgGistBuffer=null,rgGistBufferMeta=null;
+function rgGistEmit(obj){try{console.debug('[memo-diag] '+JSON.stringify(obj));}catch(_){}}
+function rgGistLsGet(key,fallback){try{const v=JSON.parse(localStorage.getItem(key)||'null');return v==null?fallback:v;}catch(_){return fallback;}}
+function rgGistLsSet(key,value){try{localStorage.setItem(key,JSON.stringify(value));}catch(_){}}
 function rgGistDiagnostic(event, fields={}){
-  try{console.debug('[memo-diag] '+JSON.stringify({event,...fields}));}catch(_){}
+  if(rgGistBuffer){
+    rgGistBuffer.push({event,...fields,eventAt:new Date().toISOString()});
+    if(rgGistBuffer.length>300)rgGistBuffer.shift();
+    const m=rgGistBufferMeta;
+    if(m){
+      m.lastEvent=event;
+      if(fields.phase)m.lastPhase=fields.phase;
+      if(fields.stage)m.lastStage=fields.stage;
+      if(fields.heapUsedBytes)m.heapUsedBytes=fields.heapUsedBytes;
+      if(fields.heapLimitBytes)m.heapLimitBytes=fields.heapLimitBytes;
+      if(event==='gist.upload.prepared'){m.chars=fields.chars;m.slots=fields.slots;}
+      rgGistLsSet(RG_GIST_INFLIGHT_KEY,m);
+    }
+    return;
+  }
+  rgGistEmit({event,...fields});
+}
+function rgGistBufferStart(mode){
+  rgGistBuffer=[];rgGistBufferMeta={startedAt:new Date().toISOString(),mode};
+  rgGistLsSet(RG_GIST_INFLIGHT_KEY,rgGistBufferMeta);
+}
+function rgGistHistoryGet(){const v=rgGistLsGet(RG_GIST_HIST_KEY,[]);return Array.isArray(v)?v.slice(-20):[];}
+function rgGistHistoryAdd(entry){const list=rgGistHistoryGet();list.push(entry);rgGistLsSet(RG_GIST_HIST_KEY,list.slice(-20));}
+function rgGistHistoryResolve(){
+  const list=rgGistHistoryGet();
+  if(list.length){
+    const last=list[list.length-1];const sums=rgGistLsGet(RG_GIST_SUM_KEY,[]);const arr=Array.isArray(sums)?sums:[];
+    arr.push({from:list[0].at||'',to:last.at||'',count:list.length,lastStep:last.lastPhase||last.lastEvent||'',lastError:last.error||'',resolvedAt:new Date().toISOString()});
+    rgGistLsSet(RG_GIST_SUM_KEY,arr.slice(-5));
+  }
+  try{localStorage.removeItem(RG_GIST_HIST_KEY);}catch(_){}
+}
+// 실패: 모아둔 단계 기록을 디스크 로그로 내보내고 Gist 이력에 올린다. 이후 확인 단계 기록은 바로 디스크로 간다.
+function rgGistRecordFailure(error){
+  const buf=rgGistBuffer||[],m=rgGistBufferMeta||{};
+  rgGistBuffer=null;
+  for(const r of buf)rgGistEmit(r);
+  rgGistHistoryAdd({at:new Date().toISOString(),startedAt:m.startedAt||'',mode:m.mode||'',lastEvent:m.lastEvent||'',lastPhase:m.lastPhase||'',lastStage:m.lastStage||'',heapUsedBytes:m.heapUsedBytes||null,error:String(error||'')});
+}
+// 성공: 모아둔 단계 기록은 버리고 성공 1줄만 남긴 뒤 Gist 이력을 요약으로 정리한다.
+function rgGistRecordSuccess(verified){
+  const m=rgGistBufferMeta||{};
+  rgGistBuffer=null;
+  rgGistEmit({event:'gist.upload.success',mode:m.mode||'',verified:!!verified,chars:m.chars??null,slots:m.slots??null,elapsedMs:m.startedAt?Date.now()-Date.parse(m.startedAt):null});
+  rgGistHistoryResolve();
+}
+function rgGistBufferEnd(){
+  rgGistBuffer=null;rgGistBufferMeta=null;
+  try{localStorage.removeItem(RG_GIST_INFLIGHT_KEY);}catch(_){}
+}
+// 이전 실행에서 업로드가 끝나지 않은 채 종료됐는지 확인한다(크래시·새로고침 흔적).
+(function rgGistCheckInflight(){
+  const m=rgGistLsGet(RG_GIST_INFLIGHT_KEY,null);
+  if(!m)return;
+  try{localStorage.removeItem(RG_GIST_INFLIGHT_KEY);}catch(_){}
+  const error='업로드 도중 앱이 종료되거나 새로고침됨 (완료 기록 없음)';
+  rgGistHistoryAdd({at:m.startedAt||new Date().toISOString(),startedAt:m.startedAt||'',mode:m.mode||'',lastEvent:m.lastEvent||'',lastPhase:m.lastPhase||'',lastStage:m.lastStage||'',heapUsedBytes:m.heapUsedBytes||null,error,interrupted:true});
+  rgGistEmit({event:'gist.upload.interrupted',startedAt:m.startedAt||'',mode:m.mode||'',lastEvent:m.lastEvent||'',lastPhase:m.lastPhase||'',heapUsedBytes:m.heapUsedBytes||null,heapLimitBytes:m.heapLimitBytes||null});
+})();
+// 저장 문제 진단 화면(drive_sync.js)에서 불러 쓰는 Gist 이력 표시.
+function rgGistHistoryLinesForDiag(){
+  const gb=n=>n?(n/1073741824).toFixed(2)+'GB':'?';
+  const lines=['Gist 업로드 실패 이력 (Gist 업로드가 성공하면 요약 1줄로 정리됩니다)'];
+  const list=rgGistHistoryGet();
+  if(!list.length)lines.push('  현재 해결되지 않은 Gist 업로드 실패 없음');
+  for(const e of list)lines.push('  - '+(e.at||'?')+' · '+(e.mode==='manual'?'수동':e.mode==='auto'?'자동':(e.mode||'?'))+' · 마지막 단계: '+(e.lastPhase||e.lastStage||e.lastEvent||'?')+' · 힙: '+gb(e.heapUsedBytes)+' · 오류: '+(e.error||'?'));
+  const sums=rgGistLsGet(RG_GIST_SUM_KEY,[]);
+  if(Array.isArray(sums)&&sums.length){
+    lines.push('Gist 해결된 실패 요약 (최근 5개)');
+    for(const x of sums)lines.push('  - '+x.from+' ~ '+x.to+' 실패 '+x.count+'회 → '+x.resolvedAt+' 업로드 성공 · 마지막 단계: '+x.lastStep+' · 마지막 오류: '+x.lastError);
+  }
+  lines.push('');
+  return lines;
 }
 function rgGistErrorKind(e){
   try{
@@ -3465,7 +3547,7 @@ function rgGistUploadComplete(token,id,verified,shrunk){
     localStorage.setItem(GIST_ID_KEY,id);
     $('#gist-id-input').value=id;
   }catch(e){configSaved=false;rgGistDiagnostic('gist.upload.local-error',{error:rgGistErrorKind(e)});}
-  rgGistDiagnostic('gist.upload.success');
+  rgGistRecordSuccess(verified);
   const message=verified
     ?'업로드 응답은 실패했지만, Gist를 읽어 방금 전송한 내용과 일치함을 확인했어. 저장 완료! 로컬 데이터는 변경하지 않았어.'
     :(shrunk?'용량 때문에 히스토리 없이 최신 1슬롯만 올렸어.':'업로드 완료! Gist ID를 복사해서 다른 기기에서 써봐.');
@@ -3608,6 +3690,7 @@ async function pushSlot(token,gistId,deviceLabel){
   const operation=rgGistBegin('upload');
   if(!operation)return {ok:false,busy:true};
   let expectedContent=null,writeStarted=false,shrunk=false;
+  rgGistBufferStart(deviceLabel==='수동'?'manual':'auto');
   rgGistDiagnostic('gist.upload.start',{mode:deviceLabel==='수동'?'manual':'auto'});
   try{
     let slots=[];
@@ -3664,6 +3747,7 @@ async function pushSlot(token,gistId,deviceLabel){
     return rgGistUploadComplete(token,data.id,false,shrunk);
   }catch(e){
     rgGistDiagnostic('gist.upload.error',{error:rgGistErrorKind(e)});
+    rgGistRecordFailure((e&&e.message)||e);
     if(writeStarted&&typeof expectedContent==='string'){
       setGistStatus('업로드 결과가 불확실해서 Gist를 읽어 비교 중… 로컬 데이터에는 적용하지 않아.','loading');
       const result=await rgGistVerifyReadOnly(token,gistId,expectedContent);
@@ -3673,6 +3757,7 @@ async function pushSlot(token,gistId,deviceLabel){
     setSyncIndicator('err');return {ok:false};
   }finally{
     expectedContent=null;
+    rgGistBufferEnd();
     rgGistEnd(operation);
   }
 }
