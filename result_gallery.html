@@ -2800,14 +2800,28 @@ function saveDetail(){const it=current();if(!it)return;it.title=$('#d-title').va
 /* 내보내기(전체): 카드 단위로 조각내어 Blob에 넣는다.
    한 덩어리 JSON.stringify는 썸네일 data URL이 쌓이면 문자열 최대 길이(RangeError)에 걸려 조용히 실패하므로,
    카드마다 따로 직렬화한 조각 배열을 Blob이 이어붙이게 한다. 결과 파일 구조({version,exportedAt,items})는 이전과 동일. */
-function exportData(list){ // list 생략 시 전체 (우클릭 메뉴용)
+/* 묶음 단위 Blob: 카드 EXPORT_CHUNK장씩 문자열을 만들어 곧바로 작은 Blob으로 바꾸고 문자열은 버린다.
+   → JS 힙에는 한 묶음 분량만 잠시 머문다(전 카드 문자열을 동시에 들고 있지 않음). 묶음 사이에 잠깐 양보해 GC 틈을 준다. */
+let exportDataBusy=false;
+async function exportData(list){ // list 생략 시 전체 (우클릭 메뉴용)
+  if(exportDataBusy){toast('이미 내보내는 중이야');return}
+  exportDataBusy=true;
   try{
     const items=Array.isArray(list)?list:(state.items||[]);
     if(!items.length){toast('내보낼 결과가 없어');return}
-    const parts=['{\n  "version": 1,\n  "exportedAt": '+JSON.stringify(new Date().toISOString())+',\n  "items": [\n'];
-    items.forEach((it,i)=>{parts.push('    '+JSON.stringify(it,null,2).replace(/\n/g,'\n    '));parts.push(i<items.length-1?',\n':'\n')});
-    parts.push('  ]\n}\n');
-    const blob=new Blob(parts,{type:'application/json'});
+    const EXPORT_CHUNK=200;
+    const blobs=[new Blob(['{\n  "version": 1,\n  "exportedAt": '+JSON.stringify(new Date().toISOString())+',\n  "items": [\n'])];
+    for(let s=0;s<items.length;s+=EXPORT_CHUNK){
+      let parts=[];
+      const e=Math.min(s+EXPORT_CHUNK,items.length);
+      for(let i=s;i<e;i++){parts.push('    '+JSON.stringify(items[i],null,2).replace(/\n/g,'\n    '));parts.push(i<items.length-1?',\n':'\n')}
+      blobs.push(new Blob(parts));
+      parts=null;
+      toast(`내보내는 중 ${e.toLocaleString()}/${items.length.toLocaleString()}`);
+      await new Promise(r=>setTimeout(r,0));
+    }
+    blobs.push(new Blob(['  ]\n}\n']));
+    const blob=new Blob(blobs,{type:'application/json'});
     const a=document.createElement('a');
     a.href=URL.createObjectURL(blob);
     a.download='result_gallery_export_'+new Date().toISOString().slice(0,10)+'.json';
@@ -2815,6 +2829,7 @@ function exportData(list){ // list 생략 시 전체 (우클릭 메뉴용)
     setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},10000);
     toast(`${items.length}장 · ${bytes(blob.size)} 내보내기 시작`);
   }catch(e){toast('내보내기 실패 — '+((e&&e.message)||e));console.error('exportData',e)}
+  finally{exportDataBusy=false}
 }
 /* ── 내보내기 선택 모달: 형식(JSON/HTML) → HTML이면 범위(전체/필터/선택) ──
    슬롯 피커(#slot-picker-overlay) 스타일을 그대로 재사용한다. 취소·바깥 클릭 → null */
@@ -2966,7 +2981,140 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape')$('#lb').cla
     toast(`HTML ${items.length}장 · ${bytes(blob.size)} 내보내기 시작`);
   }catch(e){toast('HTML 내보내기 실패 — '+((e&&e.message)||e));console.error('exportHtml',e)}
 }
-function importData(file){const r=new FileReader();r.onload=()=>{try{const data=JSON.parse(r.result);const items=Array.isArray(data)?data:data.items;if(!Array.isArray(items))throw Error('bad');state.items=[...items,...state.items];state.selectedId=state.items[0]?.id||null;save();render();toast(items.length+'개 불러왔어')}catch(e){toast('불러오기 실패')}};r.readAsText(file)}
+/* === JSON 불러오기 (스트리밍) ===
+   파일 전체를 문자열 하나로 읽지 않는다(약 512MB 문자열 한계·힙 부족 방지).
+   파일을 조금씩 읽으며 괄호·따옴표를 추적해 items 배열의 카드를 1장씩 JSON.parse 한다.
+   지원 형식: {..., "items":[...]} (현재 내보내기) / [...] (예전 형식)
+   방식: merge(합치기: ID가 이미 있는 카드는 건너뜀) / replace(통째로 복원: 실패 시 IndexedDB의 기존 데이터를 다시 읽어 되돌림) */
+let importBusy=false;
+async function rgStreamImportItems(file,onItem){
+  const reader=file.stream().getReader();
+  const dec=new TextDecoder('utf-8');
+  const stack=[];               // 열린 괄호 종류('{' / '[')
+  let inStr=false,esc=false;
+  let strDepth=-1,strStart=-1,strBuf=null,lastKey1=null; // 루트 객체 바로 아래(깊이 1) 문자열 기록 → "items" 키 판별
+  let itemsDepth=-1,itemsDone=false,rootSeen=false;     // items 배열이 열린 깊이
+  let capParts=null,capStart=-1;                        // 카드 1장 캡처
+  let count=0,bad=0;
+  const handle=async text=>{
+    let v;try{v=JSON.parse(text)}catch(e){bad++;return}
+    if(!v||typeof v!=='object'||Array.isArray(v)){bad++;return}
+    count++;await onItem(v);
+  };
+  const pending=[];
+  const scan=chunk=>{
+    const n=chunk.length;let i=0;
+    if(capParts)capStart=0;
+    if(inStr&&strBuf!==null)strStart=0;
+    while(i<n){
+      if(inStr){
+        if(esc){esc=false;i++;continue}
+        const q=chunk.indexOf('"',i),b=chunk.indexOf('\\',i);
+        if(b!==-1&&(q===-1||b<q)){esc=true;i=b+1;continue}
+        if(q===-1){i=n;break}
+        inStr=false;
+        if(strBuf!==null){strBuf+=chunk.slice(strStart,q);lastKey1=strBuf.length<=64?strBuf:null;strBuf=null}
+        i=q+1;continue;
+      }
+      const c=chunk.charCodeAt(i);
+      if(c===34){ // "
+        inStr=true;
+        if(stack.length===1&&stack[0]==='{'&&itemsDepth===-1){strBuf='';strStart=i+1}
+        i++;continue;
+      }
+      if(c===123||c===91){ // { [
+        const ch=c===123?'{':'[';
+        if(!rootSeen){rootSeen=true;if(ch==='['&&!itemsDone)itemsDepth=0}
+        else if(ch==='['&&itemsDepth===-1&&!itemsDone&&stack.length===1&&stack[0]==='{'&&lastKey1==='items')itemsDepth=1;
+        if(itemsDepth!==-1&&stack.length===itemsDepth+1&&ch==='{'&&!capParts){capParts=[];capStart=i}
+        stack.push(ch);i++;continue;
+      }
+      if(c===125||c===93){ // } ]
+        stack.pop();
+        if(capParts&&stack.length===itemsDepth+1&&c===125){
+          capParts.push(chunk.slice(capStart,i+1));pending.push(capParts.join(''));capParts=null;capStart=-1;
+        }else if(itemsDepth!==-1&&stack.length===itemsDepth&&c===93){itemsDone=true;itemsDepth=-1}
+        i++;continue;
+      }
+      if(c===44&&stack.length===1)lastKey1=null; // , 루트 객체의 다음 항목
+      i++;
+    }
+    if(capParts)capParts.push(chunk.slice(capStart));
+    if(inStr&&strBuf!==null)strBuf+=chunk.slice(strStart);
+  };
+  for(;;){
+    const {value,done}=await reader.read();
+    const text=done?dec.decode():dec.decode(value,{stream:true});
+    if(text)scan(text);
+    while(pending.length){await handle(pending.shift())}
+    if(done)break;
+  }
+  if(!itemsDone)throw new Error(rootSeen?'items 목록을 찾지 못했거나 파일이 중간에 끊겨 있어':'빈 파일이야');
+  return {count,bad};
+}
+async function importData(file){
+  const input=$('#import-input');
+  try{
+    if(importBusy){toast('이미 불러오는 중이야');return}
+    const mode=await showPicker('JSON 불러오기',`${file.name} · ${bytes(file.size)}`,[
+      {title:'합치기',meta:'ID가 같은 카드는 건너뛰고 새 카드만 앞에 추가',value:'merge'},
+      {title:'통째로 복원',meta:'파일 내용으로 전체 교체 · 실패하면 기존 그대로 유지',value:'replace'}
+    ]);
+    if(mode!=='merge'&&mode!=='replace')return;
+    if(mode==='replace'&&!await showConfirm(`현재 ${(state.items||[]).length.toLocaleString()}장을 이 파일 내용으로 바꿀까?\n실패하면 기존 데이터를 그대로 되돌려.`,{danger:true}))return;
+    importBusy=true;
+    if(selectMode)exitSelectMode();
+    if(lightboxItemId)closeLightbox(false);
+    const seen=new Set();let skippedDup=0,skippedNoId=0;
+    const progress=n=>{if(n%200===0)toast(`불러오는 중 ${n.toLocaleString()}장`)};
+    const tick=async n=>{progress(n);if(n%200===0)await new Promise(r=>setTimeout(r,0))};
+    if(mode==='merge'){
+      const existing=new Set((state.items||[]).map(it=>it&&it.id));
+      const added=[];
+      const res=await rgStreamImportItems(file,async it=>{
+        if(!it.id){skippedNoId++;return}
+        if(existing.has(it.id)||seen.has(it.id)){skippedDup++;return}
+        seen.add(it.id);added.push(it);await tick(added.length);
+      });
+      if(!added.length){toast(`추가할 새 카드가 없어 (읽은 ${res.count.toLocaleString()}장 · 중복 ${skippedDup.toLocaleString()} · 형식 오류 ${res.bad})`);return}
+      state.items=[...added,...state.items];
+      state.selectedId=state.items[0]?.id||null;
+      save();render();
+      toast(`${added.length.toLocaleString()}장 추가 · 중복 ${skippedDup.toLocaleString()}장 건너뜀`+(skippedNoId?` · ID 없음 ${skippedNoId}`:'')+(res.bad?` · 형식 오류 ${res.bad}`:''));
+      return;
+    }
+    // replace: 기존 저장이 끝난 뒤 화면 목록만 비운다(IndexedDB는 그대로) → 새 카드를 다 읽고 한 번에 저장
+    if(saveTimer){await saveItemsToIndexedDBNow()}else{await savePromise}
+    const prevSelected=state.selectedId;
+    state.items=[];state.selectedId=null;rgAdoptLocalImageTracking([]);render();
+    let next=[];
+    try{
+      const res=await rgStreamImportItems(file,async it=>{
+        if(!it.id){skippedNoId++;return}
+        if(seen.has(it.id)){skippedDup++;return}
+        seen.add(it.id);next.push(it);await tick(next.length);
+      });
+      if(!next.length)throw new Error('파일에 불러올 카드가 없어');
+      toast(`${next.length.toLocaleString()}장 저장 중…`);
+      await idbReplaceItems(next);
+      state.items=next;next=null;
+      state.selectedId=state.items[0]?.id||null;
+      saveUiState();render();
+      toast(`${state.items.length.toLocaleString()}장으로 복원 완료`+(skippedDup?` · 파일 내 중복 ${skippedDup}장 제외`:'')+(skippedNoId?` · ID 없음 ${skippedNoId}`:'')+(res.bad?` · 형식 오류 ${res.bad}`:''));
+    }catch(e){
+      next=null;
+      console.error('importData replace',e);
+      try{
+        const items=await idbGetAllItems();
+        state.items=items;rgAdoptLocalImageTracking(items);
+        state.selectedId=items.some(x=>x.id===prevSelected)?prevSelected:(items[0]?.id||null);
+        render();
+      }catch(e2){console.error('importData rollback',e2);await showAlert('복원 실패 후 기존 데이터를 다시 읽지 못했어. 앱을 다시 시작해줘.\n'+((e2&&e2.message)||e2));return}
+      await showAlert('복원하지 못했어. 기존 데이터는 그대로야.\n'+((e&&e.message)||e));
+    }
+  }catch(e){console.error('importData',e);toast('불러오기 실패 — '+((e&&e.message)||e))}
+  finally{importBusy=false;try{input.value=''}catch(_){}}
+}
 /* === 이미지 뷰어 + 슬라이드쇼 (lora_lab 미러링) ===
    뷰어는 열 때 현재 필터/정렬 결과를 id 배열 스냅샷으로 고정한다.
    넘기는 동작만으로는 아이템 데이터를 절대 수정하지 않는다. */
@@ -3880,7 +4028,7 @@ async function gistAutoSave(){
     if(!rgGistAutoSavePending)rgGistDiagnostic('gist.autosave.deferred');
     rgGistAutoSavePending=true;return;
   }
-  if(rgGistOperation||exactBusy||limitBusy)return; // 수동 정리 트랜잭션 중에는 기존 상태의 자동 저장을 예약하지 않는다.
+  if(rgGistOperation||exactBusy||limitBusy||importBusy)return; // 수동 정리 트랜잭션 중에는 기존 상태의 자동 저장을 예약하지 않는다.
   const token=localStorage.getItem(GIST_TOKEN_KEY);
   const gistId=localStorage.getItem(GIST_ID_KEY);
   if(!token||!gistId)return;
