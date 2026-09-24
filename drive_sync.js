@@ -24,6 +24,53 @@
     try{ if(typeof toast==='function') toast(msg); else alert(msg); }
     catch(e){ alert(msg); }
   }
+  // HTML 대화상자: OS confirm 창을 열지 않고 페이지 안에서 확인한다.
+  let driveConfirmOpen=false;
+  function driveConfirm(message){
+    if(driveConfirmOpen)return Promise.resolve(false);
+    driveConfirmOpen=true;
+    return new Promise(resolve=>{
+      ensureStyles();
+      const previousFocus=document.activeElement;
+      const dialog=document.createElement('dialog');
+      dialog.className='drive-confirm-dialog';
+      dialog.setAttribute('aria-labelledby','drive-confirm-title');
+      dialog.setAttribute('aria-describedby','drive-confirm-message');
+      dialog.innerHTML='<h2 id="drive-confirm-title">Drive 확인</h2><div id="drive-confirm-message"></div><div class="drive-confirm-actions"><button type="button" data-choice="cancel">취소</button><button type="button" data-choice="ok">확인</button></div>';
+      dialog.querySelector('#drive-confirm-message').textContent=message;
+      const cancel=dialog.querySelector('[data-choice="cancel"]');
+      const ok=dialog.querySelector('[data-choice="ok"]');
+      let finished=false;
+      function finish(answer){
+        if(finished)return;
+        finished=true;
+        window.removeEventListener('keydown',onKey,true);
+        dialog.close();dialog.remove();driveConfirmOpen=false;
+        const target=previousFocus?.isConnected&&previousFocus.getClientRects().length?previousFocus:q('#drive-sync-open');
+        target?.focus({preventScroll:true});
+        resolve(answer);
+      }
+      function onKey(e){
+        if(e.key==='Escape'){
+          e.preventDefault();e.stopImmediatePropagation();finish(false);
+        }else if(e.key==='Enter'){
+          e.preventDefault();e.stopImmediatePropagation();finish(document.activeElement===ok);
+        }else if(e.key==='Tab'){
+          e.preventDefault();e.stopImmediatePropagation();
+          (document.activeElement===cancel?ok:cancel).focus({preventScroll:true});
+        }else if((e.ctrlKey||e.metaKey)&&['s','f'].includes(e.key.toLowerCase())){
+          e.preventDefault();e.stopImmediatePropagation();
+        }
+      }
+      cancel.onclick=()=>finish(false);ok.onclick=()=>finish(true);
+      dialog.addEventListener('cancel',e=>{e.preventDefault();finish(false);});
+      document.body.appendChild(dialog);
+      window.addEventListener('keydown',onKey,true);
+      dialog.showModal();
+      cancel.focus({preventScroll:true});
+    });
+  }
+
   function appFileName(){
     try{ if(typeof GIST_FILE_NAME!=='undefined' && GIST_FILE_NAME) return GIST_FILE_NAME.replace(/\.json$/,'')+'_drive.json'; }catch(e){}
     const title=(document.title||'workshop').replace(/[^a-z0-9가-힣_-]+/gi,'_').toLowerCase();
@@ -574,7 +621,7 @@
     result.slots.forEach((slot,i)=>{
       const info=rgFormatSavedAt(slot.meta.savedAt)+' · '+(slot.meta.device||'기기 불명')+' · 카드 '+slot.count+'개';
       list.appendChild(rgActionButton((i===0?'📦 v2 최신':'📦 v2 슬롯 '+(i+1)),info,async()=>{
-        if(!confirm('현재 로컬 데이터를 구형 백업(v2) 슬롯 '+(i+1)+'('+rgFormatSavedAt(slot.meta.savedAt)+' · 카드 '+slot.count+'개)으로 덮어쓸까?'))return;
+        if(!await driveConfirm('현재 로컬 데이터를 구형 백업(v2) 슬롯 '+(i+1)+'('+rgFormatSavedAt(slot.meta.savedAt)+' · 카드 '+slot.count+'개)으로 덮어쓸까?'))return;
         if(rgDriveUploading)throw new Error('Drive 저장이 끝난 뒤 다시 시도해줘.');
         await applyDriveStateRG({itemCount:slot.count,rgStreamItems:async handle=>{
           await rgStreamMainSlots(file.id,{itemFilter:si=>si===i,onItem:async(it,si)=>{if(si===i)await handle(it);}});
@@ -592,6 +639,7 @@
         onProgress:read=>setStatus('슬롯 '+letter+' 읽는 중… '+rgMb(read)+(total?' / '+rgMb(total):''),'loading')});
       const h=r.header;
       if(h?.kind!=='result-gallery-drive-v3-slot'||h.letter!==letter||r.slots[0]?.count!==Number(h.itemCount))throw new Error('슬롯 '+letter+' 파일이 온전하지 않아 복원을 중단했어. 로컬 데이터는 아직 변경하지 않았어.');
+      return {collections:h.collections||[]};
     }});
   }
   async function rgDeleteV2(file){
@@ -599,7 +647,7 @@
     const v3=await rgV3Load();
     if(!v3.index||rgV3MaxGeneration(v3)<2||!rgV3LatestValid(v3))throw new Error('v3 저장이 2번 이상 성공한 뒤에만 정리할 수 있어.');
     const size=formatBytes(Number(file.size)||0);
-    if(!confirm('구형 백업(v2) 메인 파일을 Drive에서 삭제할까?\n파일: '+file.name+'\n크기: '+size+'\n\nv3 슬롯과 이미지 파일은 지우지 않아.\n이 삭제는 되돌릴 수 없어.'))return;
+    if(!await driveConfirm('구형 백업(v2) 메인 파일을 Drive에서 삭제할까?\n파일: '+file.name+'\n크기: '+size+'\n\nv3 슬롯과 이미지 파일은 지우지 않아.\n이 삭제는 되돌릴 수 없어.'))return;
     await driveFetch(DRIVE_API+'/'+encodeURIComponent(file.id),{method:'DELETE'});
     await rgListSlotsRG();
     setStatus('구형 백업(v2) 메인 파일을 삭제했어.\n삭제한 파일: '+file.name+' ('+size+')\nv3 슬롯과 이미지 파일은 그대로야.','ok');
@@ -607,7 +655,7 @@
   // 색인 2개가 모두 읽히지 않을 때: 슬롯 파일을 끝까지 읽어 자기 정보로 색인을 다시 만든다. 슬롯·이미지는 바꾸지 않는다.
   async function rgV3RebuildIndex(){
     if(rgDriveUploading||rgDriveRecovering)throw new Error('진행 중인 저장/복구가 끝난 뒤 다시 눌러줘.');
-    if(!confirm('슬롯 파일 A~D를 끝까지 읽어 색인을 다시 만들까?\n슬롯 파일과 이미지는 바꾸지 않고, 색인 파일 2개만 새로 써.'))return;
+    if(!await driveConfirm('슬롯 파일 A~D를 끝까지 읽어 색인을 다시 만들까?\n슬롯 파일과 이미지는 바꾸지 않고, 색인 파일 2개만 새로 써.'))return;
     rgDriveUploading=true;try{window.rgDriveSaveBusy=true;}catch(_){}
     try{
       const found={},notes=[];
@@ -665,7 +713,7 @@
         const info=rgFormatSavedAt(e.savedAt)+' · '+(e.device||'기기 불명')+' · 카드 '+e.itemCount+'개 · '+formatBytes(Number(e.bytes)||0)+' · '+(ok?'정상':'손상(저장 중 중단됨) — 선택 불가')+warn;
         list.appendChild(rgActionButton(title,info,async()=>{
           if(!ok){setStatus('슬롯 '+L+'은 저장 중 중단돼 내용이 온전하지 않을 수 있어. 다른 슬롯을 골라줘.\n이 자리는 다음 저장 때 다시 써.','err');return;}
-          if(!confirm('현재 로컬 데이터를 슬롯 '+L+'(세대 '+e.generation+' · '+rgFormatSavedAt(e.savedAt)+' · 카드 '+e.itemCount+'개)으로 덮어쓸까?'+(warn?'\n\n'+warn.replace(/^ · /,''):'')))return;
+          if(!await driveConfirm('현재 로컬 데이터를 슬롯 '+L+'(세대 '+e.generation+' · '+rgFormatSavedAt(e.savedAt)+' · 카드 '+e.itemCount+'개)으로 덮어쓸까?'+(warn?'\n\n'+warn.replace(/^ · /,''):'')))return;
           await rgRestoreV3Slot(L,e);
           setStatus('Drive 불러오기 완료. (슬롯 '+L+' · 세대 '+e.generation+')','ok');safeToast('☁️ Drive 불러오기 완료');closeModal();
         }));
@@ -1107,6 +1155,7 @@
       setStatus('Drive 비교용 카드 정보 준비 중…','loading');
       rgRecordSaveStage('Drive 비교용 카드 정보 준비',0,state.items?.length||0);
       // 메타는 사본, 큰 이미지 문자열은 참조만 유지하여 저장 중 편집과 분리한다.
+      const collections=jsonClone(state.collections||[]);
       const items=(Array.isArray(state?.items)?state.items:[]).map(it=>({
         meta:jsonClone(rgStripItem(it)),thumb:it.thumb||'',
         tracking:typeof trackingWindow?.getResultGalleryImageTracking==='function'?trackingWindow.getResultGalleryImageTracking(it):null,
@@ -1150,7 +1199,7 @@
       // 카드 수 급감 확인: 직전 정상 백업보다 10% 이상 적으면 묻는다.
       if(prevInfo&&prevInfo.count>0&&items.length<prevInfo.count*0.9){
         const pct=Math.round((1-items.length/prevInfo.count)*100);
-        const ok=typeof confirm==='function'&&confirm('지금 저장할 카드는 '+items.length+'장이야.\n직전 백업('+prevInfo.label+' · '+rgFormatSavedAt(prevInfo.savedAt)+')은 '+prevInfo.count+'장이라 '+pct+'% 적어.\n그래도 저장할까?');
+        const ok=await driveConfirm('지금 저장할 카드는 '+items.length+'장이야.\n직전 백업('+prevInfo.label+' · '+rgFormatSavedAt(prevInfo.savedAt)+')은 '+prevInfo.count+'장이라 '+pct+'% 적어.\n그래도 저장할까?');
         if(!ok){const ce=new Error('카드 수가 크게 줄어 저장을 취소했어. 기존 백업은 그대로야.');ce.rgUserCancel=true;throw ce;}
       }
       const target=rgV3PickTarget(v3);
@@ -1229,7 +1278,7 @@
       if(firstError)throw firstError;
       const savedAt=nowIso();
       const generation=rgV3MaxGeneration(v3)+1;
-      const slotHeader={version:3,kind:'result-gallery-drive-v3-slot',appFile:rgV3SlotName(target),letter:target,generation,savedAt,device:deviceName(),app:appLabel(),itemCount:mainItems.length};
+      const slotHeader={version:3,kind:'result-gallery-drive-v3-slot',appFile:rgV3SlotName(target),letter:target,generation,savedAt,device:deviceName(),app:appLabel(),itemCount:mainItems.length,collections};
       rgRecordSaveStage('슬롯 '+target+' 본문 구성',0,mainItems.length);
       const slotBlob=await rgV3SlotBlob(slotHeader,mainItems,target);
       // 대상 자리 파일: 색인에 있는 ID가 살아 있으면 그 파일을 덮어쓰고, 없으면 이름으로 찾고, 그래도 없으면 새로 만든다.
@@ -1343,7 +1392,8 @@
       rebuilt.push(item);
       if(idx%64===0||idx===total)setStatus(`불러오는 중 (${idx}/${total||'?'})\n로컬 재사용 ${reused} · 다운로드 대기 ${pending.length}`,'loading');
     }
-    if(typeof slot?.rgStreamItems==='function'){total=Number(slot.itemCount)||0;await slot.rgStreamItems(handle);}
+    let collectionCatalog=slot?.collections||[];
+    if(typeof slot?.rgStreamItems==='function'){total=Number(slot.itemCount)||0;const metadata=await slot.rgStreamItems(handle);collectionCatalog=metadata?.collections||collectionCatalog;}
     else for(const src of items)await handle(src);
     // 2차: 미뤄둔 이미지 다운로드. 하나라도 실패하면 로컬 데이터를 바꾸지 않고 중단한다.
     let di=0;
@@ -1359,6 +1409,7 @@
       }catch(e){ throw new Error('이미지 복원을 중단했어. 로컬 데이터는 아직 변경하지 않았어: '+(e.message||e)); }
       clearImageFields(item);
     }
+    if(typeof rgPlanCollectionImport==='function'){state.collections=rgPlanCollectionImport(collectionCatalog,rebuilt,false);state.collectionTarget='';state.collectionFilter='';}
     state.items=rebuilt;
     if(!state.view) state.view='default';
     if(!Array.isArray(state.tagFilter)) state.tagFilter=[];
@@ -1403,7 +1454,7 @@
         // v2 분리형 슬롯(imagesStripped)이면 이미지 파일을 fetch해 재조립하고,
         // 구형 슬롯(thumb 통째)이면 아래 기존 경로로 그대로 복원한다.
         if(Array.isArray(rgItems)&&rgItems.some(x=>x&&x.imagesStripped)){
-          await applyDriveStateRG({items:rgItems});
+          await applyDriveStateRG({items:rgItems,collections:incoming?.collections||slot.collections||[]});
           return;
         }
       }
@@ -1443,6 +1494,15 @@
     const st=document.createElement('style');
     st.id='drive-sync-style';
     st.textContent=`
+
+      .drive-confirm-dialog{position:fixed;inset:0;margin:auto;width:min(460px,calc(100vw - 32px));max-height:calc(100vh - 40px);overflow:auto;box-sizing:border-box;padding:22px;border:1px solid var(--border2,rgba(0,0,0,.2));border-radius:12px;background:var(--bg,#fff);color:var(--text,#1a1a1a);box-shadow:0 16px 50px rgba(0,0,0,.28);font-family:inherit}
+      .drive-confirm-dialog::backdrop{background:rgba(0,0,0,.5)}
+      .drive-confirm-dialog h2{margin:0 0 14px;font-size:16px;color:#8888CC}
+      #drive-confirm-message{font-size:13px;line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere}
+      .drive-confirm-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
+      .drive-confirm-actions button{border:1px solid var(--border2,rgba(0,0,0,.2));border-radius:8px;padding:8px 18px;background:var(--bg2,#f7f6f3);color:var(--text,#1a1a1a);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer}
+      .drive-confirm-actions button[data-choice="ok"]{background:#8888CC;border-color:#8888CC;color:#fff}
+      .drive-confirm-actions button:focus-visible{outline:2px solid #BB6688;outline-offset:3px}
       .drive-sync-btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;border:0;background:#8888CC;color:white;border-radius:8px;padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:inherit}.drive-sync-btn:hover{opacity:.86}
       #drive-sync-overlay{position:fixed;inset:0;background:rgba(0,0,0,.36);z-index:10020;display:none;align-items:center;justify-content:center;padding:18px}
       #drive-sync-overlay.open{display:flex}
@@ -1778,7 +1838,7 @@
         b.type='button'; b.className='drive-slot';
         b.innerHTML=`<div><b>${i===0?'🟢 최신':'📁 슬롯 '+(i+1)}</b><span>${slotMeta(slot,i)}</span></div><i>›</i>`;
         b.onclick=async()=>{
-          if(!confirm('현재 로컬 데이터를 이 Drive 슬롯으로 덮어쓸까?'))return;
+          if(!await driveConfirm('현재 로컬 데이터를 이 Drive 슬롯으로 덮어쓸까?'))return;
           try{await applyDriveState(slot); setStatus('Drive 불러오기 완료.', 'ok'); safeToast('☁️ Drive 불러오기 완료'); closeModal();}
           catch(e){setStatus(e.message,'err')}
         };

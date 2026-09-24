@@ -344,6 +344,29 @@ body.eo-open{overflow:hidden}
 .limit-thumb img{width:100%;height:100%;object-fit:cover}.limit-caption{display:block;padding:6px;font-size:11px;overflow-wrap:anywhere}.limit-caption input{accent-color:var(--accent)}
 .limit-image-nav{display:flex;align-items:center;justify-content:center;gap:12px;font-size:12px}
 img{-webkit-user-drag:none}
+/* 컬렉션 */
+.collection-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px;margin-bottom:10px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm)}
+.collection-bar label{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);min-width:0}
+.collection-bar select{max-width:220px;min-width:0;background:var(--bg);color:var(--text);border:1px solid var(--border2);border-radius:6px;padding:6px;font-size:12px}
+.collection-bar .btn{padding:6px 9px;font-size:12px}
+.collection-card-actions{position:absolute;left:5px;top:5px;display:flex;gap:2px;z-index:2}
+.collection-card-actions button{border:0;border-radius:6px;background:rgba(0,0,0,.6);color:#fff;font-size:18px;line-height:1;padding:5px 7px;cursor:pointer}
+.collection-card-actions .collection-more{font-size:14px}
+.collection-card-actions .collection-quick.on{background:var(--accent);color:#fff}
+.collection-card-actions button:focus-visible{outline:2px solid var(--accent2);outline-offset:2px}
+#collection-overlay{position:fixed;inset:0;z-index:10060;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;padding:16px}
+#collection-overlay.open{display:flex}
+.collection-dialog{width:520px;max-width:100%;max-height:85vh;display:flex;flex-direction:column;gap:12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.25)}
+.collection-dialog-head{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--accent)}
+#collection-rows{overflow-y:auto;min-height:0;display:flex;flex-direction:column;gap:8px}
+.collection-row{display:flex;align-items:center;gap:6px}
+.collection-row input:not([type=checkbox]),#collection-new-name{flex:1;min-width:0;padding:8px;border:1px solid var(--border2);border-radius:6px;background:var(--bg2);color:var(--text);font-size:13px}
+.collection-row .btn{font-size:11px;padding:7px;flex-shrink:0}
+.collection-check{display:flex;align-items:center;gap:10px;width:100%;padding:10px;background:var(--bg2);border-radius:6px;font-size:13px;overflow-wrap:anywhere;cursor:pointer}
+.collection-check input{accent-color:var(--accent)}
+.collection-create{display:flex;gap:6px;padding-top:10px;border-top:1px solid var(--border)}
+@media(max-width:520px){.collection-bar label{width:100%}.collection-bar select{flex:1;max-width:none}.collection-dialog{padding:12px}}
+
 </style>
 </head>
 <body>
@@ -380,6 +403,8 @@ img{-webkit-user-drag:none}
   <select id="select-status-select" title="일괄 상태 변경"><option value="">상태 변경...</option><option>보류</option><option>성공</option><option>재작업</option><option>폐기</option></select>
   <button id="select-fav-btn">★ 즐겨찾기</button>
   <button id="select-unfav-btn">☆ 해제</button>
+  <button id="select-collection-add" title="상단 담을 곳에 선택한 컬렉션">▢ 컬렉션 담기</button>
+  <button id="select-collection-remove" title="상단 담을 곳에 선택한 컬렉션">컬렉션 빼기</button>
   <input id="select-tag-input" placeholder="태그 추가" style="width:92px">
   <button id="select-delete-btn">삭제</button>
   <button id="select-cancel-btn">취소</button>
@@ -409,6 +434,12 @@ img{-webkit-user-drag:none}
         <select id="imgcount-filter" title="카드의 이미지 수(대표+보조)로 거르기"><option value="all">전체 이미지 수</option><option value="1">1장만</option><option value="2">2장 이상</option><option value="3">3장 이상</option><option value="5">5장 이상</option></select>
         <label class="small"><input type="checkbox" id="fav-only"> 즐겨찾기만</label>
         <button type="button" class="collapse-all" id="collapse-all" title="펼쳐진 카드를 모두 접어 (화면에 아직 안 그려진 카드 포함)">▴ 모두 접기</button>
+      </div>
+      <div class="collection-bar">
+        <label>담을 곳 <select id="collection-target" aria-label="담을 컬렉션"></select></label>
+        <label>모아보기 <select id="collection-filter" aria-label="컬렉션 필터"></select></label>
+        <button type="button" class="btn outline" id="collection-manage">컬렉션 관리</button>
+        <span class="small">이미지 왼쪽 ▢: 한 번 클릭으로 담기·빼기 / ▾: 여러 컬렉션</span>
       </div>
       <div class="chip-filters" id="chip-filters">
         <div class="chip-group">
@@ -562,6 +593,14 @@ img{-webkit-user-drag:none}
 </div>
 <div class="toast" id="toast"></div>
 <div id="ctx-menu" role="menu"></div>
+<div id="collection-overlay" aria-hidden="true">
+  <div class="collection-dialog" role="dialog" aria-modal="true" aria-labelledby="collection-panel-title" aria-describedby="collection-panel-hint">
+    <div class="collection-dialog-head"><b id="collection-panel-title">컬렉션 관리</b><button type="button" class="btn ghost" id="collection-close">닫기</button></div>
+    <p class="small" id="collection-panel-hint"></p>
+    <div id="collection-rows"></div>
+    <div class="collection-create"><input id="collection-new-name" maxlength="80" placeholder="새 컬렉션 이름" aria-label="새 컬렉션 이름"><button type="button" class="btn" id="collection-add">추가</button></div>
+  </div>
+</div>
 <div id="confirm-overlay">
   <div class="confirm-modal">
     <div class="confirm-message" id="confirm-message"></div>
@@ -682,6 +721,186 @@ function showModal({message,danger,confirmText,cancelText,thirdText,alert,visual
 function showConfirm(message,opts={}){return showModal({message,danger:opts.danger,confirmText:opts.confirmText,cancelText:opts.cancelText,thirdText:opts.thirdText,visualHTML:opts.visualHTML,numberInput:opts.numberInput})}
 function showAlert(message,opts={}){return showModal({message,alert:true,confirmText:opts.confirmText||'확인'})}
 
+/* 컬렉션: 기존 카드와 저장 형식을 유지하고 분류 정보만 추가한다. */
+function rgNormalizeCollections(s){
+  const seen=new Set();
+  s.collections=(Array.isArray(s.collections)?s.collections:[]).filter(c=>c&&typeof c.id==='string'&&c.id&&c.id!=='__unfiled'&&typeof c.name==='string'&&c.name.trim()&&!seen.has(c.id)&&(seen.add(c.id),true)).map(c=>({id:c.id,name:c.name.trim()}));
+  for(const it of s.items||[]){
+    if(!it)continue;
+    if(!Array.isArray(it.collectionIds))continue; // 예전 카드는 빈 소속으로 취급한다.
+    it.collectionIds=[...new Set(it.collectionIds.filter(id=>typeof id==='string'&&id&&id!=='__unfiled'))];
+    for(const id of it.collectionIds)if(!seen.has(id)){seen.add(id);s.collections.push({id,name:'복원된 컬렉션 '+id});}
+  }
+  if(!seen.has(s.collectionTarget))s.collectionTarget=s.collections[0]?.id||'';
+  if(s.collectionFilter!=='__unfiled'&&!seen.has(s.collectionFilter))s.collectionFilter='';
+  return s;
+}
+function rgPlanCollectionImport(catalog,items,merge){
+  const incoming=rgNormalizeCollections({collections:catalog,items});
+  if(!merge)return incoming.collections;
+  const result=(state.collections||[]).map(c=>({...c})),remap=new Map();
+  for(const c of incoming.collections){
+    const same=result.find(x=>x.id===c.id&&x.name===c.name)||result.find(x=>x.name===c.name);
+    if(same){remap.set(c.id,same.id);continue;}
+    const id=result.some(x=>x.id===c.id)?'c'+uid():c.id;
+    result.push({id,name:c.name});remap.set(c.id,id);
+  }
+  for(const it of items)if(Array.isArray(it.collectionIds))it.collectionIds=[...new Set(it.collectionIds.map(id=>remap.get(id)||id))];
+  return result;
+}
+function collectionHas(it,id){return (it.collectionIds||[]).includes(id);}
+function collectionCardHtml(it){
+  const c=state.collections.find(c=>c.id===state.collectionTarget),on=!!c&&collectionHas(it,c.id);
+  return `<div class="collection-card-actions"><button type="button" class="collection-quick ${on?'on':''}" aria-pressed="${on}" title="${c?esc(c.name)+(on?'에서 빼기':'에 담기'):'담을 컬렉션 선택'}">${on?'▣':'▢'}</button><button type="button" class="collection-more" aria-label="컬렉션 선택" title="여러 컬렉션 선택">▾</button></div>`;
+}
+function updateCollectionCard(card,it){
+  const c=state.collections.find(c=>c.id===state.collectionTarget),on=!!c&&collectionHas(it,c.id);
+  const b=card.querySelector('.collection-quick');
+  if(!b)return;
+  b.textContent=on?'▣':'▢';b.classList.toggle('on',on);b.setAttribute('aria-pressed',String(on));
+  b.title=c?c.name+(on?'에서 빼기':'에 담기'):'담을 컬렉션 선택';
+  const names=state.collections.filter(c=>collectionHas(it,c.id)).map(c=>c.name);
+  card.querySelector('.collection-more').title=names.length?'소속: '+names.join(', '):'여러 컬렉션 선택';
+}
+function refreshCollectionCards(){
+  const byId=new Map(state.items.map(it=>[it.id,it]));
+  $('#list').querySelectorAll('.card').forEach(card=>{const it=byId.get(card.dataset.id);if(it)updateCollectionCard(card,it);});
+}
+function bindCollectionCard(card){
+  card.querySelector('.collection-quick').onclick=e=>{
+    e.stopPropagation();
+    if(selectMode){toggleCardSelect(card.dataset.id,card);return;}
+    const it=state.items.find(x=>x.id===card.dataset.id);
+    if(!it)return;
+    if(!state.collectionTarget){openCollectionPanel(it.id);return;}
+    setCollectionMembership([it],state.collectionTarget,!collectionHas(it,state.collectionTarget));
+  };
+  card.querySelector('.collection-more').onclick=e=>{e.stopPropagation();if(selectMode){toggleCardSelect(card.dataset.id,card);return;}openCollectionPanel(card.dataset.id);};
+}
+function renderCollections(){
+  const counts=new Map(state.collections.map(c=>[c.id,0]));let unfiled=0;
+  state.items.forEach(it=>{const ids=it.collectionIds||[];if(!ids.length)unfiled++;ids.forEach(id=>counts.set(id,(counts.get(id)||0)+1));});
+  const options=state.collections.map(c=>`<option value="${esc(c.id)}">${esc(c.name)} (${counts.get(c.id)||0})</option>`).join('');
+  $('#collection-target').innerHTML=options||'<option value="">컬렉션을 만들어 주세요</option>';
+  $('#collection-target').value=state.collectionTarget;
+  $('#collection-filter').innerHTML=`<option value="">전체 컬렉션</option><option value="__unfiled">미분류 (${unfiled})</option>`+options;
+  $('#collection-filter').value=state.collectionFilter;
+  $('#select-collection-add').disabled=$('#select-collection-remove').disabled=!state.collectionTarget;
+}
+function refreshCollectionList(){
+  if(!state.collectionFilter)return;
+  const next=filtered(),ids=new Set(next.map(it=>it.id)),box=$('#list');
+  const cards=[...box.querySelectorAll('.card')];
+  const retained=cards.filter(card=>ids.has(card.dataset.id));
+  // 필터 밖에서 다시 들어온 카드가 있으면 정렬 순서에 맞게 표시한다.
+  if(retained.some((card,i)=>next[i]?.id!==card.dataset.id)){renderList();return;}
+  cards.filter(card=>!ids.has(card.dataset.id)).forEach(card=>{
+    if(thumbObserver)thumbObserver.unobserve(card);
+    if(subThumbObserver)card.querySelectorAll('img.lazy-sub-thumb').forEach(im=>subThumbObserver.unobserve(im));
+    card.remove();
+  });
+  listItems=next;listShown=retained.length;
+  $('#view-info').textContent=next.length+'개 표시';
+  const sentinel=box.querySelector('.list-sentinel');
+  if(sentinel){
+    if(listShown<next.length)sentinel.textContent=`남은 ${next.length-listShown}개 · 스크롤하면 이어서 표시돼`;
+    else{if(listObserver)listObserver.unobserve(sentinel);sentinel.remove();}
+  }
+  if(!next.length||!listShown)renderList();
+  else if(listShown<next.length&&!sentinel)appendListChunk();
+}
+function setCollectionMembership(items,id,add){
+  if(!state.collections.some(c=>c.id===id))return;
+  let changed=0;
+  for(const it of items){
+    if(collectionHas(it,id)===add)continue;
+    it.collectionIds=add?[...(it.collectionIds||[]),id]:(it.collectionIds||[]).filter(x=>x!==id);
+    changed++;
+  }
+  if(!changed)return;
+  save();renderCollections();refreshCollectionCards();refreshCollectionList();queueStoreStats();
+}
+let collectionPanelItemId=null,collectionReturnFocus=null;
+function openCollectionPanel(id=null){
+  collectionPanelItemId=id;collectionReturnFocus=document.activeElement;
+  $('#collection-overlay').classList.add('open');$('#collection-overlay').setAttribute('aria-hidden','false');
+  $('#collection-new-name').value='';renderCollectionPanel();
+  $('#collection-close').focus({preventScroll:true});
+}
+function closeCollectionPanel(){
+  $('#collection-overlay').classList.remove('open');$('#collection-overlay').setAttribute('aria-hidden','true');
+  collectionPanelItemId=null;
+  if(collectionReturnFocus?.isConnected)collectionReturnFocus.focus({preventScroll:true});
+}
+function renderCollectionPanel(){
+  const it=state.items.find(x=>x.id===collectionPanelItemId);
+  $('#collection-panel-title').textContent=it?'이미지의 컬렉션':'컬렉션 관리';
+  $('#collection-panel-hint').textContent=it?(it.title||'이미지')+' · 여러 컬렉션에 체크할 수 있어요.':'이름을 바꾸거나 삭제할 수 있어요. 컬렉션을 삭제해도 이미지는 남습니다.';
+  const rows=$('#collection-rows');rows.innerHTML='';
+  if(!state.collections.length)rows.innerHTML='<p class="small">아래에서 첫 컬렉션을 만들어 주세요.</p>';
+  for(const c of state.collections){
+    const row=document.createElement('div');row.className='collection-row';
+    if(it){
+      const label=document.createElement('label');label.className='collection-check';
+      const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=collectionHas(it,c.id);
+      checkbox.onchange=()=>setCollectionMembership([it],c.id,checkbox.checked);
+      label.append(checkbox,document.createTextNode(c.name));row.append(label);
+    }else{
+      const input=document.createElement('input');input.value=c.name;input.maxLength=80;input.setAttribute('aria-label','컬렉션 이름');
+      const rename=document.createElement('button');rename.type='button';rename.className='btn ghost';rename.textContent='이름 변경';
+      rename.onclick=()=>{
+        const name=input.value.trim();if(!name){toast('이름을 입력해 주세요');return;}
+        if(state.collections.some(x=>x.id!==c.id&&x.name===name)){toast('같은 이름의 컬렉션이 있어요');return;}
+        c.name=name;save();renderCollections();refreshCollectionCards();queueStoreStats();toast('이름을 변경했어요');
+      };
+      input.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();rename.click();}};
+      const remove=document.createElement('button');remove.type='button';remove.className='btn danger';remove.textContent='삭제';
+      remove.onclick=async()=>{
+        if(!await showConfirm('“'+c.name+'” 컬렉션을 삭제할까요?\n이미지는 남고 이 컬렉션의 분류만 해제됩니다.',{danger:true,confirmText:'컬렉션 삭제'}))return;
+        const wasFilter=state.collectionFilter===c.id;
+        state.items.forEach(it=>{if(collectionHas(it,c.id))it.collectionIds=it.collectionIds.filter(id=>id!==c.id);});
+        state.collections=state.collections.filter(x=>x.id!==c.id);rgNormalizeCollections(state);
+        save();renderCollections();refreshCollectionCards();
+        if(wasFilter)renderList();else refreshCollectionList();
+        queueStoreStats();renderCollectionPanel();$('#collection-close').focus({preventScroll:true});
+      };
+      row.append(input,rename,remove);
+    }
+    rows.append(row);
+  }
+}
+function addCollection(){
+  const input=$('#collection-new-name'),name=input.value.trim();
+  if(!name){input.focus();return;}
+  if(state.collections.some(c=>c.name===name)){toast('같은 이름의 컬렉션이 있어요');return;}
+  const c={id:'c'+uid(),name};state.collections.push(c);state.collectionTarget=c.id;
+  save();renderCollections();refreshCollectionCards();renderCollectionPanel();queueStoreStats();input.value='';input.focus();
+}
+function bindCollectionControls(){
+  $('#collection-target').onchange=e=>{state.collectionTarget=e.target.value;saveUiState();refreshCollectionCards();};
+  $('#collection-filter').onchange=e=>{state.collectionFilter=e.target.value;saveUiState();renderList();};
+  $('#collection-manage').onclick=()=>openCollectionPanel();
+  $('#collection-close').onclick=closeCollectionPanel;
+  $('#collection-overlay').onclick=e=>{if(e.target.id==='collection-overlay')closeCollectionPanel();};
+  $('#collection-add').onclick=addCollection;
+  $('#collection-new-name').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();addCollection();}};
+  for(const [id,add] of [['#select-collection-add',true],['#select-collection-remove',false]])$(id).onclick=()=>{
+    const items=selectedItems();if(!items.length){toast('선택된 이미지가 없어요');return;}
+    setCollectionMembership(items,state.collectionTarget,add);toast(items.length+'개 이미지 · 컬렉션 '+(add?'담기':'빼기'));
+  };
+  window.addEventListener('keydown',e=>{
+    if(!$('#collection-overlay').classList.contains('open')||$('#confirm-overlay').classList.contains('open'))return;
+    if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();closeCollectionPanel();}
+    else if((e.ctrlKey||e.metaKey)&&['s','f'].includes(e.key.toLowerCase())){e.preventDefault();e.stopImmediatePropagation();}
+    else if(e.key==='Tab'){
+      const nodes=[...$('#collection-overlay').querySelectorAll('button,input')].filter(el=>!el.disabled);
+      const first=nodes[0],last=nodes[nodes.length-1];
+      if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+      else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+    }
+  },true);
+}
+
 function normalizeStateShape(s){
   s=s&&typeof s==='object'?s:{};
   if(!Array.isArray(s.items))s.items=[];
@@ -702,6 +921,7 @@ function normalizeStateShape(s){
   if(!Array.isArray(s.artistPairsIgnored))s.artistPairsIgnored=[];
   if(!Array.isArray(s.mergePairsIgnored))s.mergePairsIgnored=[]; // 소급 병합에서 '건너뛰기'한 카드 짝 (id1|id2)
   if(!Array.isArray(s.expandedIds))s.expandedIds=[];
+  rgNormalizeCollections(s);
   return s;
 }
 function stripUiState(s){
@@ -714,6 +934,9 @@ function stripUiState(s){
     scoreFilter:s.scoreFilter||'all',
     imgCountFilter:s.imgCountFilter||'all',
     favOnly:!!s.favOnly,
+    collections:Array.isArray(s.collections)?s.collections:[],
+    collectionTarget:s.collectionTarget||'',
+    collectionFilter:s.collectionFilter||'',
     view:s.view||'default',
     tagFilter:Array.isArray(s.tagFilter)?s.tagFilter:[],
     loraFilter:Array.isArray(s.loraFilter)?s.loraFilter:[],
@@ -730,6 +953,9 @@ function applyUiState(ui){
   if(!ui||typeof ui!=='object')return;
   ['selectedId','status','query','sort','scoreFilter','imgCountFilter','view'].forEach(k=>{if(ui[k]!=null)state[k]=ui[k]});
   if('favOnly' in ui)state.favOnly=!!ui.favOnly;
+  if(Array.isArray(ui.collections))state.collections=ui.collections;
+  if(typeof ui.collectionTarget==='string')state.collectionTarget=ui.collectionTarget;
+  if(typeof ui.collectionFilter==='string')state.collectionFilter=ui.collectionFilter;
   if(Array.isArray(ui.tagFilter))state.tagFilter=ui.tagFilter;
   if(Array.isArray(ui.loraFilter))state.loraFilter=ui.loraFilter;
   if(Array.isArray(ui.genFilter))state.genFilter=ui.genFilter;
@@ -1616,6 +1842,7 @@ function filtered(){
   let list=state.items.filter(it=>{
     if(state.status!=='전체'&&it.status!==state.status)return false;
     if(state.favOnly&&!it.fav)return false;
+    if(state.collectionFilter==='__unfiled'?(it.collectionIds||[]).length:state.collectionFilter&&!collectionHas(it,state.collectionFilter))return false;
     const sf=state.scoreFilter; if(sf==='0'&&Number(it.score)!==0)return false; if(['3','4','5'].includes(sf)&&Number(it.score)<Number(sf))return false;
     const icf=state.imgCountFilter; if(icf&&icf!=='all'){const n=imgCountOf(it); if(icf==='1'){if(n!==1)return false;} else if(n<Number(icf))return false;}
     if(state.tagFilter.length){const tags=(it.tags||[]); if(!state.tagFilter.every(t=>tags.includes(t)))return false;}
@@ -1645,7 +1872,7 @@ function cardHtml(it){
   const expanded=state.expandedIds.includes(it.id);
   const tagsArr=it.tags||[];
   const tagsMini=tagsArr.slice(0,5).map(t=>`<span class="tag-mini">#${esc(t)}</span>`).join('')+(tagsArr.length>5?`<span class="tag-mini">+${tagsArr.length-5}</span>`:'');
-  return `<article class="card ${it.id===state.selectedId?'active':''}${selectMode&&selectedIds.has(it.id)?' selected':''}" data-id="${it.id}"><div class="fav ${it.fav?'on':''}">${it.fav?'★':'☆'}</div><div class="thumb${it.thumbStripped?' stripped':''}">${it.thumb?`<img class="lazy-thumb" alt="" decoding="async">`:it.thumbStripped?'<span class="sync-noimg" title="원본 PNG를 다시 드롭하면 자동으로 채워져"><span class="sn-icon">☁</span>다른 기기에서<br>동기화됨<span class="sn-sub">원본 PNG 드롭 시 자동 매칭</span></span>':'<span class="noimg">이미지 없음</span>'}</div><div class="card-info"><div class="card-title">${esc(it.title)}</div><div class="card-meta"><span class="pill ${statusClass(it.status)}">${esc(it.status)}</span><span class="pill">${stars(it.score)}</span>${(g=>{if(!g)return '';const v=g==='nai'?naiVerKey(it):'';return `<span class="pill meta ${g}">${g==='nai'?('NAI'+(v&&v!=='기타'?' '+v:'')):'Comfy'}</span>`})(genOf(it))}${(n=>`<span class="pill imgs${n>1?' multi':''}" title="이미지 수 (대표+보조)">${n}장</span>`)(imgCountOf(it))}</div><div class="card-tags-mini">${tagsMini}</div><div class="card-note">${esc(it.notes||it.meta?.model||it.meta?.source||'메모 없음')}</div><button class="card-expand-btn" data-expand="${it.id}"><span class="ce-arrow">${expanded?'▴':'▾'}</span><span class="ce-label">${expanded?'정보 접기':'정보 보기'}</span></button><div class="card-expanded ${expanded?'open':''}"${expanded?' data-filled="1"':''} data-eid="${it.id}">${expanded?cardExpandedHTML(it):''}</div></div></article>`;
+  return `<article class="card ${it.id===state.selectedId?'active':''}${selectMode&&selectedIds.has(it.id)?' selected':''}" data-id="${it.id}">${collectionCardHtml(it)}<div class="fav ${it.fav?'on':''}">${it.fav?'★':'☆'}</div><div class="thumb${it.thumbStripped?' stripped':''}">${it.thumb?`<img class="lazy-thumb" alt="" decoding="async">`:it.thumbStripped?'<span class="sync-noimg" title="원본 PNG를 다시 드롭하면 자동으로 채워져"><span class="sn-icon">☁</span>다른 기기에서<br>동기화됨<span class="sn-sub">원본 PNG 드롭 시 자동 매칭</span></span>':'<span class="noimg">이미지 없음</span>'}</div><div class="card-info"><div class="card-title">${esc(it.title)}</div><div class="card-meta"><span class="pill ${statusClass(it.status)}">${esc(it.status)}</span><span class="pill">${stars(it.score)}</span>${(g=>{if(!g)return '';const v=g==='nai'?naiVerKey(it):'';return `<span class="pill meta ${g}">${g==='nai'?('NAI'+(v&&v!=='기타'?' '+v:'')):'Comfy'}</span>`})(genOf(it))}${(n=>`<span class="pill imgs${n>1?' multi':''}" title="이미지 수 (대표+보조)">${n}장</span>`)(imgCountOf(it))}</div><div class="card-tags-mini">${tagsMini}</div><div class="card-note">${esc(it.notes||it.meta?.model||it.meta?.source||'메모 없음')}</div><button class="card-expand-btn" data-expand="${it.id}"><span class="ce-arrow">${expanded?'▴':'▾'}</span><span class="ce-label">${expanded?'정보 접기':'정보 보기'}</span></button><div class="card-expanded ${expanded?'open':''}"${expanded?' data-filled="1"':''} data-eid="${it.id}">${expanded?cardExpandedHTML(it):''}</div></div></article>`;
 }
 /* 펼침 영역 내부 버튼(프롬프트 복사·보조 승격·보조 삭제) 바인딩. scope는 카드 하나 또는 card-expanded 하나 */
 function bindExpandedControls(scope){
@@ -1735,6 +1962,7 @@ function observeCardThumb(el){
 }
 /* 카드 1장 이벤트 바인딩. 청크로 나중에 붙는 카드도 동일하게 이 함수를 거친다 */
 function bindCardEl(cardEl){
+  bindCollectionCard(cardEl);
   observeCardThumb(cardEl); // 리스트 뷰에도 썸네일이 있으므로 아래 조기 return보다 앞에서 등록
   cardEl.onclick=()=>{if(selectMode){toggleCardSelect(cardEl.dataset.id,cardEl);return;}openEdit(cardEl.dataset.id)};
   const fav=cardEl.querySelector('.fav');
@@ -1809,6 +2037,7 @@ function activeFilterDesc(){
   if(state.scoreFilter!=='all')f.push('점수 필터');
   if((state.imgCountFilter||'all')!=='all')f.push('이미지 수 필터');
   if(state.favOnly)f.push('즐겨찾기만');
+  if(state.collectionFilter)f.push(state.collectionFilter==='__unfiled'?'컬렉션 미분류':'컬렉션: '+(state.collections.find(c=>c.id===state.collectionFilter)?.name||''));
   if(state.genFilter.length)f.push('출처: '+state.genFilter.map(g=>g==='nai'?'NAI':g==='comfy'?'Comfy':'메타없음').join('·'));
   if(state.naiVerFilter.length)f.push('NAI 버전: '+state.naiVerFilter.join('·'));
   if(state.tagFilter.length)f.push('태그: '+state.tagFilter.map(t=>'#'+t).join(', '));
@@ -2249,6 +2478,7 @@ async function runMergeScan(){
         head.subs.push(itemToSub(x));
         (x.subs||[]).forEach(sb=>{if(sb)head.subs.push(sb)}); // 묶이는 카드가 이미 보조를 갖고 있으면 그대로 승계
         head.fav=head.fav||!!x.fav;
+        head.collectionIds=[...new Set([...(head.collectionIds||[]),...(x.collectionIds||[])])];
         head.tags=[...new Set([...(head.tags||[]),...(x.tags||[])])];
         if(x.notes&&String(x.notes).trim())head.notes=(head.notes?head.notes+'\n':'')+x.notes;
         mergedCards++;
@@ -2825,7 +3055,7 @@ function openCtxMenu(x,y,items){
 function cardMenuItems(it){return[{icon:it.fav?'★':'☆',label:it.fav?'즐겨찾기 해제':'즐겨찾기',action:()=>toggleItemFav(it)},{sep:true},{icon:'📋',label:'카드 복제',action:()=>duplicateItem(it)},{icon:'📄',label:'메타 텍스트 복사',action:()=>copyItemMeta(it)},{icon:'＋',label:'일괄 선택 모드',action:()=>enterSelectMode()},{sep:true},{icon:'🏷',label:'상태 변경',submenu:['보류','성공','재작업','폐기'].map(st=>({icon:it.status===st?'●':' ',label:st,action:()=>setItemStatus(it,st)}))},{sep:true},{icon:'🗑',label:'삭제',danger:true,action:()=>deleteItem(it)}]}
 function boardMenuItems(){return[{icon:'＋',label:'이미지 추가',action:()=>$('#file-input').click()},{icon:'☐',label:'일괄 선택 모드',action:()=>enterSelectMode()},{sep:true},{icon:'⤺',label:'필터 초기화',action:()=>{$('#clear-filter-btn').click()}},{icon:'⬆',label:'JSON 내보내기',action:()=>exportData()},{icon:'⬇',label:'JSON 불러오기',action:()=>$('#import-input').click()}]}
 
-function render(){ normalizeStateShape(state); $('#search').value=state.query;$('#search-clear').classList.toggle('visible',!!state.query);$('#sort-select').value=state.sort;$('#score-filter').value=state.scoreFilter;$('#imgcount-filter').value=state.imgCountFilter||'all';$('#fav-only').checked=state.favOnly;renderStatuses();renderChips();renderList();renderDetail();renderStats();renderCollapseAllBtn()}
+function render(){ normalizeStateShape(state); $('#search').value=state.query;$('#search-clear').classList.toggle('visible',!!state.query);$('#sort-select').value=state.sort;$('#score-filter').value=state.scoreFilter;$('#imgcount-filter').value=state.imgCountFilter||'all';$('#fav-only').checked=state.favOnly;renderStatuses();renderCollections();renderChips();renderList();renderDetail();renderStats();renderCollapseAllBtn()}
 function saveDetail(){const it=current();if(!it)return;it.title=$('#d-title').value.trim()||'제목 없음';it.status=$('#d-status').value;it.score=Number($('#d-score').value)||0;it.tags=uniq($('#d-tags').value.split(','));it.notes=$('#d-notes').value.trim();it.updatedAt=Date.now();save();render();toast('저장했어')}
 /* 내보내기(전체): 카드 단위로 조각내어 Blob에 넣는다.
    한 덩어리 JSON.stringify는 썸네일 data URL이 쌓이면 문자열 최대 길이(RangeError)에 걸려 조용히 실패하므로,
@@ -2840,7 +3070,7 @@ async function exportData(list){ // list 생략 시 전체 (우클릭 메뉴용)
     const items=Array.isArray(list)?list:(state.items||[]);
     if(!items.length){toast('내보낼 결과가 없어');return}
     const EXPORT_CHUNK=200;
-    const blobs=[new Blob(['{\n  "version": 1,\n  "exportedAt": '+JSON.stringify(new Date().toISOString())+',\n  "items": [\n'])];
+    const blobs=[new Blob(['{\n  "version": 1,\n  "exportedAt": '+JSON.stringify(new Date().toISOString())+',\n  "collections": '+JSON.stringify(state.collections||[])+',\n  "items": [\n'])];
     for(let s=0;s<items.length;s+=EXPORT_CHUNK){
       let parts=[];
       const e=Math.min(s+EXPORT_CHUNK,items.length);
@@ -3025,7 +3255,8 @@ async function rgStreamImportItems(file,onItem){
   let strDepth=-1,strStart=-1,strBuf=null,lastKey1=null; // 루트 객체 바로 아래(깊이 1) 문자열 기록 → "items" 키 판별
   let itemsDepth=-1,itemsDone=false,rootSeen=false;     // items 배열이 열린 깊이
   let capParts=null,capStart=-1;                        // 카드 1장 캡처
-  let count=0,bad=0;
+  let count=0,bad=0,collections=[];
+  let collectionParts=null,collectionStart=-1;
   const handle=async text=>{
     let v;try{v=JSON.parse(text)}catch(e){bad++;return}
     if(!v||typeof v!=='object'||Array.isArray(v)){bad++;return}
@@ -3035,6 +3266,7 @@ async function rgStreamImportItems(file,onItem){
   const scan=chunk=>{
     const n=chunk.length;let i=0;
     if(capParts)capStart=0;
+    if(collectionParts)collectionStart=0;
     if(inStr&&strBuf!==null)strStart=0;
     while(i<n){
       if(inStr){
@@ -3054,6 +3286,7 @@ async function rgStreamImportItems(file,onItem){
       }
       if(c===123||c===91){ // { [
         const ch=c===123?'{':'[';
+        if(ch==='['&&stack.length===1&&stack[0]==='{'&&lastKey1==='collections'){collectionParts=[];collectionStart=i;}
         if(!rootSeen){rootSeen=true;if(ch==='['&&!itemsDone)itemsDepth=0}
         else if(ch==='['&&itemsDepth===-1&&!itemsDone&&stack.length===1&&stack[0]==='{'&&lastKey1==='items')itemsDepth=1;
         if(itemsDepth!==-1&&stack.length===itemsDepth+1&&ch==='{'&&!capParts){capParts=[];capStart=i}
@@ -3061,6 +3294,7 @@ async function rgStreamImportItems(file,onItem){
       }
       if(c===125||c===93){ // } ]
         stack.pop();
+        if(collectionParts&&stack.length===1&&c===93){collectionParts.push(chunk.slice(collectionStart,i+1));collections=JSON.parse(collectionParts.join(''));collectionParts=null;}
         if(capParts&&stack.length===itemsDepth+1&&c===125){
           capParts.push(chunk.slice(capStart,i+1));pending.push(capParts.join(''));capParts=null;capStart=-1;
         }else if(itemsDepth!==-1&&stack.length===itemsDepth&&c===93){itemsDone=true;itemsDepth=-1}
@@ -3070,6 +3304,7 @@ async function rgStreamImportItems(file,onItem){
       i++;
     }
     if(capParts)capParts.push(chunk.slice(capStart));
+    if(collectionParts)collectionParts.push(chunk.slice(collectionStart));
     if(inStr&&strBuf!==null)strBuf+=chunk.slice(strStart);
   };
   for(;;){
@@ -3079,8 +3314,8 @@ async function rgStreamImportItems(file,onItem){
     while(pending.length){await handle(pending.shift())}
     if(done)break;
   }
-  if(!itemsDone)throw new Error(rootSeen?'items 목록을 찾지 못했거나 파일이 중간에 끊겨 있어':'빈 파일이야');
-  return {count,bad};
+  if(!itemsDone||collectionParts||stack.length)throw new Error(rootSeen?'items 목록을 찾지 못했거나 파일이 중간에 끊겨 있어':'빈 파일이야');
+  return {count,bad,collections};
 }
 async function importData(file){
   const input=$('#import-input');
@@ -3107,6 +3342,7 @@ async function importData(file){
         seen.add(it.id);added.push(it);await tick(added.length);
       });
       if(!added.length){toast(`추가할 새 카드가 없어 (읽은 ${res.count.toLocaleString()}장 · 중복 ${skippedDup.toLocaleString()} · 형식 오류 ${res.bad})`);return}
+      state.collections=rgPlanCollectionImport(res.collections,added,true);
       state.items=[...added,...state.items];
       state.selectedId=state.items[0]?.id||null;
       save();render();
@@ -3126,7 +3362,9 @@ async function importData(file){
       });
       if(!next.length)throw new Error('파일에 불러올 카드가 없어');
       toast(`${next.length.toLocaleString()}장 저장 중…`);
+      const nextCollections=rgPlanCollectionImport(res.collections,next,false);
       await idbReplaceItems(next);
+      state.collections=nextCollections;state.collectionTarget='';state.collectionFilter='';
       state.items=next;next=null;
       state.selectedId=state.items[0]?.id||null;
       saveUiState();render();
@@ -3350,7 +3588,7 @@ document.addEventListener('click',e=>{const m=$('#ctx-menu');if(m&&!m.contains(e
 document.addEventListener('contextmenu',e=>{if(selectMode)return;if(e.target.closest('input,textarea,select'))return;const card=e.target.closest('#list .card');const main=e.target.closest('main.panel');if(card){e.preventDefault();const it=state.items.find(x=>x.id===card.dataset.id);if(it)openCtxMenu(e.clientX,e.clientY,cardMenuItems(it))}else if(main){e.preventDefault();openCtxMenu(e.clientX,e.clientY,boardMenuItems())}});
 let lastTap={t:0,x:0,y:0};document.addEventListener('touchend',e=>{if(selectMode)return;if(!e.changedTouches||!e.changedTouches[0])return;const t=e.changedTouches[0],now=Date.now(),dt=now-lastTap.t,dx=Math.abs(t.clientX-lastTap.x),dy=Math.abs(t.clientY-lastTap.y);if(dt<350&&dx<25&&dy<25){if(t.target.closest&&t.target.closest('input,textarea,select,button,a'))return;const card=t.target.closest&&t.target.closest('#list .card');const main=t.target.closest&&t.target.closest('main.panel');if(card){const it=state.items.find(x=>x.id===card.dataset.id);if(it){e.preventDefault();openCtxMenu(t.clientX,t.clientY,cardMenuItems(it))}}else if(main){e.preventDefault();openCtxMenu(t.clientX,t.clientY,boardMenuItems())}lastTap.t=0}else lastTap={t:now,x:t.clientX,y:t.clientY}},{passive:false});
 
-$('#pick-btn').onclick=()=>$('#file-input').click();$('#file-input').onchange=e=>addFiles(e.target.files);$('#export-btn').onclick=openExportPicker;$('#import-btn').onclick=()=>$('#import-input').click();$('#import-input').onchange=e=>{if(e.target.files[0])importData(e.target.files[0])};$('#clear-filter-btn').onclick=()=>{state.status='전체';state.query='';state.scoreFilter='all';state.imgCountFilter='all';state.favOnly=false;state.tagFilter=[];state.loraFilter=[];state.genFilter=[];state.naiVerFilter=[];saveUiState();render()};
+$('#pick-btn').onclick=()=>$('#file-input').click();$('#file-input').onchange=e=>addFiles(e.target.files);$('#export-btn').onclick=openExportPicker;$('#import-btn').onclick=()=>$('#import-input').click();$('#import-input').onchange=e=>{if(e.target.files[0])importData(e.target.files[0])};$('#clear-filter-btn').onclick=()=>{state.status='전체';state.query='';state.scoreFilter='all';state.imgCountFilter='all';state.favOnly=false;state.collectionFilter='';state.tagFilter=[];state.loraFilter=[];state.genFilter=[];state.naiVerFilter=[];saveUiState();render()};
 $('#search').oninput=e=>{state.query=e.target.value;saveUiState();render()};$('#search-clear').onclick=()=>{state.query='';saveUiState();render()};$('#sort-select').onchange=e=>{state.sort=e.target.value;saveUiState();render()};$('#score-filter').onchange=e=>{state.scoreFilter=e.target.value;saveUiState();render()};$('#imgcount-filter').onchange=e=>{state.imgCountFilter=e.target.value;saveUiState();render()};$('#fav-only').onchange=e=>{state.favOnly=e.target.checked;saveUiState();render()};
 $('#collapse-all').onclick=e=>{e.preventDefault();collapseAllCards()};
 $('#save-detail-btn').onclick=saveDetail;['#d-title','#d-status','#d-score','#d-tags','#d-notes'].forEach(s=>$(s).addEventListener('change',saveDetail));$('#copy-positive-btn').onclick=()=>{navigator.clipboard.writeText(current()?.meta?.positive||'');toast('Positive 복사했어')};$('#copy-negative-btn').onclick=()=>{navigator.clipboard.writeText(current()?.meta?.negative||'');toast('Negative 복사했어')};$('#toggle-fav-btn').onclick=()=>{const it=current();if(it)toggleItemFav(it,false)};$('#delete-btn').onclick=async()=>{const it=current();if(!it)return;if(!await showConfirm('이 결과를 삭제할까? 원본 파일은 삭제되지 않아.',{danger:true}))return;state.items=state.items.filter(x=>x.id!==it.id);state.selectedId=state.items[0]?.id||null;save();render();toast('삭제했어')};$('#open-lightbox-btn').onclick=openLightbox;bindLightbox();
@@ -3420,7 +3658,7 @@ function resetGalleryDropHint(){
   $('#drop-zone')?.classList.remove('dragover');
 }
 function galleryDropBlocked(){
-  return !!document.querySelector('#exact-overlay.open, #limit-overlay.open, #confirm-overlay.open');
+  return !!document.querySelector('#exact-overlay.open, #limit-overlay.open, #confirm-overlay.open, #collection-overlay.open');
 }
 function galleryDragHasFiles(e){return !!e.dataTransfer&&[...(e.dataTransfer.types||[])].includes('Files');}
 window.addEventListener('dragstart',e=>{
@@ -4399,6 +4637,8 @@ window.addEventListener('keydown',e=>{
   if($('#limit-overlay').classList.contains('open')){e.preventDefault();e.stopImmediatePropagation();}
 },true));
 /* === 카드당 장수 수동 정리 끝 === */
+
+bindCollectionControls();
 
 async function bootResultGallery(){
   await load();
