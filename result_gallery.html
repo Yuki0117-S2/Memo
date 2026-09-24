@@ -3148,10 +3148,11 @@ function exportHtml(items){
   try{
     if(!items||!items.length){toast('내보낼 카드가 없어');return}
     const date=new Date();
+    const localDate=[date.getFullYear(),String(date.getMonth()+1).padStart(2,'0'),String(date.getDate()).padStart(2,'0')].join('-');
     const stars=n=>'★'.repeat(Math.max(0,Math.min(5,Number(n)||0)))+'☆'.repeat(5-Math.max(0,Math.min(5,Number(n)||0)));
     const statuses=uniq(items.map(it=>it.status||'보류'));
     const head=`<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Result Gallery 내보내기 · ${esc(date.toISOString().slice(0,10))}</title>
+<title>Result Gallery 내보내기 · ${esc(localDate)}</title>
 <style>
 :root{--c1:#8888CC;--c2:#DDAACC;--c3:#CCAA88;--c4:#BB6688;--bg:#FAFAFB;--bg2:#F1F1F5;--text:#2A2A33;--text2:#66667A;--text3:#9A9AAE;--border:#E2E2EA;--code:#F4F4F8}
 @media(prefers-color-scheme:dark){:root{--bg:#16161C;--bg2:#1F1F27;--text:#E8E8F0;--text2:#A8A8BC;--text3:#70708A;--border:#2E2E3A;--code:#1C1C24}}
@@ -3237,7 +3238,7 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape')$('#lb').cla
 })();
 <\/script></body></html>`);
     const blob=new Blob(parts,{type:'text/html;charset=utf-8'});
-    downloadBlob(blob,'result_gallery_'+date.toISOString().slice(0,10)+'.html');
+    downloadBlob(blob,'result_gallery_'+localDate+'.html');
     toast(`HTML ${items.length}장 · ${bytes(blob.size)} 내보내기 시작`);
   }catch(e){toast('HTML 내보내기 실패 — '+((e&&e.message)||e));console.error('exportHtml',e)}
 }
