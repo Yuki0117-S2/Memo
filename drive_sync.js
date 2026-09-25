@@ -404,6 +404,48 @@
     return ids;
   }
 
+  // ── Result Gallery Drive 저장 전용: 네트워크 끊김 재시도 ──
+  // 공용 driveFetch는 건드리지 않고, uploadDriveSlotRG 안의 호출만 감싼다.
+  // 재시도 대상: fetch 자체가 끊긴 경우(TypeError: Failed to fetch / network error)만. 서버가 거절한 오류(인증 만료·용량 등)는 그대로 멈춘다.
+  const RG_NET_RETRY_DELAYS=[2000,5000,10000];
+  let rgNetStats=null; // 저장 1회 동안의 재시도 기록 {retries,lastRetry,lastFailed}
+  function rgIsNetError(e){
+    return !!e&&e instanceof TypeError&&/failed to fetch|network ?error|networkerror|load failed|err_/i.test(String(e.message||''));
+  }
+  async function rgNetRetry(label,fn){
+    for(let attempt=0;;attempt++){
+      try{return await fn(attempt);}
+      catch(e){
+        if(!rgIsNetError(e))throw e;
+        if(attempt>=RG_NET_RETRY_DELAYS.length){if(rgNetStats)rgNetStats.lastFailed=label;throw e;}
+        if(rgNetStats){rgNetStats.retries++;rgNetStats.lastRetry=label;}
+        const wait=RG_NET_RETRY_DELAYS[attempt];
+        try{setStatus('네트워크가 잠시 끊겨 다시 시도하는 중… ('+label+' · '+(attempt+1)+'/'+RG_NET_RETRY_DELAYS.length+', '+(wait/1000)+'초 뒤)','loading');}catch(_){}
+        await new Promise(resolve=>setTimeout(resolve,wait));
+      }
+    }
+  }
+  // 새 파일 만들기(POST) 재시도 전용: 첫 요청이 실제로는 성공했을 수 있으니, 다시 보내기 전에 같은 이름의 파일을 먼저 찾는다.
+  // 찾으면 업로드 응답과 같은 항목(id,name,version,md5Checksum,size)으로 돌려준다.
+  async function rgFindCreatedFile(name){
+    const f=await findDriveFileByName(name);
+    if(!f?.id)return null;
+    const params=new URLSearchParams({fields:'id,name,modifiedTime,version,md5Checksum,size'});
+    const meta=await (await driveFetch(DRIVE_API+'/'+encodeURIComponent(f.id)+'?'+params.toString())).json();
+    return meta&&meta.id===f.id?meta:null;
+  }
+  async function rgNetRetryCreate(label,name,create){
+    return await rgNetRetry(label,async attempt=>{
+      if(attempt>0){const found=await rgFindCreatedFile(name);if(found)return found;}
+      return await create();
+    });
+  }
+  // 메인·슬롯·색인 쓰기: 기존 파일(PATCH)은 같은 내용을 다시 보내도 안전하고, 새 파일(POST)은 이름으로 먼저 찾는다.
+  async function rgWriteMainBlobRetry(label,fileId,blob,name){
+    if(fileId)return await rgNetRetry(label,()=>rgWriteMainBlob(fileId,blob,name));
+    return await rgNetRetryCreate(label,name,()=>rgWriteMainBlob(null,blob,name));
+  }
+
   // Read-only preflight: inspect presence/flags, never hash, restore, or remove images.
   function rgRecordSaveStage(phase,done,total){
     try{if(typeof localStorage!=='undefined')localStorage.setItem('rg_drive_last_stage_v1',JSON.stringify({phase,done,total,at:new Date().toISOString()}));}catch(_){}
@@ -440,7 +482,7 @@
     const list=rgDriveHistoryGet();
     if(!list.length)lines.push('  현재 해결되지 않은 Drive 저장 실패 없음');
     for(const e of list){
-      lines.push('  - '+(e.at||'?')+' · 단계: '+(e.stage||'?')+' · 오류: '+(e.error||'?'));
+      lines.push('  - '+(e.at||'?')+' · 단계: '+(e.stage||'?')+' · 오류: '+(e.error||'?')+(e.failedRequest?' · 실패한 요청: '+e.failedRequest:'')+(e.netRetries?' · 네트워크 재시도 '+e.netRetries+'회':''));
       const f=e.mainRead;
       if(f){
         lines.push('    메인 읽기 · 파일 ID: '+(f.fileId||'?')+' · Drive 표시 크기: '+(f.driveSize??'?')+' bytes · 다시 받은 크기: '+(f.receivedBytes??'?')+' bytes'+(f.rereadError?' · 재조회 실패: '+f.rereadError:'')+(f.metaError?' · 정보 조회 실패: '+f.metaError:''),
@@ -539,6 +581,11 @@
   function rgV3IndexBackupName(){return rgV3Base()+'_drive_v3_index_backup.json';}
   function rgV3SlotName(letter){return rgV3Base()+'_drive_v3_slot_'+letter+'.json';}
   function rgV3ValidIndex(d){return !!(d&&d.kind==='result-gallery-drive-v3-index'&&d.slots&&typeof d.slots==='object');}
+  // 네트워크 끊김으로 확인하지 못한 것은 '손상'으로 판정하지 않고 멈춘다(엉뚱한 슬롯을 덮어쓰지 않게).
+  function rgV3NetUnknown(what,e){
+    const err=new Error(what+' 네트워크 문제로 확인하지 못했어. 백업은 그대로야. 잠시 뒤 다시 시도해줘. ('+((e&&e.message)||e)+')');
+    err.rgNetUnknown=true;return err;
+  }
   async function rgV3Load(){
     const out={index:null,indexFile:null,backupFile:null,indexStamp:'',fromBackup:false,slotStates:{}};
     out.indexFile=await findDriveFileByName(rgV3IndexName());
@@ -546,16 +593,16 @@
     if(!out.indexFile&&!out.backupFile)return out;
     if(out.indexFile){
       out.indexStamp=await rgReadFileStamp(out.indexFile.id);
-      try{const d=await readDriveFile(out.indexFile.id);if(rgV3ValidIndex(d))out.index=d;}catch(_){}
+      try{const d=await rgNetRetry('본 색인 읽기',()=>readDriveFile(out.indexFile.id));if(rgV3ValidIndex(d))out.index=d;}catch(e){if(rgIsNetError(e))throw rgV3NetUnknown('Drive 본 색인을',e);}
     }
     if(!out.index&&out.backupFile){
-      try{const d=await readDriveFile(out.backupFile.id);if(rgV3ValidIndex(d)){out.index=d;out.fromBackup=true;}}catch(_){}
+      try{const d=await rgNetRetry('예비 색인 읽기',()=>readDriveFile(out.backupFile.id));if(rgV3ValidIndex(d)){out.index=d;out.fromBackup=true;}}catch(e){if(rgIsNetError(e))throw rgV3NetUnknown('Drive 예비 색인을',e);}
     }
     if(!out.index)throw new Error('Drive 백업 색인을 읽을 수 없어. 기존 백업을 덮어쓰지 않고 중단했어. 불러오기에서 "색인 재구성"을 눌러줘.');
     for(const L of RG_V3_SLOTS){
       const e=out.index.slots[L];
       if(!e||!e.fileId){out.slotStates[L]='empty';continue;}
-      let st='';try{st=await rgReadFileStamp(e.fileId);}catch(_){st='';}
+      let st='';try{st=await rgNetRetry('슬롯 '+L+' 상태 확인',()=>rgReadFileStamp(e.fileId));}catch(err){if(rgIsNetError(err))throw rgV3NetUnknown('Drive 슬롯 '+L+' 상태를',err);st='';}
       out.slotStates[L]=(st&&st===e.stamp)?'ok':'broken';
     }
     return out;
@@ -1133,6 +1180,7 @@
     let mainWriteStarted=false,slotWriteStarted=false;
     const trackingWindow=typeof window!=='undefined'?window:null;
     let previousProgress,trackingProgress,previousStorageProgress,storageProgress;
+    rgNetStats={retries:0,lastRetry:'',lastFailed:''};
     try{
       rgCheckImagesBeforeSave(Array.isArray(state?.items)?state.items:[]);
       setStatus('Drive 저장 준비 중...','loading');
@@ -1152,6 +1200,9 @@
       }
       if(typeof saveResultGalleryToIndexedDBNow==='function')await saveResultGalleryToIndexedDBNow();
       else if(typeof save==='function')save();
+      // 로컬 저장 진행 연결은 여기서 해제한다. 저장 도중 다른 편집으로 로컬 저장이 다시 돌아도 Drive 단계 기록을 덮지 않게.
+      if(storageProgress&&trackingWindow.onResultGalleryStorageProgress===storageProgress)trackingWindow.onResultGalleryStorageProgress=previousStorageProgress;
+      storageProgress=null;
       setStatus('Drive 비교용 카드 정보 준비 중…','loading');
       rgRecordSaveStage('Drive 비교용 카드 정보 준비',0,state.items?.length||0);
       // 메타는 사본, 큰 이미지 문자열은 참조만 유지하여 저장 중 편집과 분리한다.
@@ -1176,7 +1227,7 @@
       // v3: 저장 경로에서는 작은 색인만 읽는다. 큰 슬롯 파일은 파싱하지 않는다.
       rgRecordSaveStage('Drive 색인 확인',0,items.length);
       setStatus('Drive 백업 색인 확인 중…','loading');
-      const v3=await rgV3Load();
+      const v3=await rgNetRetry('Drive 색인 읽기',()=>rgV3Load());
       const prevRef=new Map();let prevInfo=null,v2File=null;
       if(v3.index){
         for(const r of (Array.isArray(v3.index.ref)?v3.index.ref:[]))prevRef.set(r[0],{id:r[0],imageFileId:r[1],imageSig:r[2],rgImageRevision:r[3],rgTrackingVersion:r[4]});
@@ -1205,7 +1256,7 @@
       const target=rgV3PickTarget(v3);
       setStatus('기존 Drive 이미지 파일 확인 중...','loading');
       rgRecordSaveStage('Drive 파일 목록 확인',0,items.length);
-      const existing=await rgExistingImageIds();
+      const existing=await rgNetRetry('Drive 이미지 파일 목록',()=>rgExistingImageIds());
       const checkpoint=rgCheckpointStore(v2File?v2File.id:'v3:'+rgV3IndexName());
       const mainItems=new Array(items.length);let uploaded=0,skipped=0,migrated=0,idx=0,cached=0,rehashedCards=0,resumed=0,checkpointed=0;
       let cursor=0,firstError=null,lastProgress=0;
@@ -1237,7 +1288,7 @@
         if(!reusable&&prev?.imageFileId&&existing.has(prev.imageFileId)&&!String(prev.imageSig||'').startsWith('sha256:')&&prev.imageSig===rgItemImageSig(item)){
           const beforeStamp=existing.stamps.get(prev.imageFileId)||'';
           if(checkpoint.persistent&&!beforeStamp)throw new Error('Drive 파일의 변경 검증 정보를 받지 못해 재개 정보를 안전하게 남길 수 없어. 연결 후 다시 시도해줘.');
-          const legacy=await readDriveFile(prev.imageFileId);
+          const legacy=await rgNetRetry('기존 이미지 파일 읽기',()=>readDriveFile(prev.imageFileId));
           if(legacy.kind!=='result-gallery-item-images'||legacy.itemId!==meta.id)throw new Error('기존 이미지 파일의 카드 정보가 일치하지 않아. 저장을 중단했어.');
           // Exact string equality, not length equality: no second image-hash pass is needed.
           reusable=rgSameImageContents(item,legacy);migrated++;
@@ -1245,7 +1296,7 @@
             reuseId=prev.imageFileId;
             // Both version observations must agree: don't cache content read across a remote edit.
             if(beforeStamp){
-              const afterStamp=await rgReadFileStamp(reuseId);
+              const afterStamp=await rgNetRetry('이미지 파일 상태 확인',()=>rgReadFileStamp(reuseId));
               if(afterStamp!==beforeStamp)throw new Error('비교 중 Drive 이미지 파일이 변경됐어. 기존 백업을 유지하고 중단했어.');
               checkpoint.put(meta.id,{id:reuseId,sig,stamp:afterStamp});
               checkpointed++;
@@ -1256,7 +1307,7 @@
         else{
           const imgPayload={version:1,kind:'result-gallery-item-images',itemId:meta.id,thumb:item.thumb,subs:item.subs.filter(s=>s.thumb)};
           const name=rgImgFileName(meta.id).replace(/\.json$/,'')+'_'+sig.slice(7)+'.json';
-          const written=await writeDriveFile(null,imgPayload,name);
+          const written=await rgNetRetryCreate('새 이미지 파일 업로드',name,()=>writeDriveFile(null,imgPayload,name));
           if(!written?.id)throw new Error('새 이미지 파일 ID를 확인하지 못했어.');
           meta.imageFileId=written.id;uploaded++;
           // Persist a completed upload too, so a later main-file failure doesn't repeat it.
@@ -1283,20 +1334,20 @@
       const slotBlob=await rgV3SlotBlob(slotHeader,mainItems,target);
       // 대상 자리 파일: 색인에 있는 ID가 살아 있으면 그 파일을 덮어쓰고, 없으면 이름으로 찾고, 그래도 없으면 새로 만든다.
       let slotFileId=v3.index?.slots?.[target]?.fileId||'';
-      if(slotFileId){try{await rgReadFileStamp(slotFileId);}catch(_){slotFileId='';}}
-      if(!slotFileId){const f=await findDriveFileByName(rgV3SlotName(target));slotFileId=f?.id||'';}
+      if(slotFileId){try{await rgNetRetry('슬롯 '+target+' 파일 확인',()=>rgReadFileStamp(slotFileId));}catch(_){slotFileId='';}}
+      if(!slotFileId){const f=await rgNetRetry('슬롯 '+target+' 파일 찾기',()=>findDriveFileByName(rgV3SlotName(target)));slotFileId=f?.id||'';}
       setStatus('슬롯 '+target+' 저장 중… ('+formatBytes(slotBlob.size)+')\n새 이미지 파일 '+uploaded+' · 기존 재사용 '+skipped,'loading');
       rgRecordSaveStage('Drive 슬롯 '+target+' 저장',idx,items.length);
       slotWriteStarted=true;
-      const writtenSlot=await rgWriteMainBlob(slotFileId||null,slotBlob,rgV3SlotName(target));
+      const writtenSlot=await rgWriteMainBlobRetry('슬롯 '+target+' 저장',slotFileId||null,slotBlob,rgV3SlotName(target));
       if(!writtenSlot?.id)throw new Error('슬롯 '+target+' 파일 ID를 확인하지 못했어.');
       rgRecordSaveStage('슬롯 '+target+' 저장 후 내용 검증',idx,items.length);
-      if(!await rgVerifyMainBlob(writtenSlot.id,slotBlob))throw new Error('슬롯 '+target+' 저장 후 검증 내용이 일치하지 않아.');
-      const slotStamp=await rgReadFileStamp(writtenSlot.id);
+      if(!await rgNetRetry('슬롯 '+target+' 검증',()=>rgVerifyMainBlob(writtenSlot.id,slotBlob)))throw new Error('슬롯 '+target+' 저장 후 검증 내용이 일치하지 않아.');
+      const slotStamp=await rgNetRetry('슬롯 '+target+' 상태 확인',()=>rgReadFileStamp(writtenSlot.id));
       if(!slotStamp)throw new Error('슬롯 '+target+' 파일의 변경 검증 정보를 받지 못했어.');
       // 커밋: 검증을 통과한 뒤에만 색인을 바꾼다.
       rgRecordSaveStage('색인 변경 확인',idx,items.length);
-      await rgV3CheckUnchanged(v3);
+      await rgNetRetry('색인 변경 확인',()=>rgV3CheckUnchanged(v3));
       const newIndex={version:3,kind:'result-gallery-drive-v3-index',appFile:rgV3IndexName(),updatedAt:nowIso(),latest:target,slots:{},
         ref:mainItems.map(m=>[m.id,m.imageFileId||'',m.imageSig||'',m.rgImageRevision??null,m.rgTrackingVersion??null])};
       for(const L of RG_V3_SLOTS)newIndex.slots[L]=v3.index?.slots?.[L]||null;
@@ -1304,23 +1355,24 @@
       const indexBlob=new Blob([JSON.stringify(newIndex)],{type:'application/json'});
       rgRecordSaveStage('색인 저장',idx,items.length);
       mainWriteStarted=true;
-      const writtenIndex=await rgWriteMainBlob(v3.indexFile?.id||null,indexBlob,rgV3IndexName());
-      if(!writtenIndex?.id||!await rgVerifyMainBlob(writtenIndex.id,indexBlob))throw new Error('색인 저장 후 검증 내용이 일치하지 않아.');
+      const writtenIndex=await rgWriteMainBlobRetry('색인 저장',v3.indexFile?.id||null,indexBlob,rgV3IndexName());
+      if(!writtenIndex?.id||!await rgNetRetry('색인 검증',()=>rgVerifyMainBlob(writtenIndex.id,indexBlob)))throw new Error('색인 저장 후 검증 내용이 일치하지 않아.');
       let backupNote='';
       try{
         rgRecordSaveStage('예비 색인 저장',idx,items.length);
-        const wb=await rgWriteMainBlob(v3.backupFile?.id||null,indexBlob,rgV3IndexBackupName());
-        if(!wb?.id||!await rgVerifyMainBlob(wb.id,indexBlob))throw new Error('검증 내용 불일치');
+        const wb=await rgWriteMainBlobRetry('예비 색인 저장',v3.backupFile?.id||null,indexBlob,rgV3IndexBackupName());
+        if(!wb?.id||!await rgNetRetry('예비 색인 검증',()=>rgVerifyMainBlob(wb.id,indexBlob)))throw new Error('검증 내용 불일치');
       }catch(be){backupNote='\n예비 색인 저장은 실패했어. 다음 저장 때 다시 써: '+((be&&be.message)||be);}
       const kept=RG_V3_SLOTS.filter(L=>newIndex.slots[L]).map(L=>L+'(세대 '+newIndex.slots[L].generation+')').join(' · ');
       setStatus('Drive 저장 완료!\n슬롯 '+target+' · 세대 '+generation+' · '+rgFormatSavedAt(savedAt)+' · 카드 '+mainItems.length+'장 · '+formatBytes(slotBlob.size)+'\n보관 중인 슬롯: '+kept+'\n새 이미지 파일 '+uploaded+' · 기존 재사용 '+skipped+'\n저장된 해시 재사용 '+cached+'카드 · 전체 해시 계산 '+rehashedCards+'카드\n중단 전 작업 재사용 '+resumed+'카드\n검증 OK'+(migrated?' · 기존 형식 내용 비교 '+migrated+'개':'')+(v2File?'\n구형 v2 백업은 그대로 보존했어.':'')+backupNote,'ok');
-      safeToast('☁️ Drive 저장 완료 · 슬롯 '+target+' (세대 '+generation+')');
+      safeToast('☁️ Drive 저장 완료 · 슬롯 '+target+' (세대 '+generation+')'+(rgNetStats&&rgNetStats.retries?' · 네트워크 재시도 '+rgNetStats.retries+'회':''));
       rgRecordSaveStage('Drive 저장 완료',idx,items.length);
       rgDriveHistoryResolve();
     }catch(e){
       if(!(e&&e.rgUserCancel))try{
         const st=rgLsGet('rg_drive_last_stage_v1',null);
-        rgDriveHistoryAdd({at:new Date().toISOString(),stage:st?.phase?(st.phase+' ('+(st.done??'?')+'/'+(st.total??'?')+')'):'?',error:String((e&&e.message)||e),mainWriteStarted,mainRead:rgTakeMainReadDiag()});
+        rgDriveHistoryAdd({at:new Date().toISOString(),stage:st?.phase?(st.phase+' ('+(st.done??'?')+'/'+(st.total??'?')+')'):'?',error:String((e&&e.message)||e),mainWriteStarted,mainRead:rgTakeMainReadDiag(),
+          netRetries:rgNetStats?rgNetStats.retries:0,failedRequest:rgNetStats?(rgNetStats.lastFailed||''):''});
       }catch(_){}
       setStatus((mainWriteStarted?'Drive 색인 저장 결과를 확인하지 못했어. 백업 목록을 다시 확인해줘.':slotWriteStarted?'Drive 저장을 중단했어. 백업 색인은 바꾸지 않았어. 쓰던 가장 오래된 슬롯은 다음 저장 때 다시 써.':'Drive 저장을 중단했어. 기존 백업은 변경하지 않았어.')+'\n'+(e.message||e)+'\n기존 이미지 파일과 로컬 데이터는 삭제하지 않았어. 완료한 작업의 재개 정보가 있으면 재연결 후 다시 저장할 때 재사용해.','err');
     }finally{
