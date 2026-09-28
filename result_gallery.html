@@ -274,6 +274,10 @@ body.eo-open{overflow:hidden}
 .ds-body{overflow-y:auto;padding:12px 14px;display:grid;gap:12px;min-height:140px;-webkit-overflow-scrolling:touch}
 .ds-foot{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:10px 14px;border-top:.5px solid var(--border);background:var(--bg2);font-size:11px;color:var(--text3)}
 .ds-foot .grow{flex:1}
+/* 작가 수동 등록 (유사 작가 검토 창 상단) */
+.am-box{flex:0 0 auto;padding:10px 14px;border-bottom:.5px solid var(--border);display:grid;gap:6px}.am-box label{font-size:11px;font-weight:700;color:var(--accent)}.am-box textarea{width:100%;min-height:64px;resize:vertical;background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:12px;padding:7px 9px;outline:0;font-family:Consolas,Menlo,monospace;line-height:1.5}.am-box textarea:focus{border-color:var(--accent)}.am-row{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text3)}
+/* 병합 확인창 Positive 비교 */
+.cmv-cmp{margin-top:4px;border-top:.5px solid var(--border);padding-top:8px}.cmv-cmp summary{font-size:11px;font-weight:800;color:#8888CC;cursor:pointer;user-select:none}.cmv-p-label{font-size:10px;font-weight:800;margin-top:8px;margin-bottom:3px}.cmv-p{font-family:Consolas,Menlo,monospace;font-size:10.5px;line-height:1.55;white-space:pre-wrap;word-break:break-word;background:var(--bg2);border:.5px solid var(--border);border-radius:6px;padding:6px 8px;max-height:140px;overflow:auto;color:var(--text2)}.cmv-add{background:rgba(187,102,136,.22);color:#BB6688;font-weight:700;border-radius:3px;padding:0 2px}.cmv-miss{margin-top:4px;font-size:10px;color:#CCAA88}.cmv-miss s{opacity:.85}.cmv-same{font-size:10px;color:var(--text3);margin-top:3px}
 .ds-group{border:.5px solid var(--border);border-radius:12px;padding:11px;background:var(--bg2)}
 .ds-artists{font-size:11px;color:var(--accent);font-weight:700;word-break:break-all;line-height:1.6;margin-bottom:9px}
 .ds-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
@@ -497,7 +501,8 @@ img{-webkit-user-drag:none}
 
 <div id="sim-overlay" aria-hidden="true">
   <div class="ds-shell">
-    <div class="ds-head"><span>유사 작가 검토 (오타 통합)</span><button class="eo-close" id="sim-close" title="닫기">×</button></div>
+    <div class="ds-head"><span>유사 작가 검토 (오타 통합) · 작가 수동 등록</span><button class="eo-close" id="sim-close" title="닫기">×</button></div>
+    <div class="am-box"><label for="artist-manual">작가 수동 등록 · 한 줄에 한 명 (artist: 없이 쓴 작가도 작가로 인정)</label><textarea id="artist-manual" placeholder="chenpeipeii&#10;yzsss&#10;oharu-chan"></textarea><div class="am-row"><button class="btn" id="artist-manual-save" type="button">등록 저장</button><span id="artist-manual-count"></span></div></div>
     <div class="ds-body" id="sim-body"></div>
     <div class="ds-foot"><span id="sim-summary"></span><span class="grow"></span><button class="btn ghost" id="sim-reset">통합 초기화</button></div>
   </div>
@@ -919,6 +924,7 @@ function normalizeStateShape(s){
   if(!Array.isArray(s.naiVerFilter))s.naiVerFilter=[];
   if(!s.artistAliases||typeof s.artistAliases!=='object')s.artistAliases={};
   if(!Array.isArray(s.artistPairsIgnored))s.artistPairsIgnored=[];
+  if(!Array.isArray(s.artistManual))s.artistManual=[]; // 사용자가 직접 등록한 작가 이름 (정규화된 형태)
   if(!Array.isArray(s.mergePairsIgnored))s.mergePairsIgnored=[]; // 소급 병합에서 '건너뛰기'한 카드 짝 (id1|id2)
   if(!Array.isArray(s.expandedIds))s.expandedIds=[];
   rgNormalizeCollections(s);
@@ -944,6 +950,7 @@ function stripUiState(s){
     naiVerFilter:Array.isArray(s.naiVerFilter)?s.naiVerFilter:[],
     artistAliases:(s.artistAliases&&typeof s.artistAliases==='object')?s.artistAliases:{},
     artistPairsIgnored:Array.isArray(s.artistPairsIgnored)?s.artistPairsIgnored:[],
+    artistManual:Array.isArray(s.artistManual)?s.artistManual:[],
     mergePairsIgnored:Array.isArray(s.mergePairsIgnored)?s.mergePairsIgnored:[],
     expandedIds:Array.isArray(s.expandedIds)?s.expandedIds:[],
     savedAt:new Date().toISOString()
@@ -962,6 +969,7 @@ function applyUiState(ui){
   if(Array.isArray(ui.naiVerFilter))state.naiVerFilter=ui.naiVerFilter;
   if(ui.artistAliases&&typeof ui.artistAliases==='object')state.artistAliases=ui.artistAliases;
   if(Array.isArray(ui.artistPairsIgnored))state.artistPairsIgnored=ui.artistPairsIgnored;
+  if(Array.isArray(ui.artistManual))state.artistManual=ui.artistManual;
   if(Array.isArray(ui.mergePairsIgnored))state.mergePairsIgnored=ui.mergePairsIgnored;
   if(Array.isArray(ui.expandedIds))state.expandedIds=ui.expandedIds;
 }
@@ -1707,7 +1715,7 @@ async function pushAsNewCards(list,singles){
   if(list.length>1){
     const bundle=await showConfirm(`이번에 넣은 ${list.length}장이 서로 같은 조합이야.\n한 카드로 묶을까? (첫 장이 대표가 돼)\n장수를 줄이면 앞에서부터 그만큼만 넣고 나머지는 버려.`,{confirmText:'한 카드로',cancelText:'각각 새 카드',visualHTML:mergeVisualHTML([
       {label:`묶일 이미지 ${list.length}장 (첫 장이 대표)`,color:'#8888CC',thumbs:list.map((x,i)=>({t:x.thumb,cap:i===0?'대표':x.fileName}))}
-    ]),numberInput:{label:'넣을 장수 (대표 포함)',max:list.length,hint:`/ ${list.length}장 · 앞에서부터`}});
+    ],list.map((x,i)=>({label:i===0?`대표 · ${x.fileName||''}`:(x.fileName||''),color:i===0?'#8888CC':'#BB6688',text:(x.meta&&x.meta.positive)||''}))),numberInput:{label:'넣을 장수 (대표 포함)',max:list.length,hint:`/ ${list.length}장 · 앞에서부터`}});
     if(bundle){
       const n=typeof bundle==='number'?bundle:list.length;
       const head=list[0];
@@ -1811,7 +1819,7 @@ async function addFiles(files){
       const attach=await showConfirm(`${list.length}장이 기존 카드 "${target.title||target.fileName}" 와 같은 조합이야.\n그림체가 맞는지 아래에서 눈으로 대조해봐.\n\n${names}\n\n이 카드에 이어서 붙일까?\n장수를 줄이면 앞에서부터 그만큼만 붙이고 나머지는 버려.`,{confirmText:'붙이기',cancelText:'새 카드로',thirdText:'건너뛰기 (추가 안 함)',visualHTML:mergeVisualHTML([
         {label:'기존 카드 (대표+보조)',color:'#8888CC',thumbs:cardVisualThumbs(target)},
         {label:`붙일 이미지 ${list.length}장`,color:'#BB6688',thumbs:list.map(x=>({t:x.thumb,cap:x.fileName}))}
-      ]),numberInput:{label:'붙일 장수',max:list.length,hint:`/ ${list.length}장 · 앞에서부터`}});
+      ],[{label:`기존 카드 대표 · ${target.title||target.fileName||''}`,color:'#8888CC',text:(target.meta&&target.meta.positive)||''},...list.map(x=>({label:x.fileName||'',color:'#BB6688',text:(x.meta&&x.meta.positive)||''}))]),numberInput:{label:'붙일 장수',max:list.length,hint:`/ ${list.length}장 · 앞에서부터`}});
       if(attach==='third'){discarded+=list.length;continue;} // 이 조합은 이미 충분 → 이번 이미지들 버림
       if(typeof attach==='number'){ // 붙이기 (숫자 입력칸이 있어 true 대신 장수가 돌아온다)
         target.subs=target.subs||[];
@@ -1849,7 +1857,7 @@ function filtered(){
     if(state.genFilter.length&&!state.genFilter.includes(genKey(it)))return false;
     if(state.naiVerFilter.length){const v=naiVerKey(it); if(!v||!state.naiVerFilter.includes(v))return false;}
     if(state.loraFilter.length){const lns=(it.meta?.loras||[]).map(l=>cleanLoraName(l.name)); if(!state.loraFilter.every(l=>lns.includes(l)))return false;}
-    if(q){const m=it.meta||{}; const hay=[it.title,it.fileName,it.status,(it.tags||[]).join(' '),it.notes,m.model,(m.loras||[]).map(l=>l.name).join(' '),m.positive,m.negative].join(' ').toLowerCase(); if(!hay.includes(q))return false;}
+    if(q){const m=it.meta||{}; const hay=[it.title,it.fileName,(it.subs||[]).map(sb=>sb&&sb.fileName||'').join(' '),it.status,(it.tags||[]).join(' '),it.notes,m.model,(m.loras||[]).map(l=>l.name).join(' '),m.positive,m.negative].join(' ').toLowerCase(); if(!hay.includes(q))return false;}
     return true;
   });
   list.sort((a,b)=>state.sort==='old'?a.createdAt-b.createdAt:state.sort==='name'?a.title.localeCompare(b.title,'ko'):state.sort==='score'?Number(b.score)-Number(a.score):(b.createdAt||0)-(a.createdAt||0));
@@ -2068,7 +2076,7 @@ function renderList(){
   box.classList.toggle('select-mode',selectMode);
 }
 function current(){return state.items.find(i=>i.id===state.selectedId)}
-function renderDetail(){const it=current();$('#detail-empty').style.display=it?'none':'block';$('#detail').style.display=it?'block':'none';$('#selected-state').textContent=it?'편집 중':'선택 없음';if(!it)return;const m=it.meta||{};$('#d-img').src=it.thumb||'';$('#d-title').value=it.title||'';$('#d-status').value=it.status||'보류';$('#d-score').value=String(it.score||0);$('#d-tags').value=(it.tags||[]).join(', ');$('#d-notes').value=it.notes||'';$('#toggle-fav-btn').textContent=it.fav?'즐겨찾기 해제':'즐겨찾기';const loras=(m.loras||[]).map(l=>`${l.name}${l.strength_model!=null?' @'+l.strength_model:''}`).join(', ');
+function renderDetail(){const it=current();$('#detail-empty').style.display=it?'none':'block';$('#detail').style.display=it?'block':'none';const dsb=detailSubOf(it);$('#selected-state').textContent=it?(dsb?`편집 중 · 보조 ${dsb.i+1}/${(it.subs||[]).length} 이미지`:'편집 중'):'선택 없음';if(!it)return;const m=dsb?(dsb.s.meta||{}):(it.meta||{});$('#d-img').src=(dsb?dsb.s.thumb:it.thumb)||'';$('#d-title').value=it.title||'';$('#d-status').value=it.status||'보류';$('#d-score').value=String(it.score||0);$('#d-tags').value=(it.tags||[]).join(', ');$('#d-notes').value=it.notes||'';$('#toggle-fav-btn').textContent=it.fav?'즐겨찾기 해제':'즐겨찾기';const loras=(m.loras||[]).map(l=>`${l.name}${l.strength_model!=null?' @'+l.strength_model:''}`).join(', ');
   const gen=genOf(it);
   const rows=[['출처',m.source||'확인 불가'],['모델',m.model||'확인 불가']];
   if(gen!=='nai')rows.push(['LoRA',loras||'확인 불가']); // NAI엔 LoRA 개념 없음 → 행 자체를 뺌
@@ -2260,11 +2268,38 @@ function parseAtArtist(token){
   const name=artistAlias(normArtistName(t));
   return name?{name,weight}:null;
 }
-function parseArtistTags(prompt){
+/* ── 작가 사전 (접두 없는 작가 인식용) ──
+   갤러리 전체에서 "artist:" / "@" 표기로 한 번이라도 쓰인 이름을 모은다.
+   이후 "0.2::chenpeipeii ::" 처럼 접두 없이 쓴 토큰도 이 사전에 있으면 작가로 인정한다.
+   사전 구축 자체는 접두 표기만 사용(noDict) → 일반 태그가 작가로 섞여 들어가지 않는다.
+   카드 수·별칭 수가 바뀌면 자동 재구축, 검사 기능 진입 시에는 강제 재구축. */
+let _artistDict=null,_artistDictKey='';
+function invalidateArtistDict(){_artistDict=null;_artistDictKey='';}
+function getArtistDict(){
+  const items=(state&&Array.isArray(state.items))?state.items:[];
+  const key=items.length+'|'+Object.keys((state&&state.artistAliases)||{}).length+'|'+((state&&state.artistManual)||[]).length+'|'+(items[0]&&items[0].id||'')+'|'+(items.length&&items[items.length-1].id||'');
+  if(_artistDict&&_artistDictKey===key)return _artistDict;
+  const d=new Set();
+  ((state&&state.artistManual)||[]).forEach(n=>{const a=artistAlias(normArtistName(n));if(a)d.add(a)}); // 수동 등록
+  items.forEach(it=>{
+    const p=it&&it.meta&&it.meta.positive;
+    if(p)parseArtistTags(p,{noDict:true}).forEach(a=>d.add(a.name));
+  });
+  _artistDict=d;_artistDictKey=key;
+  return d;
+}
+function parseArtistTags(prompt,opts){
   if(!prompt||typeof prompt!=='string')return [];
+  const dict=(opts&&opts.noDict)?null:getArtistDict();
   const out=[],seen=new Set();
   const wstack=[];let br=0,cur=0,token='',i=0;
   const n=prompt.length;
+  const curWeight=()=>{
+    if(wstack.length)return String(wstack[wstack.length-1]);
+    if(br)return '['+br+']';
+    if(cur)return '{'+cur+'}';
+    return '1';
+  };
   const flush=()=>{
     const t=token.trim();token='';
     if(!/artist:/i.test(t)){                // "artist collaboration" 처럼 콜론 없는 건 작가 아님
@@ -2272,14 +2307,19 @@ function parseArtistTags(prompt){
       if(at){
         const k=at.name+'@'+at.weight;
         if(!seen.has(k)){seen.add(k);out.push(at);}
+        return;
+      }
+      // 접두 없는 토큰: 작가 사전에 있는 이름일 때만 작가로 인정
+      if(dict&&t){
+        const name=artistAlias(normArtistName(t));
+        if(name&&dict.has(name)){
+          const w=curWeight(),k=name+'@'+w;
+          if(!seen.has(k)){seen.add(k);out.push({name,weight:w});}
+        }
       }
       return;
     }
-    let wt;
-    if(wstack.length)wt=String(wstack[wstack.length-1]);
-    else if(br)wt='['+br+']';
-    else if(cur)wt='{'+cur+'}';
-    else wt='1';
+    const wt=curWeight();
     // "artist:" 기준으로 쪼갠다. 다음 두 실데이터 케이스를 함께 처리:
     //   "artist:artist:gawako"                  → 접두가 중복된 경우
     //   "artist:mx2j artist:dishwasher1910"     → 쉼표 없이 두 작가가 연달아 붙은 경우
@@ -2346,7 +2386,28 @@ function mergeSigOfItem(it){return mergeSigOfMeta(it&&it.meta)}
    그림체가 실제로 같은지 눈으로 대조하고 결정하라는 용도. 최대 12칸 + "+N" 표기. */
 let cmvZoomList=[], cmvZoomPos=-1;
 let cmvTouchX=0, cmvTouchY=0, cmvSwiped=false; // 스와이프 판정용 (성공 시 뒤따르는 click으로 닫히는 것 방지)
-function mergeVisualHTML(groups){
+/* ── 병합 확인창 Positive 비교 ──
+   items: [{label,color,text}] · 첫 항목이 기준(대표). 쉼표/줄바꿈 단위로 쪼개 기준에 없는 태그는 강조,
+   기준에만 있는 태그는 아래에 따로 표시. 같은 프롬프트는 한 칸으로 합쳐 장수만 표기. */
+function mergePositiveCompareHTML(items){
+  const list=(items||[]).filter(x=>x&&typeof x.text==='string');
+  if(list.length<2)return '';
+  const toks=t=>String(t||'').split(/,|\n/).map(x=>x.replace(/\s+/g,' ').trim()).filter(Boolean);
+  const base=list[0], baseToks=toks(base.text), baseSet=new Set(baseToks);
+  const uniqList=[]; const byText=new Map();
+  list.slice(1).forEach(x=>{const k=x.text.replace(/\s+/g,' ').trim(); if(byText.has(k)){byText.get(k).n++;return;} const e={x,n:1}; byText.set(k,e); uniqList.push(e);});
+  const LIMIT=30, shown=uniqList.slice(0,LIMIT), more=uniqList.length-shown.length;
+  const baseHTML=`<div class="cmv-p-label" style="color:${base.color||'#8888CC'}">${esc(base.label||'대표')}</div><div class="cmv-p">${esc(base.text)||'(Positive 없음)'}</div>`;
+  const rows=shown.map(({x,n})=>{
+    const tk=toks(x.text), set=new Set(tk);
+    const body=tk.map(t=>baseSet.has(t)?esc(t):`<span class="cmv-add">${esc(t)}</span>`).join(', ');
+    const miss=baseToks.filter(t=>!set.has(t));
+    const same=!miss.length&&tk.every(t=>baseSet.has(t));
+    return `<div class="cmv-p-label" style="color:${x.color||'#BB6688'}">${esc(x.label||'')}${n>1?` 외 같은 프롬프트 ${n-1}장`:''}</div><div class="cmv-p">${body||'(Positive 없음)'}</div>${same?'<div class="cmv-same">대표와 태그 구성이 같아</div>':''}${miss.length?`<div class="cmv-miss">대표에만 있음: ${miss.map(t=>`<s>${esc(t)}</s>`).join(', ')}</div>`:''}`;
+  }).join('');
+  return `<details class="cmv-cmp" open><summary>Positive 비교 · 대표에 없는 태그 강조</summary>${baseHTML}${rows}${more>0?`<div class="cmv-same">… 다른 프롬프트 ${more}종 더 있음</div>`:''}</details>`;
+}
+function mergeVisualHTML(groups,compare){
   /* 확대 뷰용 평탄 목록. 화면엔 그룹당 12장까지만 그리지만 목록엔 전부 담아
      '+N'으로 접힌 것들도 좌우 이동으로 볼 수 있게 한다. 이 모달이 들고 있는 이미지만 담는다. */
   cmvZoomList=[]; cmvZoomPos=-1;
@@ -2358,7 +2419,7 @@ function mergeVisualHTML(groups){
     const shown=thumbs.slice(0,12);
     const more=thumbs.length-shown.length;
     return `<div class="cmv-group"><div class="cmv-label" style="color:${g.color||'#8888CC'}">${esc(g.label)}</div><div class="cmv-grid">${shown.map((x,i)=>`<div class="cmv-item" data-cmv="${start+i}"${x.cap?` title="${esc(x.cap)}"`:''}>${x.t?`<img src="${x.t}" alt="">`:'<span class="cmv-noimg" title="다른 기기에서 동기화됨">☁</span>'}${x.cap?`<span class="cmv-cap">${esc(x.cap)}</span>`:''}</div>`).join('')}${more>0?`<div class="cmv-item cmv-more" data-cmv="${start+shown.length}" title="접힌 ${more}장부터 크게 보기">+${more}</div>`:''}</div></div>`;
-  }).join('')+'</div>';
+  }).join('')+mergePositiveCompareHTML(compare)+'</div>';
 }
 /* ── 모달 전용 확대 뷰 ──
    기존 라이트박스는 z-index가 모달보다 낮고 state.items를 조회하므로 신규 이미지에 못 쓴다.
@@ -2425,9 +2486,10 @@ function recordIgnoredPairs(cards,set){
 }
 /* ── 소급 병합: 이미 쌓인 카드들을 같은 조합끼리 묶는다 ──
    규칙: 자동 병합 없음, 그룹마다 반드시 확인.
-   대표 = 가장 먼저 만든 카드(createdAt 최소). 묶이는 카드의 태그는 합집합, 메모는 이어붙임,
+   대표 = 즐겨찾기 카드 우선, 그중(또는 없으면 전체 중) 가장 먼저 만든 카드(createdAt 최소). 묶이는 카드의 태그는 합집합, 메모는 이어붙임,
    즐겨찾기는 하나라도 켜져 있으면 유지. 상태·점수는 대표 카드 것을 따른다. */
 async function runMergeScan(){
+  invalidateArtistDict(); // 작가 사전 최신화
   let dirty=false;
   const alive=new Set(state.items.map(it=>it.id));
   if((state.mergePairsIgnored||[]).length){ // 삭제·병합으로 사라진 카드의 짝 기록은 청소
@@ -2450,12 +2512,12 @@ async function runMergeScan(){
   }
   const total=targets.reduce((a,g)=>a+g.length,0);
   const start=await showConfirm(
-    `같은 조합 그룹 ${targets.length}개 (카드 ${total}장) 발견.${hidden?`\n이미 제외해둔 짝 ${hidden}건은 빼고 물어볼게.`:''}\n하나씩 물어볼게.\n\n· 가장 먼저 만든 카드가 대표가 돼\n· 묶이는 카드의 태그는 대표에 합쳐지고, 메모는 이어 붙여져\n· 묶이는 카드의 상태·점수는 사라지고 대표 것을 따라가\n· 건너뛴 짝은 기억해서 다음부터 안 물어봐`,
+    `같은 조합 그룹 ${targets.length}개 (카드 ${total}장) 발견.${hidden?`\n이미 제외해둔 짝 ${hidden}건은 빼고 물어볼게.`:''}\n하나씩 물어볼게.\n\n· 즐겨찾기 카드가 있으면 그 카드가 대표가 돼 (없으면 가장 먼저 만든 카드)\n· 묶이는 카드의 태그는 대표에 합쳐지고, 메모는 이어 붙여져\n· 묶이는 카드의 상태·점수는 사라지고 대표 것을 따라가\n· 건너뛴 짝은 기억해서 다음부터 안 물어봐`,
     {confirmText:'시작',cancelText:'취소'});
   if(!start){ if(dirty)save(); return; }
   let mergedCards=0, mergedCount=0, skipped=0, newIgnored=0;
   for(const g of targets){
-    g.sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+    g.sort((a,b)=>((b.fav?1:0)-(a.fav?1:0))||((a.createdAt||0)-(b.createdAt||0))); // 즐겨찾기 카드가 대표가 되도록 앞으로
     let pool=g.slice();
     for(let i=0;i<pool.length;i++){
       const head=pool[i];
@@ -2465,7 +2527,7 @@ async function runMergeScan(){
       const ok=await showConfirm(`대표: "${head.title||head.fileName||'(제목 없음)'}"\n그림체가 맞는지 아래에서 눈으로 대조해봐.\n\n다음 ${rest.length}장을 이 카드의 보조로 붙일까?\n${names}\n\n건너뛰면 이 짝은 기억해서 다음부터 안 물어봐.`,{confirmText:'붙이기',cancelText:'건너뛰기',visualHTML:mergeVisualHTML([
         {label:'대표 카드 (대표+보조)',color:'#8888CC',thumbs:cardVisualThumbs(head)},
         {label:`붙일 카드 ${rest.length}장`,color:'#BB6688',thumbs:rest.map(x=>({t:x.thumb,cap:x.title||x.fileName||''}))}
-      ])});
+      ],[{label:`대표 · ${head.title||head.fileName||''}`,color:'#8888CC',text:(head.meta&&head.meta.positive)||''},...rest.map(x=>({label:x.title||x.fileName||'',color:'#BB6688',text:(x.meta&&x.meta.positive)||''}))])});
       if(!ok){ // 건너뛰기 → 이 묶음 안의 모든 짝을 제외 기록에 저장
         const before=ignored.size;
         recordIgnoredPairs([head,...rest],ignored);
@@ -2640,6 +2702,7 @@ function collectArtists(items){
   return [...m.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]));
 }
 async function exportArtistTxt(){
+  invalidateArtistDict(); // 작가 사전 최신화
   const all=state.items, cur=filtered();
   const scoped=(all.length===cur.length)
     ? cur
@@ -2737,6 +2800,7 @@ function updateDsFoot(){
   btn.textContent=dsSelected.size?`선택 ${dsSelected.size}장 삭제`:'선택 삭제';
 }
 function openDupScan(){
+  invalidateArtistDict(); // 작가 사전 최신화
   dsSelected.clear();dsOpenRaw.clear();
   $('#dup-scan-overlay').classList.add('open');
   $('#dup-scan-overlay').setAttribute('aria-hidden','false');
@@ -2829,6 +2893,22 @@ function findSimilarArtists(items){
   }
   return pairs.sort((x,y)=>x.d-y.d||(y.ca+y.cb)-(x.ca+x.cb));
 }
+/* ── 작가 수동 등록 ──
+   "artist:" 로 한 번도 쓴 적 없는 작가를 직접 사전에 넣는다. 저장 형태는 정규화된 이름.
+   앞에 붙은 artist: / @ 는 떼어서 저장한다. */
+function renderArtistManual(){
+  const ta=$('#artist-manual'); if(ta)ta.value=(state.artistManual||[]).join('\n');
+  const c=$('#artist-manual-count'); if(c)c.textContent=`등록 ${(state.artistManual||[]).length}명`;
+}
+function saveArtistManual(){
+  const raw=String(($('#artist-manual')||{}).value||'').split(/\r?\n/);
+  const out=[],seen=new Set();
+  raw.forEach(line=>{const n=normArtistName(String(line).replace(/^\s*(artist:|@)\s*/i,''));if(n&&!seen.has(n)){seen.add(n);out.push(n);}});
+  state.artistManual=out;
+  invalidateArtistDict();
+  save();renderArtistManual();renderSimScan();
+  toast(`작가 수동 등록 ${out.length}명 저장했어`);
+}
 function renderSimScan(){
   const pairs=findSimilarArtists(state.items);
   const body=$('#sim-body');
@@ -2863,6 +2943,8 @@ function renderSimScan(){
   });
 }
 function openSimScan(){
+  invalidateArtistDict(); // 작가 사전 최신화
+  renderArtistManual();
   $('#sim-overlay').classList.add('open');
   $('#sim-overlay').setAttribute('aria-hidden','false');
   document.body.classList.add('eo-open');
@@ -2914,13 +2996,26 @@ function openEditOverlay(){
 function closeEditOverlay(doRender=true){
   const panel=$('#detail-panel'),ov=$('#edit-overlay');
   if(!ov||!ov.classList.contains('open'))return;
+  detailSub=null; // 닫으면 다음엔 대표 이미지 기준으로
   ov.classList.remove('open');
   ov.setAttribute('aria-hidden','true');
   document.body.classList.remove('eo-open');
   if(panel&&detailPanelHome.parent)detailPanelHome.parent.insertBefore(panel,detailPanelHome.next);
   if(doRender)render();
 }
-function openEdit(id){
+/* 뷰어에서 보조 이미지를 보다가 편집을 누르면 그 보조 이미지의 사진·메타(프롬프트)를 상세에 보여준다.
+   제목·상태·점수·태그·메모·즐겨찾기는 카드 단위라 그대로 카드 값을 편집한다.
+   보조 객체를 참조로 기억 → 승격·삭제로 순서가 바뀌어도 엉뚱한 이미지를 가리키지 않는다. */
+let detailSub=null; // {id, ref}
+function detailSubOf(it){
+  if(!it||!detailSub||detailSub.id!==it.id)return null;
+  const i=(it.subs||[]).indexOf(detailSub.ref);
+  return i>=0?{i,s:detailSub.ref}:null;
+}
+function detailMetaOf(it){const d=detailSubOf(it);return d?(d.s.meta||{}):((it&&it.meta)||{});}
+function openEdit(id,sub){
+  const subRef=(id&&typeof sub==='number'&&sub>=0)?((state.items.find(x=>x.id===id)||{}).subs||[])[sub]:null;
+  detailSub=subRef?{id,ref:subRef}:null;
   if(id)state.selectedId=id;
   saveUiState();
   if(useOverlayForEdit()){renderList();openEditOverlay()}
@@ -3546,7 +3641,7 @@ function bindLightbox(){
   $('#lb-prev').onclick=e=>{e.preventDefault();e.stopPropagation();stepLightbox(-1);};
   $('#lb-next').onclick=e=>{e.preventDefault();e.stopPropagation();stepLightbox(1);};
   box.onclick=e=>{if(e.target===box)closeLightbox();};
-  $('#lb-edit').onclick=e=>{e.preventDefault();e.stopPropagation();const id=lightboxItemId;closeLightbox(false);if(id)openEdit(id);};
+  $('#lb-edit').onclick=e=>{e.preventDefault();e.stopPropagation();const id=lightboxItemId;const ent=(lbPos>=0&&lbPlaylist[lbPos])?lbPlaylist[lbPos]:null;const sub=(ent&&ent.id===id)?ent.sub:-1;closeLightbox(false);if(id)openEdit(id,sub);};
   $('#lb-stage').addEventListener('touchstart',e=>{const t=e.changedTouches&&e.changedTouches[0];if(!t)return;lightboxTouchX=t.clientX;lightboxTouchY=t.clientY;},{passive:true});
   $('#lb-stage').addEventListener('touchend',e=>{const t=e.changedTouches&&e.changedTouches[0];if(!t)return;const dx=t.clientX-lightboxTouchX,dy=t.clientY-lightboxTouchY;if(Math.abs(dx)>42&&Math.abs(dx)>Math.abs(dy)*1.2){e.preventDefault();e.stopPropagation();stepLightbox(dx<0?1:-1)}},{passive:false});
   const sp=$('#lb-speed');
@@ -3592,7 +3687,7 @@ let lastTap={t:0,x:0,y:0};document.addEventListener('touchend',e=>{if(selectMode
 $('#pick-btn').onclick=()=>$('#file-input').click();$('#file-input').onchange=e=>addFiles(e.target.files);$('#export-btn').onclick=openExportPicker;$('#import-btn').onclick=()=>$('#import-input').click();$('#import-input').onchange=e=>{if(e.target.files[0])importData(e.target.files[0])};$('#clear-filter-btn').onclick=()=>{state.status='전체';state.query='';state.scoreFilter='all';state.imgCountFilter='all';state.favOnly=false;state.collectionFilter='';state.tagFilter=[];state.loraFilter=[];state.genFilter=[];state.naiVerFilter=[];saveUiState();render()};
 $('#search').oninput=e=>{state.query=e.target.value;saveUiState();render()};$('#search-clear').onclick=()=>{state.query='';saveUiState();render()};$('#sort-select').onchange=e=>{state.sort=e.target.value;saveUiState();render()};$('#score-filter').onchange=e=>{state.scoreFilter=e.target.value;saveUiState();render()};$('#imgcount-filter').onchange=e=>{state.imgCountFilter=e.target.value;saveUiState();render()};$('#fav-only').onchange=e=>{state.favOnly=e.target.checked;saveUiState();render()};
 $('#collapse-all').onclick=e=>{e.preventDefault();collapseAllCards()};
-$('#save-detail-btn').onclick=saveDetail;['#d-title','#d-status','#d-score','#d-tags','#d-notes'].forEach(s=>$(s).addEventListener('change',saveDetail));$('#copy-positive-btn').onclick=()=>{navigator.clipboard.writeText(current()?.meta?.positive||'');toast('Positive 복사했어')};$('#copy-negative-btn').onclick=()=>{navigator.clipboard.writeText(current()?.meta?.negative||'');toast('Negative 복사했어')};$('#toggle-fav-btn').onclick=()=>{const it=current();if(it)toggleItemFav(it,false)};$('#delete-btn').onclick=async()=>{const it=current();if(!it)return;if(!await showConfirm('이 결과를 삭제할까? 원본 파일은 삭제되지 않아.',{danger:true}))return;state.items=state.items.filter(x=>x.id!==it.id);state.selectedId=state.items[0]?.id||null;save();render();toast('삭제했어')};$('#open-lightbox-btn').onclick=openLightbox;bindLightbox();
+$('#save-detail-btn').onclick=saveDetail;['#d-title','#d-status','#d-score','#d-tags','#d-notes'].forEach(s=>$(s).addEventListener('change',saveDetail));$('#copy-positive-btn').onclick=()=>{navigator.clipboard.writeText(detailMetaOf(current()).positive||'');toast('Positive 복사했어')};$('#copy-negative-btn').onclick=()=>{navigator.clipboard.writeText(detailMetaOf(current()).negative||'');toast('Negative 복사했어')};$('#toggle-fav-btn').onclick=()=>{const it=current();if(it)toggleItemFav(it,false)};$('#delete-btn').onclick=async()=>{const it=current();if(!it)return;if(!await showConfirm('이 결과를 삭제할까? 원본 파일은 삭제되지 않아.',{danger:true}))return;state.items=state.items.filter(x=>x.id!==it.id);state.selectedId=state.items[0]?.id||null;save();render();toast('삭제했어')};$('#open-lightbox-btn').onclick=openLightbox;bindLightbox();
 /* === patch: 오버레이 바인딩 === */
 $('#eo-close').onclick=()=>closeEditOverlay();
 $('#edit-overlay').addEventListener('click',e=>{if(e.target.id==='edit-overlay')closeEditOverlay()});
@@ -3620,6 +3715,7 @@ $('#ver-split-btn').onclick=runVerSplitScan;
 $('#sim-scan-btn').onclick=openSimScan;
 $('#sim-close').onclick=closeSimScan;
 $('#sim-reset').onclick=resetArtistMerges;
+$('#artist-manual-save').onclick=saveArtistManual;
 $('#sim-overlay').addEventListener('click',e=>{if(e.target.id==='sim-overlay')closeSimScan()});
 $('#ds-close').onclick=closeDupScan;
 $('#ds-auto-sel').onclick=dupAutoSelect;
