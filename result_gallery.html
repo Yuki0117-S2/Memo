@@ -2385,7 +2385,17 @@ function parseArtistTags(prompt,opts){
     });
   };
   while(i<n){
-    const m=/^(-?\d+(?:\.\d+)?)::/.exec(prompt.slice(i));
+    /* 가중치 시작 "숫자::" 인식 규칙
+       - 숫자 앞이 공백·쉼표 등이면 항상 가중치
+       - 숫자 바로 앞이 글자·숫자일 때는 '::' 뒤를 본다
+           뒤에 내용이 이어지면 여는 가중치  ("pulling0.6::artist:qiandaiyiyu::" → 0.6)
+           뒤가 쉼표·줄바꿈·끝이면 닫는 '::' 이고 숫자는 이름의 일부 ("atatatat74::," "bm94199::,")
+       - 점으로 끝나는 숫자도 인정 ("0.::" = 0, "1.::" = 1) */
+    let m=/^(-?\d+(?:\.\d*)?)::/.exec(prompt.slice(i));
+    if(m&&/[\p{L}\p{N}]/u.test(prompt[i-1]||'')){
+      const after=prompt.slice(i+m[0].length).replace(/^[ \t]+/,'');
+      if(!after||after[0]===','||after[0]==='\n'||after[0]==='\r')m=null;
+    }
     if(m){flush();wcur=parseFloat(m[1]);i+=m[0].length;continue}
     if(prompt.startsWith('::',i)){flush();wcur=null;br=0;cur=0;i+=2;continue}
     const ch=prompt[i];
