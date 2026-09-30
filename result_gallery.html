@@ -158,7 +158,7 @@ header{display:flex;align-items:center;gap:10px;border-bottom:.5px solid var(--b
 .sync-noimg .sn-icon{font-size:20px;opacity:0.6}
 .sync-noimg .sn-sub{font-size:9px;opacity:0.75}
 
-/* 라이트박스: 카드 즐겨찾기와 현재 이미지 프롬프트 보기 */
+/* 라이트박스: 카드 즐겨찾기와 현재 이미지 정보 보기 */
 .lb-info{flex-wrap:wrap}
 .lb-fav,.lb-prompt-btn{border:0;border-radius:999px;background:rgba(255,255,255,.16);color:#fff;font-size:12px;font-weight:700;padding:4px 12px;cursor:pointer;white-space:nowrap;font-family:inherit}
 .lb-fav:hover,.lb-prompt-btn:hover{background:#8888CC}
@@ -173,7 +173,9 @@ header{display:flex;align-items:center;gap:10px;border-bottom:.5px solid var(--b
 .lb-prompt-body{padding:14px;overflow-y:auto;overscroll-behavior:contain;min-height:0;user-select:text}
 .lb-prompt-label{font-size:11px;font-weight:700;color:var(--accent);margin-bottom:5px}
 .lb-prompt-text{font-family:Consolas,Menlo,monospace;font-size:12px;line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere;padding:10px;background:var(--bg2);border:.5px solid var(--border);border-radius:8px}
-.lb-prompt-text+.lb-prompt-label{margin-top:14px}
+.lb-prompt-text+.lb-prompt-label,.lb-prompt-body .kv+.lb-prompt-label{margin-top:14px}
+#lb-info-notes{font-family:inherit}
+#lb-info-image{display:block;width:100%;max-height:200px;object-fit:contain;background:var(--bg2);border-radius:8px;margin-bottom:14px}
 @media(max-width:720px){.lb-info{gap:6px}.lb-info .lb-title{flex-basis:100%;max-width:100%}#lb-prompt-panel{padding:10px}.lb-prompt-shell{max-height:90dvh}}
 /* === image lightbox (lora_lab 미러링) === */
 body.lb-open{overflow:hidden}
@@ -574,12 +576,19 @@ img{-webkit-user-drag:none}
       <img id="lb-img" alt="">
       <button class="lb-nav next" type="button" id="lb-next" title="다음 이미지">›</button>
     </div>
-    <div class="lb-info"><span class="lb-title" id="lb-title"></span><span class="lb-count" id="lb-count"></span><span class="lb-progress" id="lb-progress"></span><button class="lb-play" type="button" id="lb-play" title="자동재생 (Space)">▶</button><select class="lb-speed" id="lb-speed" title="자동재생 간격"></select><button class="lb-promote" type="button" id="lb-promote" title="이 이미지를 카드의 대표로">★ 대표로</button><button class="lb-fav" type="button" id="lb-fav" title="카드 즐겨찾기 (F)" aria-pressed="false">☆ 즐겨찾기</button><button class="lb-prompt-btn" type="button" id="lb-prompt-btn" title="현재 이미지의 프롬프트 보기">프롬프트 보기</button><button class="lb-edit" type="button" id="lb-edit" title="이 결과 편집">✎ 편집</button><span class="lb-hint" id="lb-hint">←→ 이미지 · F 즐겨찾기 · Space 재생</span></div>
+    <div class="lb-info"><span class="lb-title" id="lb-title"></span><span class="lb-count" id="lb-count"></span><span class="lb-progress" id="lb-progress"></span><button class="lb-play" type="button" id="lb-play" title="자동재생 (Space)">▶</button><select class="lb-speed" id="lb-speed" title="자동재생 간격"></select><button class="lb-promote" type="button" id="lb-promote" title="이 이미지를 카드의 대표로">★ 대표로</button><button class="lb-fav" type="button" id="lb-fav" title="카드 즐겨찾기 (F)" aria-pressed="false">☆ 즐겨찾기</button><button class="lb-prompt-btn" type="button" id="lb-prompt-btn" title="현재 이미지의 생성조건과 상세 정보 보기">정보 보기</button><button class="lb-edit" type="button" id="lb-edit" title="이 결과 편집">✎ 편집</button><span class="lb-hint" id="lb-hint">←→ 이미지 · F 즐겨찾기 · Space 재생</span></div>
   </div>
   <div id="lb-prompt-panel" aria-hidden="true">
     <section class="lb-prompt-shell" role="dialog" aria-modal="true" aria-labelledby="lb-prompt-title">
-      <div class="lb-prompt-head"><h2 id="lb-prompt-title">프롬프트</h2><button id="lb-prompt-close" type="button" title="프롬프트 닫기 (Esc)">닫고 이어 보기</button></div>
-      <div class="lb-prompt-body" tabindex="0"><div class="lb-prompt-label">Positive</div><div class="lb-prompt-text" id="lb-prompt-positive"></div><div class="lb-prompt-label">Negative</div><div class="lb-prompt-text" id="lb-prompt-negative"></div></div>
+      <div class="lb-prompt-head"><h2 id="lb-prompt-title">이미지 정보</h2><button id="lb-prompt-close" type="button" title="정보 닫기 (Esc)">닫고 이어 보기</button></div>
+      <div class="lb-prompt-body" tabindex="0">
+        <img id="lb-info-image" alt="현재 이미지 미리보기">
+        <div class="lb-prompt-label">생성조건</div><div class="kv" id="lb-info-kv"></div>
+        <div class="lb-prompt-label">Positive</div><div class="lb-prompt-text" id="lb-prompt-positive"></div>
+        <div class="lb-prompt-label">Negative</div><div class="lb-prompt-text" id="lb-prompt-negative"></div>
+        <div class="lb-prompt-label">카드 정보</div><div class="kv" id="lb-info-card"></div>
+        <div class="lb-prompt-label">메모 / 실패 이유</div><div class="lb-prompt-text" id="lb-info-notes"></div>
+      </div>
     </section>
   </div>
 </div>
@@ -2133,7 +2142,8 @@ function renderList(){
   box.classList.toggle('select-mode',selectMode);
 }
 function current(){return state.items.find(i=>i.id===state.selectedId)}
-function renderDetail(){const it=current();$('#detail-empty').style.display=it?'none':'block';$('#detail').style.display=it?'block':'none';const dsb=detailSubOf(it);$('#selected-state').textContent=it?(dsb?`편집 중 · 보조 ${dsb.i+1}/${(it.subs||[]).length} 이미지`:'편집 중'):'선택 없음';if(!it)return;const m=dsb?(dsb.s.meta||{}):(it.meta||{});$('#d-img').src=(dsb?dsb.s.thumb:it.thumb)||'';$('#d-title').value=it.title||'';$('#d-status').value=it.status||'보류';$('#d-score').value=String(it.score||0);$('#d-tags').value=(it.tags||[]).join(', ');$('#d-notes').value=it.notes||'';$('#toggle-fav-btn').textContent=it.fav?'즐겨찾기 해제':'즐겨찾기';const loras=(m.loras||[]).map(l=>`${l.name}${l.strength_model!=null?' @'+l.strength_model:''}`).join(', ');
+function detailMetadataRows(it,m){
+  const loras=(m.loras||[]).map(l=>`${l.name}${l.strength_model!=null?' @'+l.strength_model:''}`).join(', ');
   const gen=genOf(it);
   const rows=[['출처',m.source||'확인 불가'],['모델',m.model||'확인 불가']];
   if(gen!=='nai')rows.push(['LoRA',loras||'확인 불가']); // NAI엔 LoRA 개념 없음 → 행 자체를 뺌
@@ -2167,6 +2177,9 @@ function renderDetail(){const it=current();$('#detail-empty').style.display=it?'
     rows.push(['Denoise',m.denoise??'확인 불가']);
   }
   rows.push(['크기',(m.width&&m.height)?`${m.width}×${m.height}`:'확인 불가'],['파일',bytes(it.size)]);
+  return rows;
+}
+function renderDetail(){const it=current();$('#detail-empty').style.display=it?'none':'block';$('#detail').style.display=it?'block':'none';const dsb=detailSubOf(it);$('#selected-state').textContent=it?(dsb?`편집 중 · 보조 ${dsb.i+1}/${(it.subs||[]).length} 이미지`:'편집 중'):'선택 없음';if(!it)return;const m=dsb?(dsb.s.meta||{}):(it.meta||{});$('#d-img').src=(dsb?dsb.s.thumb:it.thumb)||'';$('#d-title').value=it.title||'';$('#d-status').value=it.status||'보류';$('#d-score').value=String(it.score||0);$('#d-tags').value=(it.tags||[]).join(', ');$('#d-notes').value=it.notes||'';$('#toggle-fav-btn').textContent=it.fav?'즐겨찾기 해제':'즐겨찾기';const rows=detailMetadataRows(it,m);
   $('#d-kv').innerHTML=rows.map(([k,v])=>`<b>${esc(k)}</b><span>${esc(v)}</span>`).join('');$('#d-positive').textContent=m.positive||'확인 불가';$('#d-negative').textContent=m.negative||'확인 불가'}
 // [C단계] 무거운 용량 계산을 렌더링 경로에서 분리한다.
 // JSON.stringify(state)와 estimateGistPayloadBytes()(내부에서 state를 깊은 복제)는
@@ -3668,7 +3681,12 @@ function openLbPrompt(){
   const image=entry.sub<0?it:(it.subs||[])[entry.sub];
   if(!image)return;
   const meta=image.meta||{};
-  $('#lb-prompt-title').textContent=(it.title||'결과')+(entry.sub>=0?' · 보조 '+(entry.sub+1):' · 대표')+' · 프롬프트';
+  $('#lb-prompt-title').textContent=(it.title||'결과')+(entry.sub>=0?' · 보조 '+(entry.sub+1):' · 대표')+' · 이미지 정보';
+  const rowsHTML=rows=>rows.map(([k,v])=>`<b>${esc(k)}</b><span>${esc(String(v??''))}</span>`).join('');
+  $('#lb-info-image').src=image.thumb||'';
+  $('#lb-info-kv').innerHTML=rowsHTML(detailMetadataRows(image,meta));
+  $('#lb-info-card').innerHTML=rowsHTML([['제목',it.title||'제목 없음'],['상태',it.status||'보류'],['점수',stars(it.score)],['태그',(it.tags||[]).join(', ')||'없음'],['즐겨찾기',it.fav?'켜짐':'꺼짐']]);
+  $('#lb-info-notes').textContent=it.notes||'메모가 없습니다.';
   $('#lb-prompt-positive').textContent=meta.positive||'프롬프트 정보가 없습니다.';
   $('#lb-prompt-negative').textContent=meta.negative||'프롬프트 정보가 없습니다.';
   lbPromptResume=lbPlaying;
