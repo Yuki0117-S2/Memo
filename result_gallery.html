@@ -407,6 +407,7 @@ img{-webkit-user-drag:none}
     <button class="btn ghost" id="sim-scan-btn" title="오타로 갈라진 작가명 통합">유사 작가</button>
     <button class="btn ghost" id="card-limit-btn">장수 정리</button>
     <button class="btn ghost" id="exact-cleanup-btn" title="같은 이미지의 중복을 찾아 남길 카드 선택">중복 정리</button>
+    <button class="btn ghost" id="unread-purge-btn" title="대표·보조 이미지 모두 'workflow 감지 · prompt API 없음'인 카드를 찾아 일괄 삭제">메타 못 읽은 카드 정리</button>
     <button class="btn ghost" id="dup-scan-btn" title="작가 조합(가중치 포함)이 같은 카드 찾기">작가 조합 검사</button>
     <button class="btn ghost" id="merge-scan-btn" title="같은 조합(NAI: 작가+가중치 / Comfy: 프롬프트+LoRA) 카드를 한 카드로 묶기">소급 병합</button>
     <button class="btn ghost" id="merge-reset-btn" title="소급 병합에서 '건너뛰기'로 제외해둔 카드 짝 기록을 전부 지워">제외 기록 초기화</button>
@@ -1400,10 +1401,29 @@ function cls(n){return n.class_type||n.type||''}
 function input(n,k){return n&&n.inputs?n.inputs[k]:undefined}
 function linkId(v){return Array.isArray(v)?String(v[0]):null}
 function linkedNode(prompt,v){const id=linkId(v);return id?prompt[id]:null}
+/* 텍스트를 이어 붙이는 노드(예: WAS Text Concatenate)는 연결된 글자를 입력 순서대로 구분자로 모두 잇는다.
+   (예전에는 첫 입력만 따라가서 text_a=품질 태그만 남고 작가·외형 태그가 빠졌다)
+   Conditioning 계열은 대상이 아니다. 하나만 고르는 스위치류는 이름이 달라 기존 방식 그대로. */
+function rgIsTextJoinNode(n){const c=cls(n);return /concat|join|combine/i.test(c)&&!/conditioning/i.test(c);}
 function findTextFrom(prompt,v,seen=new Set()){
   const id=linkId(v); if(!id||seen.has(id))return ''; seen.add(id); const n=prompt[id]; if(!n)return '';
   if(typeof input(n,'text')==='string')return input(n,'text');
+  if(rgIsTextJoinNode(n)){
+    const parts=[];
+    for(const val of Object.values(n.inputs||{})){if(!Array.isArray(val))continue; const t=findTextFrom(prompt,val,seen); if(t)parts.push(t);}
+    if(parts.length){
+      const d=typeof input(n,'delimiter')==='string'?input(n,'delimiter'):(typeof input(n,'separator')==='string'?input(n,'separator'):', ');
+      return parts.join(d);
+    }
+  }
   for(const val of Object.values(n.inputs||{})){const t=findTextFrom(prompt,val,seen); if(t)return t;}
+  return '';
+}
+// 예전 방식(첫 입력만 따라감). 기존 카드가 손으로 고쳐진 프롬프트인지 판별할 때만 쓴다.
+function rgFindTextFromLegacy(prompt,v,seen=new Set()){
+  const id=linkId(v); if(!id||seen.has(id))return ''; seen.add(id); const n=prompt[id]; if(!n)return '';
+  if(typeof input(n,'text')==='string')return input(n,'text');
+  for(const val of Object.values(n.inputs||{})){const t=rgFindTextFromLegacy(prompt,val,seen); if(t)return t;}
   return '';
 }
 // 위젯 값이 외부 노드 링크([id,slot])로 연결돼 있으면 1칸 따라가 실제 값을 회수한다.
@@ -1420,7 +1440,8 @@ function resolveWidget(prompt,val,depth){
 }
 function isEmptyLatentNode(n){return !!(n && /Empty.*Latent/i.test(cls(n)))}
 
-function pickPromptGraph(prompt){
+function pickPromptGraph(prompt,textFinder){
+  const findText=textFinder||findTextFrom;
   const entries=nodeEntries(prompt);
 
   // ── 샘플러 선택: base latent 에 연결된 KSampler 우선(디테일러 오선택 방지), 없으면 ID 내림차순 폴백 ──
@@ -1451,7 +1472,7 @@ function pickPromptGraph(prompt){
   if(latentEntry){ const li=latentEntry[1].inputs||{}; width=resolveWidget(prompt,li.width); height=resolveWidget(prompt,li.height); }
 
   // ── 프롬프트 ──
-  let positive=findTextFrom(prompt,sin.positive); let negative=findTextFrom(prompt,sin.negative);
+  let positive=findText(prompt,sin.positive); let negative=findText(prompt,sin.negative);
   if(!positive||!negative){
     const texts=entries.filter(([id,n])=>/CLIPTextEncode/i.test(cls(n))).map(([id,n])=>input(n,'text')).filter(Boolean);
     if(!positive)positive=texts[0]||''; if(!negative)negative=texts[1]||'';
@@ -1610,6 +1631,23 @@ function parseNaiMetadata(meta,via){
     naiLegacyV3Extend: has('legacy_v3_extend')?(c.legacy_v3_extend?'켬':'끔'):''
   };
 }
+/* ComfyUI(파이썬)는 일부 노드(예: PlaySound|pysssss의 is_changed)에서 NaN/Infinity를 그대로 써서
+   표준 JSON.parse가 prompt 전체를 버린다. 문자열 바깥의 NaN/Infinity만 null로 바꿔 한 번 더 시도한다.
+   (프롬프트 문장 안의 "NaN" 같은 글자는 문자열 안이라 건드리지 않음) */
+function rgJsonNanToNull(t){
+  t=String(t||'');let o='',q=false;
+  for(let k=0;k<t.length;k++){
+    const ch=t[k];
+    if(q){o+=ch;if(ch==='\\'){if(k+1<t.length)o+=t[++k];}else if(ch==='"')q=false;continue;}
+    if(ch==='"'){q=true;o+=ch;continue;}
+    if(ch==='N'&&t.startsWith('NaN',k)){o+='null';k+=2;continue;}
+    if(ch==='I'&&t.startsWith('Infinity',k)){o+='null';k+=7;continue;}
+    if(ch==='-'&&t.startsWith('-Infinity',k)){o+='null';k+=8;continue;}
+    o+=ch;
+  }
+  return o;
+}
+function safeJsonComfy(s){const v=safeJson(s);if(v||!s)return v;return safeJson(rgJsonNanToNull(s));}
 function parseComfyMetadata(file,buffer){
   const meta=parseImageText(buffer);   // 확장자 대신 매직바이트로 PNG/WebP/JPEG 자동 판별
   // ── NAI 판별: Software 청크가 NovelAI. ComfyUI의 prompt/workflow 키와 충돌하지 않음 ──
@@ -1619,7 +1657,7 @@ function parseComfyMetadata(file,buffer){
     return ex;
   }
   const promptRaw=meta.prompt||meta.Prompt||''; const workflowRaw=meta.workflow||meta.Workflow||'';
-  const prompt=safeJson(promptRaw); let extracted={gen:'',source:'확인 불가',metaFound:false,positive:'',negative:'',loras:[]};
+  const prompt=safeJsonComfy(promptRaw); let extracted={gen:'',source:'확인 불가',metaFound:false,positive:'',negative:'',loras:[]};
   if(prompt){extracted={...pickPromptGraph(prompt),gen:'comfy',source:'ComfyUI prompt',metaFound:true};}
   else if(workflowRaw){extracted.gen='comfy';extracted.source='workflow 감지 · prompt API 없음'; extracted.metaFound=true;}
   extracted.rawMeta=(promptRaw||workflowRaw||'').slice(0,META_RAW_LIMIT);
@@ -1674,6 +1712,97 @@ async function reportNaiMetaMigration(){
   if(r.badraw)lines.push('· 원문 손상: '+r.badraw+'장');
   if(r.noraw||r.badraw)lines.push('','채우지 못한 카드는 원본 PNG를 다시 드롭하면 메타가 채워져.');
   localStorage.setItem(NAI_META_REPORT_KEY,'1');
+  await showAlert(lines.join('\n'));
+}
+/* ── ComfyUI NaN 보강 (1회) ──
+   NaN 때문에 prompt를 못 읽어 'workflow 감지 · prompt API 없음'으로 저장된 카드를 원본 드롭 없이 rawMeta로 다시 채운다.
+   · 비어 있는 메타 칸만 채운다(이미 값이 있는 칸은 건드리지 않음)
+   · 대표 이미지가 채워진 카드는 드롭 때와 같은 규칙으로 모델·로라 이름을 태그에 더한다(기존 태그 유지)
+   · 평가·상태·메모·썸네일은 건드리지 않는다
+   · Gist로만 받아온 카드는 rawMeta가 없어 'noraw'로 집계(원본 PNG 드롭 필요) */
+const COMFY_NAN_FIX_KEY='result_gallery.comfyNanFix.v1';
+const COMFY_NAN_FIX_FIELDS=['model','loras','seed','steps','cfg','sampler','scheduler','denoise','width','height','positive','negative'];
+function rgIsEmptyMetaValue(v){return v===undefined||v===null||v===''||(Array.isArray(v)&&!v.length);}
+function fixOneComfyNanMeta(it){
+  const m=it&&it.meta; if(!m||typeof m!=='object')return 'skip';
+  if(m.source!=='workflow 감지 · prompt API 없음')return 'skip';
+  if(!m.rawMeta)return 'noraw';
+  const prompt=safeJsonComfy(m.rawMeta);
+  // prompt API 형식(노드마다 class_type)인지 확인. workflow 원문(nodes 배열)이면 건너뜀.
+  const ok=prompt&&typeof prompt==='object'&&!Array.isArray(prompt)&&Object.values(prompt).some(n=>n&&typeof n==='object'&&n.class_type);
+  if(!ok)return 'badraw';
+  const ex=pickPromptGraph(prompt);
+  COMFY_NAN_FIX_FIELDS.forEach(k=>{const v=ex[k]; if(rgIsEmptyMetaValue(m[k])&&!rgIsEmptyMetaValue(v))m[k]=v;});
+  m.gen='comfy'; m.source='ComfyUI prompt'; m.metaFound=true;
+  return 'ok';
+}
+function runComfyNanFix(){
+  const r={ok:0,noraw:0,badraw:0,target:0,tagged:0};
+  const one=it=>{const res=fixOneComfyNanMeta(it); if(res!=='skip'){r.target++; r[res]++;} return res;};
+  (state.items||[]).forEach(card=>{
+    if(one(card)==='ok'){
+      const m=card.meta, add=[];
+      if(m.model)add.push(String(m.model).replace(/\.(safetensors|ckpt)$/i,''));
+      (m.loras||[]).slice(0,4).forEach(l=>{if(l&&l.name)add.push(String(l.name).replace(/\.(safetensors|ckpt)$/i,''));});
+      const before=(card.tags||[]).length; card.tags=uniq([...(card.tags||[]),...add]);
+      if(card.tags.length>before)r.tagged++;
+      card.updatedAt=Date.now();
+    }
+    if(Array.isArray(card.subs))card.subs.forEach(sb=>{if(one(sb)==='ok')card.updatedAt=Date.now();});
+  });
+  if(r.ok){save(); render();}
+  return r;
+}
+/* ── ComfyUI 텍스트 이어 붙이기 재보강 (1회) ──
+   저장된 rawMeta로 프롬프트를 새 방식으로 다시 계산한다.
+   지금 값이 예전 방식 결과와 정확히 같을 때만 바꾼다 → 손으로 고친 프롬프트는 그대로 둔다. */
+const COMFY_CONCAT_FIX_KEY='result_gallery.comfyConcatFix.v1';
+function fixOneComfyConcat(it){
+  const m=it&&it.meta; if(!m||typeof m!=='object')return 'skip';
+  if(m.source!=='ComfyUI prompt')return 'skip';
+  if(!m.rawMeta)return 'noraw';
+  const prompt=safeJsonComfy(m.rawMeta);
+  const ok=prompt&&typeof prompt==='object'&&!Array.isArray(prompt)&&Object.values(prompt).some(n=>n&&typeof n==='object'&&n.class_type);
+  if(!ok)return 'badraw';
+  if(!Object.values(prompt).some(n=>n&&typeof n==='object'&&rgIsTextJoinNode(n)))return 'skip';
+  const nu=pickPromptGraph(prompt), old=pickPromptGraph(prompt,rgFindTextFromLegacy);
+  let changed=false,kept=false;
+  for(const k of ['positive','negative']){
+    if(nu[k]===old[k]||(m[k]||'')===(nu[k]||''))continue; // 차이 없음 또는 이미 새 방식 값
+    if((m[k]||'')===(old[k]||'')){m[k]=nu[k];changed=true;}else kept=true;
+  }
+  return changed?'ok':(kept?'kept':'skip');
+}
+function runComfyConcatFix(){
+  const r={ok:0,kept:0,noraw:0,badraw:0};
+  const one=it=>{const res=fixOneComfyConcat(it); if(res!=='skip')r[res]++; return res;};
+  (state.items||[]).forEach(card=>{
+    if(one(card)==='ok')card.updatedAt=Date.now();
+    if(Array.isArray(card.subs))card.subs.forEach(sb=>{if(one(sb)==='ok')card.updatedAt=Date.now();});
+  });
+  if(r.ok){save(); render();}
+  return r;
+}
+async function reportComfyConcatFix(){
+  if(localStorage.getItem(COMFY_CONCAT_FIX_KEY))return;
+  let r; try{r=runComfyConcatFix()}catch(e){console.warn('ComfyUI 프롬프트 재보강 실패',e);return}
+  localStorage.setItem(COMFY_CONCAT_FIX_KEY,'1');
+  if(!r.ok&&!r.kept)return;
+  const lines=['ComfyUI 프롬프트를 다시 읽었어. (이어 붙이기 노드 때문에 작가·외형 태그가 빠지던 이미지)','',
+    '· 프롬프트 다시 채움: '+r.ok+'장'];
+  if(r.kept)lines.push('· 손으로 고친 프롬프트라 그대로 둠: '+r.kept+'장');
+  await showAlert(lines.join('\n'));
+}
+async function reportComfyNanFix(){
+  if(localStorage.getItem(COMFY_NAN_FIX_KEY))return;
+  let r; try{r=runComfyNanFix()}catch(e){console.warn('ComfyUI NaN 보강 실패',e);return}
+  localStorage.setItem(COMFY_NAN_FIX_KEY,'1');
+  if(!r.target)return;
+  const lines=['ComfyUI 메타를 다시 읽어 채웠어. (NaN 때문에 못 읽던 이미지)','',
+    '· 채움: '+r.ok+'장'+(r.tagged?' (모델·로라 태그 추가 카드 '+r.tagged+'개)':'')];
+  if(r.noraw)lines.push('· 원본 메타 없음: '+r.noraw+'장');
+  if(r.badraw)lines.push('· 원문 손상·잘림: '+r.badraw+'장');
+  if(r.noraw||r.badraw)lines.push('','채우지 못한 이미지는 원본 PNG를 다시 드롭하면 채워져.');
   await showAlert(lines.join('\n'));
 }
 /* ── NAI 버전 파생 (저장 안 함 → 기존 카드에도 소급 적용) ──
@@ -3888,6 +4017,31 @@ $('#d-img').onclick=()=>openLightbox(); // 상세/오버레이 미리보기 → 
 
 /* ③ 선택 칩 → 액션 시트 토글 */
 $('#artist-export-btn').onclick=exportArtistTxt;
+/* ── 메타 못 읽은 카드 일괄 정리 ──
+   대상: 대표 이미지와 보조 이미지가 모두 'workflow 감지 · prompt API 없음'인 카드.
+   정상 메타 이미지가 하나라도 섞인 카드는 남긴다. 삭제 전 대상 목록을 TXT로 받을 수 있다. */
+const RG_UNREAD_SOURCE='workflow 감지 · prompt API 없음';
+function rgIsUnreadImage(img){return !!(img&&img.meta&&img.meta.source===RG_UNREAD_SOURCE);}
+function rgUnreadCards(){return (state.items||[]).filter(it=>rgIsUnreadImage(it)&&(it.subs||[]).every(rgIsUnreadImage));}
+async function purgeUnreadCards(){
+  if(exactBusy||limitBusy||importBusy){toast('다른 정리 작업이 끝난 뒤에 다시 눌러줘');return}
+  const targets=rgUnreadCards();
+  if(!targets.length){toast('메타를 못 읽은 카드가 없어');return}
+  const imgs=targets.reduce((n,it)=>n+1+(it.subs||[]).length,0);
+  if(!await showConfirm(`메타를 못 읽은 카드 ${targets.length}개(이미지 ${imgs}장)를 지울까?\n\n대표·보조 이미지가 모두 '${RG_UNREAD_SOURCE}'인 카드만 대상이야. 정상 이미지가 하나라도 있으면 남겨.\n지운 카드는 되돌릴 수 없어. (Gist·Drive 백업으로만 복구)`,{danger:true}))return;
+  if(await showConfirm('지우기 전에 대상 목록을 TXT로 받아둘까?',{confirmText:'받기',cancelText:'건너뛰기'})){
+    const lines=targets.map(it=>[it.title||'',it.fileName||'',(it.subs||[]).map(sb=>sb&&sb.fileName||'').filter(Boolean).join(' | '),it.status||'',stars(it.score),(it.tags||[]).join(', '),String(it.notes||'').replace(/\s+/g,' ')].join('\t'));
+    const blob=new Blob(['제목\t파일명\t보조 파일명\t상태\t점수\t태그\t메모\n'+lines.join('\n')],{type:'text/plain;charset=utf-8'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='unread_meta_cards_'+new Date().toISOString().slice(0,10)+'.txt';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  }
+  const ids=new Set(targets.map(it=>it.id));
+  state.items=state.items.filter(it=>!ids.has(it.id));
+  if(state.selectedId&&ids.has(state.selectedId))state.selectedId=state.items[0]?.id||null;
+  ids.forEach(id=>selectedIds.delete(id));
+  save();render();
+  toast(`메타 못 읽은 카드 ${targets.length}개 삭제됨`);
+}
+$('#unread-purge-btn').onclick=purgeUnreadCards;
 $('#dup-scan-btn').onclick=openDupScan;
 document.addEventListener('click',e=>{
   const t=e.target&&e.target.closest&&e.target.closest('.cmv-item[data-cmv]');
@@ -5125,7 +5279,8 @@ async function bootResultGallery(){
   await load();
   applyView();
   render();
-  reportNaiMetaMigration(); // 첫 렌더를 막지 않도록 await 하지 않는다
+  // 첫 렌더를 막지 않도록 await 하지 않는다. 안내창이 겹치지 않게 NAI 보강 다음에 ComfyUI NaN 1회 보강.
+  Promise.resolve(reportNaiMetaMigration()).catch(()=>{}).then(()=>reportComfyNanFix()).catch(()=>{}).then(()=>reportComfyConcatFix());
 }
 bootResultGallery();
 
