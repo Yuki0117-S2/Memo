@@ -3998,6 +3998,18 @@ const GIST_ID_KEY='workshop_gist_id';
 const GIST_FILE_NAME='result_gallery_data.json';
 const GIST_AUTO_INTERVAL=10*60*1000;
 let gistAutoSaveTimer=null;
+/* ── 슬롯 분리 저장(v2) ──
+   슬롯 하나씩 별도 파일(a/b 번갈아 덮어쓰기) + 작은 색인 파일. 업로드 때 이전 슬롯을 내려받거나 풀지 않는다.
+   예전 GIST_FILE_NAME(result_gallery_data.json)은 지우지 않고 읽기 전용으로 남긴다(되돌리기 대비).
+   GIST_FILE_NAME 자체는 drive_sync.js가 앱 식별·Drive 파일명에 쓰므로 바꾸지 않는다. */
+const RG_GIST_SLOT_FILES={a:'result_gallery_slot_a.wgz',b:'result_gallery_slot_b.wgz'};
+const RG_GIST_INDEX_FILE='result_gallery_slots_index.json';
+/* ── 자동 업로드 메모리 보호 ──
+   JS 힙이 기준을 넘으면 이번 자동 업로드만 건너뛴다(로컬 저장은 먼저 그대로 실행, 수동 업로드는 영향 없음).
+   마지막 성공 후 오래 밀리면 재시작 후 수동 업로드를 안내한다. */
+const RG_GIST_AUTO_HEAP_LIMIT=3.6*1024*1024*1024;
+const RG_GIST_LAG_NOTICE_MS=3*60*60*1000;
+const RG_GIST_LAST_OK_KEY='rg_gist_last_success_v1';
 
 /* 아이템 1개를 동기화용으로 깎는다. thumb(base64)와 meta.rawMeta를 처음부터 담지 않는다.
    원본은 절대 건드리지 않고 새 객체를 만들어 돌려주며, 남는 필드는 얕은 참조로 둔다.
@@ -4185,6 +4197,50 @@ async function readGistSlotsFromData(data){
   const parsed=JSON.parse(fc);
   return parsed.slots||[];
 }
+// v2 색인 읽기. 색인 파일이 없으면 null, 형식이 이상하면 예외(업로드는 중단해서 기존 백업을 보호).
+async function rgGistReadIndex(data){
+  const file=data&&data.files&&data.files[RG_GIST_INDEX_FILE];
+  if(!file)return null;
+  const text=await readGistFileContent(file);
+  if(!text)return null;
+  const idx=JSON.parse(text);
+  if(!idx||idx.kind!=='result-gallery-slots'||!idx.slots||typeof idx.slots!=='object')throw new Error('Gist 슬롯 색인 형식을 확인하지 못했어.');
+  return idx;
+}
+// 색인 중 실제 슬롯 파일이 있는 항목만, 저장 시각 최신순으로.
+function rgGistIndexEntries(idx,data){
+  const out=[];
+  for(const letter of Object.keys(RG_GIST_SLOT_FILES)){
+    const e=idx&&idx.slots&&idx.slots[letter];
+    if(!e||!(data&&data.files&&data.files[RG_GIST_SLOT_FILES[letter]]))continue;
+    out.push({...e,letter});
+  }
+  out.sort((x,y)=>String(y.savedAt||'').localeCompare(String(x.savedAt||'')));
+  return out;
+}
+// 고른 슬롯 파일 하나만 내려받아 푼다.
+async function rgGistReadSlotFile(data,letter){
+  const file=data&&data.files&&data.files[RG_GIST_SLOT_FILES[letter]];
+  if(!file)throw new Error('슬롯 파일을 찾지 못했어.');
+  let fc=await readGistFileContent(file);
+  if(!fc)throw new Error('슬롯 파일이 비어 있어.');
+  if(fc.startsWith(GZ_MARK)){
+    if(!GZ_OK)throw new Error('압축된 Gist인데 이 환경은 압축 해제를 지원하지 않아');
+    fc=await gunzipFromB64(fc.slice(GZ_MARK.length));
+  }
+  const slot=JSON.parse(fc);
+  if(!slot||typeof slot!=='object'||!slot.state||!Array.isArray(slot.state.items))throw new Error('슬롯 데이터 구조를 확인하지 못했어.');
+  return slot;
+}
+// 다음에 덮어쓸 슬롯: 빈 자리 → 최신이 아닌 쪽 → 더 오래된 쪽.
+function rgGistPickTarget(index){
+  const letters=Object.keys(RG_GIST_SLOT_FILES);
+  const slots=(index&&index.slots)||{};
+  const empty=letters.find(l=>!slots[l]);
+  if(empty)return empty;
+  if(letters.includes(index.latest))return letters.find(l=>l!==index.latest);
+  return letters.slice().sort((x,y)=>String(slots[x].savedAt||'').localeCompare(String(slots[y].savedAt||'')))[0];
+}
 
 // One Gist operation at a time, including a manually opened version picker.
 let rgGistOperation=null;
@@ -4218,6 +4274,8 @@ async function rgGistPreparePhase(phase,fields={}){
 // calls gistDownload/showSlotPicker/save/render, or retries an upload.
 async function rgGistVerifyReadOnly(token,gistId,expectedContent){
   if(!gistId){rgGistDiagnostic('gist.verify.unavailable');return 'unavailable';}
+  // v2: {파일명:내용} 묶음을 모두 비교. 문자열이면 예전처럼 GIST_FILE_NAME 하나만 비교.
+  const expectedFiles=typeof expectedContent==='string'?{[GIST_FILE_NAME]:expectedContent}:(expectedContent||{});
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),20000);
   rgGistDiagnostic('gist.verify.start');
@@ -4227,18 +4285,21 @@ async function rgGistVerifyReadOnly(token,gistId,expectedContent){
     });
     if(!response.ok)throw new Error('verification-http-error');
     const data=await response.json();
-    const file=data.files&&data.files[GIST_FILE_NAME];
-    if(!file){rgGistDiagnostic('gist.verify.mismatch');return 'mismatch';}
-    let remoteContent=file.content;
-    if(file.truncated||typeof remoteContent!=='string'){
-      if(!file.raw_url)throw new Error('verification-content-unavailable');
-      const rawUrl=new URL(file.raw_url);
-      if(rawUrl.protocol!=='https:'||rawUrl.hostname!=='gist.githubusercontent.com')throw new Error('verification-url-unavailable');
-      const raw=await rgGistFetch('verify-raw',rawUrl.href,{cache:'no-store',signal:controller.signal});
-      if(!raw.ok)throw new Error('verification-raw-error');
-      remoteContent=await raw.text();
+    let matches=true;
+    for(const [name,expected] of Object.entries(expectedFiles)){
+      const file=data.files&&data.files[name];
+      if(!file){matches=false;break;}
+      let remoteContent=file.content;
+      if(file.truncated||typeof remoteContent!=='string'){
+        if(!file.raw_url)throw new Error('verification-content-unavailable');
+        const rawUrl=new URL(file.raw_url);
+        if(rawUrl.protocol!=='https:'||rawUrl.hostname!=='gist.githubusercontent.com')throw new Error('verification-url-unavailable');
+        const raw=await rgGistFetch('verify-raw',rawUrl.href,{cache:'no-store',signal:controller.signal});
+        if(!raw.ok)throw new Error('verification-raw-error');
+        remoteContent=await raw.text();
+      }
+      if(remoteContent!==expected){matches=false;break;}
     }
-    const matches=remoteContent===expectedContent;
     rgGistDiagnostic(matches?'gist.verify.match':'gist.verify.mismatch');
     return matches?'match':'mismatch';
   }catch(e){
@@ -4254,6 +4315,7 @@ function rgGistUploadComplete(token,id,verified,shrunk){
     $('#gist-id-input').value=id;
   }catch(e){configSaved=false;rgGistDiagnostic('gist.upload.local-error',{error:rgGistErrorKind(e)});}
   rgGistRecordSuccess(verified);
+  try{localStorage.setItem(RG_GIST_LAST_OK_KEY,String(Date.now()));}catch(_){}
   const message=verified
     ?'업로드 응답은 실패했지만, Gist를 읽어 방금 전송한 내용과 일치함을 확인했어. 저장 완료! 로컬 데이터는 변경하지 않았어.'
     :(shrunk?'용량 때문에 히스토리 없이 최신 1슬롯만 올렸어.':'업로드 완료! Gist ID를 복사해서 다른 기기에서 써봐.');
@@ -4392,55 +4454,89 @@ async function rgGistBuildContentBatched(slots){
   }finally{writer.releaseLock();}
 }
 
+// v2 슬롯 파일 1개: {"version":2,"savedAt":..,"device":..,"state":{..,"items":[카드..]}}를 카드 단위로 직렬화·압축.
+function* rgGistSlotFileParts(slot){
+  yield* rgGistJsonObjectParts(slot,'state',function*(st){
+    yield* rgGistJsonObjectParts(st,'items',function*(items){
+      if(Array.isArray(items))yield* rgGistCardArrayParts(items);
+      else yield JSON.stringify(items);
+    });
+  });
+}
+async function rgGistBuildSlotContent(slot){
+  await rgGistPreparePhase('json-start',{slots:1});
+  const parts=rgGistSlotFileParts(slot);
+  if(!GZ_OK){
+    const raw=Array.from(parts).join('');
+    await rgGistPreparePhase('json-end',{chars:raw.length});return raw;
+  }
+  const compressor=new CompressionStream('gzip'),writer=compressor.writable.getWriter();
+  const encoded=rgGistCompressedBase64(compressor.readable);
+  encoded.catch(()=>{});
+  try{
+    await rgGistPreparePhase('compress-start');
+    const chars=await rgGistWriteJsonBatches(parts,writer);
+    await rgGistPreparePhase('json-end',{chars});
+    await writer.close();
+    const content=GZ_MARK+await encoded;
+    await rgGistPreparePhase('compress-end',{chars:content.length});
+    return content;
+  }catch(e){
+    try{await writer.abort(e);}catch(_){}
+    await encoded.catch(()=>{});throw e;
+  }finally{writer.releaseLock();}
+}
+
 async function pushSlot(token,gistId,deviceLabel){
   const operation=rgGistBegin('upload');
   if(!operation)return {ok:false,busy:true};
-  let expectedContent=null,writeStarted=false,shrunk=false;
-  rgGistBufferStart(deviceLabel==='수동'?'manual':'auto');
-  rgGistDiagnostic('gist.upload.start',{mode:deviceLabel==='수동'?'manual':'auto'});
+  let expectedFiles=null,writeStarted=false;
+  const mode=deviceLabel==='수동'?'manual':'auto';
+  rgGistBufferStart(mode);
+  rgGistDiagnostic('gist.upload.start',{mode});
   try{
-    let slots=[];
+    let index=null;
     if(gistId){
-      // Don't overwrite existing backup history if the preliminary read fails.
+      // 색인만 읽는다. 이전 슬롯 파일은 내려받지도 풀지도 않는다. 읽기 실패 시 기존 백업 보호를 위해 중단.
       try{
         const previous=await rgGistFetch('upload-read','https://api.github.com/gists/'+gistId,{headers:{'Authorization':'token '+token,'Accept':'application/vnd.github.v3+json'}});
         if(!previous.ok)throw new Error('기존 Gist 읽기 실패: '+previous.status);
-        const remoteSlots=await readGistSlotsFromData(await previous.json());
-        if(remoteSlots!==null&&!Array.isArray(remoteSlots))throw new Error('기존 Gist 백업 구조를 확인하지 못했어.');
-        if(remoteSlots)slots=remoteSlots;
+        const data=await previous.json();
+        index=await rgGistReadIndex(data);
+        if(index){
+          // 색인에는 있는데 실제 파일이 없는 슬롯은 빈 자리로 본다.
+          for(const l of Object.keys(index.slots)){
+            if(!RG_GIST_SLOT_FILES[l]||!(data.files&&data.files[RG_GIST_SLOT_FILES[l]]))delete index.slots[l];
+          }
+        }
       }catch(e){
         rgGistDiagnostic('gist.upload.previous-read-error',{error:rgGistErrorKind(e)});
         throw new Error('기존 Gist를 읽지 못해 업로드를 중단했어. '+(e.message||e));
       }
     }
+    const target=rgGistPickTarget(index);
+    const slotFile=RG_GIST_SLOT_FILES[target];
     rgGistDiagnostic('gist.upload.prepare');
     await rgGistPreparePhase('copy-start');
     const snapshot=stripStateForSync(state);
-    slots.unshift({savedAt:new Date().toISOString(),device:deviceLabel,state:snapshot});
+    const savedAt=new Date().toISOString();
+    const items=Array.isArray(snapshot.items)?snapshot.items:[];
+    const summary={savedAt,device:deviceLabel,items:items.length,favs:items.filter(x=>x&&x.fav).length};
     await rgGistPreparePhase('copy-end');
-    if(slots.length>GIST_SLOT_LIMIT)slots=slots.slice(0,GIST_SLOT_LIMIT);
-    const buildContent=rgGistBuildContentBatched;
-    const attempt=async ss=>{
-      writeStarted=false;
-      expectedContent=await buildContent(ss);
-      const body={description:'Workshop — 작업실 통합 데이터',public:false,files:{[GIST_FILE_NAME]:{content:expectedContent}}};
-      await rgGistPreparePhase('body-start');
-      const serializedBody=JSON.stringify(body);
-      await rgGistPreparePhase('body-end',{chars:serializedBody.length});
-      rgGistDiagnostic('gist.upload.prepared',{chars:serializedBody.length,slots:ss.length});
-      writeStarted=true;
-      return rgGistFetch('upload-write','https://api.github.com/gists'+(gistId?'/'+gistId:''),{
-        method:gistId?'PATCH':'POST',headers:{'Authorization':'token '+token,'Content-Type':'application/json','Accept':'application/vnd.github.v3+json'},body:serializedBody
-      });
-    };
-    let response=await attempt(slots);
-    if(!response.ok&&response.status===422&&slots.length>1){
-      setGistStatus('용량 초과(422) → 슬롯 1개로 줄여서 재시도 중...','loading');
-      rgGistDiagnostic('gist.upload.retry',{status:422,slots:1});
-      // Release the rejected response body before preparing the existing 422 fallback.
-      try{await response.body?.cancel();}catch(_){}
-      shrunk=true;response=await attempt(slots.slice(0,1));
-    }
+    const slotContent=await rgGistBuildSlotContent({version:2,savedAt,device:deviceLabel,state:snapshot});
+    const nextIndex={version:2,kind:'result-gallery-slots',latest:target,slots:{...((index&&index.slots)||{}),[target]:{...summary,chars:slotContent.length}}};
+    const indexContent=JSON.stringify(nextIndex);
+    expectedFiles={[slotFile]:slotContent,[RG_GIST_INDEX_FILE]:indexContent};
+    // 예전 GIST_FILE_NAME 파일과 다른 앱 파일은 body에 넣지 않으므로 PATCH에서 그대로 유지된다.
+    const body={description:'Workshop — 작업실 통합 데이터',public:false,files:{[slotFile]:{content:slotContent},[RG_GIST_INDEX_FILE]:{content:indexContent}}};
+    await rgGistPreparePhase('body-start');
+    const serializedBody=JSON.stringify(body);
+    await rgGistPreparePhase('body-end',{chars:serializedBody.length});
+    rgGistDiagnostic('gist.upload.prepared',{chars:serializedBody.length,slots:1});
+    writeStarted=true;
+    const response=await rgGistFetch('upload-write','https://api.github.com/gists'+(gistId?'/'+gistId:''),{
+      method:gistId?'PATCH':'POST',headers:{'Authorization':'token '+token,'Content-Type':'application/json','Accept':'application/vnd.github.v3+json'},body:serializedBody
+    });
     if(!response.ok){
       rgGistDiagnostic('gist.upload.http-error',{status:response.status});
       throw new Error('Gist 응답 오류: '+response.status);
@@ -4450,19 +4546,19 @@ async function pushSlot(token,gistId,deviceLabel){
     rgGistDiagnostic('gist.upload.response-body-end');
     if(typeof data.id!=='string'||!data.id)throw new Error('저장 결과의 Gist ID를 확인하지 못했어.');
     writeStarted=false;
-    return rgGistUploadComplete(token,data.id,false,shrunk);
+    return rgGistUploadComplete(token,data.id,false,false);
   }catch(e){
     rgGistDiagnostic('gist.upload.error',{error:rgGistErrorKind(e)});
     rgGistRecordFailure((e&&e.message)||e);
-    if(writeStarted&&typeof expectedContent==='string'){
+    if(writeStarted&&expectedFiles){
       setGistStatus('업로드 결과가 불확실해서 Gist를 읽어 비교 중… 로컬 데이터에는 적용하지 않아.','loading');
-      const result=await rgGistVerifyReadOnly(token,gistId,expectedContent);
-      if(result==='match')return rgGistUploadComplete(token,gistId,true,shrunk);
+      const result=await rgGistVerifyReadOnly(token,gistId,expectedFiles);
+      if(result==='match')return rgGistUploadComplete(token,gistId,true,false);
       setGistStatus('저장 여부를 확인하지 못했어. '+(result==='mismatch'?'읽은 Gist 내용이 이번 전송 내용과 일치하지 않아.':'Gist 내용을 읽어 비교하지 못했어.')+'\n로컬 데이터는 변경하지 않았어. 확인 과정에서는 읽기만 했고 재업로드하지 않았어.\n원래 오류: '+(e.message||e),'err');
     }else setGistStatus('업로드를 완료하지 못했어: '+(e.message||e),'err');
     setSyncIndicator('err');return {ok:false};
   }finally{
-    expectedContent=null;
+    expectedFiles=null;
     rgGistBufferEnd();
     rgGistEnd(operation);
   }
@@ -4487,6 +4583,17 @@ async function gistDownload(){
       setSyncIndicator('err'); return;
     }
     const data=await res.json();
+    // v2(슬롯 분리) 색인이 있으면 색인만으로 목록을 보여주고, 고른 슬롯 하나만 내려받는다.
+    let index=null;
+    try{index=await rgGistReadIndex(data);}catch(e){rgGistDiagnostic('gist.download.index-error',{error:rgGistErrorKind(e)});}
+    const entries=index?rgGistIndexEntries(index,data):[];
+    if(entries.length){
+      setGistStatus('','');
+      rgGistDiagnostic('gist.download.ready',{slots:entries.length});
+      rgShowSlotPickerV2(entries,!!(data.files&&data.files[GIST_FILE_NAME]),data,token,gistId,()=>rgGistEnd(operation));
+      pickerOpen=true;return;
+    }
+    // 색인이 없으면 예전 형식(result_gallery_data.json) 그대로.
     const slots=await readGistSlotsFromData(data);
     if(!slots){rgGistDiagnostic('gist.download.empty');setGistStatus(GIST_FILE_NAME+' 파일을 못 찾았어. CD Idea만 있는 Gist인지 확인해봐.','err');setSyncIndicator('err');return;}
     if(!slots.length){rgGistDiagnostic('gist.download.empty');setGistStatus('불러올 데이터가 없어.','err');return;}
@@ -4500,25 +4607,9 @@ async function gistDownload(){
     setSyncIndicator('err');
   }finally{if(!pickerOpen)rgGistEnd(operation);}
 }
-function showSlotPicker(slots, token, gistId,onClose=()=>{}){
-  const existing=document.getElementById('slot-picker-overlay');
-  if(existing) existing.remove();
-  const overlay=document.createElement('div');
-  overlay.id='slot-picker-overlay';
-  const box=document.createElement('div');
-  box.className='slot-picker-box';
-  box.innerHTML='<div class="slot-picker-title">버전 선택</div><div class="slot-picker-sub">불러올 버전을 선택해봐. 현재 데이터는 덮어씌워져!<br>(로컬에 있던 같은 파일명+크기 썸네일은 자동 보존돼)</div>';
-  slots.forEach((slot,i)=>{
-    const t=slot.savedAt?new Date(slot.savedAt).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'알 수 없음';
-    const itemCount=slot.state?.items?.length||0;
-    const favCount=(slot.state?.items||[]).filter(x=>x.fav).length;
-    const btn=document.createElement('button');
-    btn.className='slot-btn';
-    btn.innerHTML=`<div><div class="slot-title">${i===0?'🟢 최신':'📁 슬롯 '+(i+1)}</div><div class="slot-meta">${t} · ${slot.device||'알 수 없음'} · 이미지 ${itemCount}개 (★${favCount})</div></div><span class="slot-arrow">›</span>`;
-    btn.onclick=()=>{
-      try{
-      rgGistDiagnostic('gist.download.apply',{slot:i});
-      overlay.remove();
+// 고른 슬롯을 현재 상태에 적용한다(예전 형식·v2 공용). 내용은 기존 showSlotPicker 적용 코드와 동일.
+function rgGistApplySlot(slot,token,gistId,onClose=()=>{}){
+  try{
       // 로컬 썸네일 백업 (파일명+크기 기준)
       const localThumbs=new Map();
       (state.items||[]).forEach(it=>{
@@ -4560,7 +4651,89 @@ function showSlotPicker(slots, token, gistId,onClose=()=>{}){
       toast('☁ Gist 불러오기 완료'+(restored>0?` (썸네일 ${restored}개 복구)`:''));
       startAutoSave();
       rgGistDiagnostic('gist.download.success');
-      }finally{onClose();}
+  }finally{onClose();}
+}
+// v2 버전 선택: 색인 요약으로 목록을 띄우고, 누른 슬롯 파일만 내려받아 적용한다.
+function rgShowSlotPickerV2(entries,hasLegacy,data,token,gistId,onClose=()=>{}){
+  const existing=document.getElementById('slot-picker-overlay');
+  if(existing) existing.remove();
+  const overlay=document.createElement('div');
+  overlay.id='slot-picker-overlay';
+  const box=document.createElement('div');
+  box.className='slot-picker-box';
+  box.innerHTML='<div class="slot-picker-title">버전 선택</div><div class="slot-picker-sub">불러올 버전을 선택해봐. 현재 데이터는 덮어씌워져!<br>(로컬에 있던 같은 파일명+크기 썸네일은 자동 보존돼)</div>';
+  let busy=false;
+  const cancel=()=>{if(busy)return;rgGistDiagnostic('gist.download.cancel');overlay.remove();onClose();};
+  entries.forEach((entry,i)=>{
+    const t=entry.savedAt?new Date(entry.savedAt).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'알 수 없음';
+    const btn=document.createElement('button');
+    btn.className='slot-btn';
+    btn.innerHTML=`<div><div class="slot-title">${i===0?'🟢 최신':'📁 슬롯 '+(i+1)}</div><div class="slot-meta">${esc(t)} · ${esc(entry.device||'알 수 없음')} · 이미지 ${Number(entry.items)||0}개 (★${Number(entry.favs)||0})</div></div><span class="slot-arrow">›</span>`;
+    btn.onclick=async()=>{
+      if(busy)return;busy=true;
+      overlay.remove();
+      setGistStatus('선택한 버전을 내려받는 중...','loading');
+      let slot;
+      try{slot=await rgGistReadSlotFile(data,entry.letter);}
+      catch(e){
+        rgGistDiagnostic('gist.download.error',{error:rgGistErrorKind(e)});
+        setGistStatus('불러오지 못했어: '+(e.message||e),'err');setSyncIndicator('err');onClose();return;
+      }
+      setGistStatus('','');
+      rgGistDiagnostic('gist.download.apply',{slot:i});
+      rgGistApplySlot(slot,token,gistId,onClose);
+    };
+    box.appendChild(btn);
+  });
+  if(hasLegacy){
+    const legacyBtn=document.createElement('button');
+    legacyBtn.className='slot-btn';
+    legacyBtn.innerHTML=`<div><div class="slot-title">📦 예전 형식 백업</div><div class="slot-meta">${esc(GIST_FILE_NAME)} · 전환 전 마지막 데이터 (누르면 내려받아 목록 표시)</div></div><span class="slot-arrow">›</span>`;
+    legacyBtn.onclick=async()=>{
+      if(busy)return;busy=true;
+      overlay.remove();
+      setGistStatus('예전 형식 백업 읽는 중...','loading');
+      try{
+        const slots=await readGistSlotsFromData(data);
+        if(!slots||!slots.length){setGistStatus('예전 형식 백업에 불러올 데이터가 없어.','err');onClose();return;}
+        setGistStatus('','');
+        rgGistDiagnostic('gist.download.legacy',{slots:slots.length});
+        showSlotPicker(slots,token,gistId,onClose);
+      }catch(e){
+        rgGistDiagnostic('gist.download.error',{error:rgGistErrorKind(e)});
+        setGistStatus('예전 형식 백업을 읽지 못했어: '+(e.message||e),'err');setSyncIndicator('err');onClose();
+      }
+    };
+    box.appendChild(legacyBtn);
+  }
+  const cancelBtn=document.createElement('button');
+  cancelBtn.className='slot-cancel-btn';
+  cancelBtn.textContent='취소';
+  cancelBtn.onclick=cancel;
+  box.appendChild(cancelBtn);
+  overlay.appendChild(box);
+  overlay.onclick=e=>{ if(e.target===overlay)cancel(); };
+  document.body.appendChild(overlay);
+}
+function showSlotPicker(slots, token, gistId,onClose=()=>{}){
+  const existing=document.getElementById('slot-picker-overlay');
+  if(existing) existing.remove();
+  const overlay=document.createElement('div');
+  overlay.id='slot-picker-overlay';
+  const box=document.createElement('div');
+  box.className='slot-picker-box';
+  box.innerHTML='<div class="slot-picker-title">버전 선택</div><div class="slot-picker-sub">불러올 버전을 선택해봐. 현재 데이터는 덮어씌워져!<br>(로컬에 있던 같은 파일명+크기 썸네일은 자동 보존돼)</div>';
+  slots.forEach((slot,i)=>{
+    const t=slot.savedAt?new Date(slot.savedAt).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'알 수 없음';
+    const itemCount=slot.state?.items?.length||0;
+    const favCount=(slot.state?.items||[]).filter(x=>x.fav).length;
+    const btn=document.createElement('button');
+    btn.className='slot-btn';
+    btn.innerHTML=`<div><div class="slot-title">${i===0?'🟢 최신':'📁 슬롯 '+(i+1)}</div><div class="slot-meta">${t} · ${slot.device||'알 수 없음'} · 이미지 ${itemCount}개 (★${favCount})</div></div><span class="slot-arrow">›</span>`;
+    btn.onclick=()=>{
+      rgGistDiagnostic('gist.download.apply',{slot:i});
+      overlay.remove();
+      rgGistApplySlot(slot,token,gistId,onClose);
     };
     box.appendChild(btn);
   });
@@ -4581,6 +4754,23 @@ window.onResultGalleryDriveSaveEnd=()=>{
   rgGistDiagnostic('gist.autosave.resumed');
   setTimeout(gistAutoSave,3000);
 };
+// 자동 업로드 직전 메모리 확인. 기준 초과면 이번 차례만 건너뛰고, 오래 밀리면 안내한다.
+let rgGistSkipSince=0,rgGistLagNoticeAt=0;
+function rgGistAutoMemoryBlocked(){
+  let used=null,limit=null;
+  try{const m=typeof performance!=='undefined'?performance.memory:null;if(m){used=m.usedJSHeapSize;limit=m.jsHeapSizeLimit;}}catch(_){}
+  if(used==null||used<=RG_GIST_AUTO_HEAP_LIMIT)return false;
+  rgGistEmit({event:'gist.autosave.skipped-memory',heapUsedBytes:used,heapLimitBytes:limit});
+  const now=Date.now();
+  if(!rgGistSkipSince)rgGistSkipSince=now;
+  const since=Number(localStorage.getItem(RG_GIST_LAST_OK_KEY))||rgGistSkipSince;
+  if(now-since>=RG_GIST_LAG_NOTICE_MS&&now-rgGistLagNoticeAt>=30*60*1000){
+    rgGistLagNoticeAt=now;
+    setSyncIndicator('err');
+    toast('☁ 메모리가 높아 Gist 자동 백업이 '+Math.floor((now-since)/3600000)+'시간째 밀려 있어. 앱을 재시작한 뒤 수동 업로드해줘.');
+  }
+  return true;
+}
 async function gistAutoSave(){
   if(window.rgDriveSaveBusy){
     if(!rgGistAutoSavePending)rgGistDiagnostic('gist.autosave.deferred');
@@ -4591,6 +4781,7 @@ async function gistAutoSave(){
   const gistId=localStorage.getItem(GIST_ID_KEY);
   if(!token||!gistId)return;
   save();
+  if(rgGistAutoMemoryBlocked())return;
   try{
     const result=await pushSlot(token, gistId, '자동');
     if(!result?.ok)return;
