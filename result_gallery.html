@@ -353,6 +353,21 @@ body.eo-open{overflow:hidden}
 .exact-description label{display:block;margin-top:6px}
 .exact-description select{display:block;width:100%;margin:3px 0;background:var(--bg);color:var(--text);border:1px solid var(--border2);padding:7px;border-radius:6px;font-size:12px}
 #exact-overlay button:disabled{opacity:.45;cursor:default}
+.exact-tabs{display:flex;gap:6px;padding:10px 14px 0}
+.exact-tab{background:var(--bg2);color:var(--text);border:1px solid var(--border2);border-radius:999px;padding:6px 12px;font-size:12px;cursor:pointer}
+.exact-tab.on{background:#8888CC;border-color:#8888CC;color:#fff}
+.sim-thumbs{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.sim-item{width:112px;font-size:11px;line-height:1.4;cursor:pointer;display:block;margin:0!important}
+.sim-item .sim-img{position:relative;width:112px;height:112px;border-radius:8px;overflow:hidden;background:var(--bg3);border:2px solid transparent}
+.sim-item .sim-img img{width:100%;height:100%;object-fit:cover;display:block}
+.sim-item input{position:absolute;top:6px;left:6px;width:18px;height:18px;margin:0;accent-color:#BB6688}
+.sim-item.drop .sim-img{border-color:#BB6688}
+.sim-item.drop .sim-img img{opacity:.55}
+.sim-item .sim-cap{margin-top:3px;word-break:break-all;color:var(--text2,inherit)}
+.sim-item .sim-dist{color:#CCAA88}
+.sim-bulk{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:0 0 10px}
+.sim-star{color:#DDAACC;font-weight:700}
+.sim-col{display:inline-block;font-size:10px;padding:0 5px;border-radius:999px;background:#8888CC;color:#fff}
 
 #limit-overlay{position:fixed;inset:0;z-index:10060;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:16px}
 #limit-overlay.open{display:flex}#limit-overlay .ds-shell{width:min(860px,100%)}
@@ -542,7 +557,10 @@ img{-webkit-user-drag:none}
 <div id="exact-overlay" role="dialog" aria-modal="true" aria-labelledby="exact-title" aria-hidden="true">
   <div class="ds-shell">
     <div class="ds-head"><span id="exact-title">동일 이미지 중복 정리</span><button class="eo-close" id="exact-close" aria-label="닫기">×</button></div>
-    <div class="exact-intro">각 중복 묶음에서 <strong>남길 카드 한 곳</strong>을 선택하세요. 기본값은 목록에서 먼저 나온 카드입니다.<br>파일 해시와 저장된 썸네일이 모두 같은 이미지만 묶습니다. 해시·썸네일이 없는 이미지는 제외하며, 재저장된 그림은 놓칠 수 있습니다.<br><span id="exact-summary"></span></div>
+    <div class="exact-tabs" role="tablist"><button class="exact-tab on" id="exact-tab-exact" data-exact-mode="exact" role="tab">동일 이미지 <span id="exact-tab-exact-n"></span></button><button class="exact-tab" id="exact-tab-similar" data-exact-mode="similar" role="tab">유사 이미지 후보 <span id="exact-tab-similar-n"></span></button></div>
+    <div class="exact-intro" id="exact-intro-exact">각 중복 묶음에서 <strong>남길 카드 한 곳</strong>을 선택하세요. 기본값은 목록에서 먼저 나온 카드입니다.<br>파일 해시와 저장된 썸네일이 모두 같은 이미지만 묶습니다. 해시·썸네일이 없는 이미지는 제외하며, 재저장된 그림은 '유사 이미지 후보' 탭에서 확인하세요.</div>
+    <div class="exact-intro" id="exact-intro-similar" hidden>같은 조합(NAI: 버전+작가+가중치 / Comfy: 프롬프트+LoRA) 안에서 <strong>그림이 거의 같은 이미지</strong>를 dHash·pHash로 찾은 후보입니다.<br>자동 제거는 없습니다. <strong>체크한 이미지만</strong> 제거됩니다. 눈으로 대조한 뒤 골라주세요. (썸네일 기준 · 동기화 껍데기·조합 정보 없는 이미지는 제외)</div>
+    <div class="exact-intro" style="border-top:0;padding-top:0"><span id="exact-summary"></span></div>
     <div class="ds-body" id="exact-body"></div>
     <div class="ds-foot"><button class="btn ghost" id="exact-prev">이전</button><span id="exact-page"></span><button class="btn ghost" id="exact-next">다음</button><span class="grow"></span><button class="btn outline" id="exact-backup">정리 전 전체 JSON 백업</button><button class="btn danger" id="exact-apply">선택대로 정리</button></div>
   </div>
@@ -1875,9 +1893,10 @@ async function processFile(file,buffer){
    반환값은 {merged: 보조로 들어간 장수, discarded: 버린 장수}. */
 async function pushAsNewCards(list,singles){
   if(list.length>1){
-    const bundle=await showConfirm(`이번에 넣은 ${list.length}장이 서로 같은 조합이야.\n한 카드로 묶을까? (첫 장이 대표가 돼)\n장수를 줄이면 앞에서부터 그만큼만 넣고 나머지는 버려.`,{confirmText:'한 카드로',cancelText:'각각 새 카드',visualHTML:mergeVisualHTML([
+    const bundle=await showConfirm(`이번에 넣은 ${list.length}장이 서로 같은 조합이야.\n한 카드로 묶을까? (첫 장이 대표가 돼)\n장수를 줄이면 앞에서부터 그만큼만 넣고 나머지는 버려.`,{confirmText:'한 카드로',cancelText:'각각 새 카드',thirdText:'건너뛰기 (추가 안 함)',visualHTML:mergeVisualHTML([
       {label:`묶일 이미지 ${list.length}장 (첫 장이 대표)`,color:'#8888CC',thumbs:list.map((x,i)=>({t:x.thumb,cap:i===0?'대표':x.fileName}))}
     ],list.map((x,i)=>({label:i===0?`대표 · ${x.fileName||''}`:(x.fileName||''),color:i===0?'#8888CC':'#BB6688',text:(x.meta&&x.meta.positive)||''}))),numberInput:{label:'넣을 장수 (대표 포함)',max:list.length,hint:`/ ${list.length}장 · 앞에서부터`}});
+    if(bundle==='third')return {merged:0,discarded:list.length}; // 건너뛰기: 이번에 넣은 같은 조합 묶음을 통째로 추가하지 않음
     if(bundle){
       const n=typeof bundle==='number'?bundle:list.length;
       const head=list[0];
@@ -5001,6 +5020,89 @@ function scanExactDuplicates(items){
   }));
   return {cards:items.slice(),snapshots,groups,unchecked};
 }
+/* === 유사 이미지 후보 (dHash + pHash) ===
+   같은 조합 서명(mergeSigOfMeta) 안에서만 비교한다. 저장된 썸네일로 계산하며 자동 제거는 없다.
+   두 해시가 모두 임계값 이하일 때만 '유사'로 본다 (재저장·재인코딩된 같은 그림을 잡고, 시드만 다른 그림은 거르기 위함). */
+const SIM_DHASH_MAX=6, SIM_PHASH_MAX=8; // 64비트 중 다른 비트 수 허용치
+const simHashCache=new Map(); // thumb(dataURL) → {d,p} | null  (세션 메모리 캐시)
+function simLoadImage(src){
+  return new Promise(resolve=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>resolve(null);img.src=src;});
+}
+function simGray(img,w,h){
+  const c=document.createElement('canvas');c.width=w;c.height=h;
+  const ctx=c.getContext('2d',{willReadFrequently:true});ctx.drawImage(img,0,0,w,h);
+  const d=ctx.getImageData(0,0,w,h).data,g=new Float64Array(w*h);
+  for(let i=0;i<w*h;i++)g[i]=d[i*4]*.299+d[i*4+1]*.587+d[i*4+2]*.114;
+  return g;
+}
+function simDHash(img){ // 9x8 가로 차분 → 64비트(16진 16자)
+  const g=simGray(img,9,8);let bits='';
+  for(let y=0;y<8;y++)for(let x=0;x<8;x++)bits+=g[y*9+x]>g[y*9+x+1]?'1':'0';
+  return bits;
+}
+let simCosTable=null;
+function simPHash(img){ // 32x32 DCT 저주파 8x8(DC 제외 중앙값 기준) → 64비트
+  const N=32,g=simGray(img,N,N);
+  if(!simCosTable){simCosTable=[];for(let u=0;u<8;u++){simCosTable[u]=new Float64Array(N);for(let x=0;x<N;x++)simCosTable[u][x]=Math.cos((2*x+1)*u*Math.PI/(2*N));}}
+  const coef=[];
+  for(let u=0;u<8;u++)for(let v=0;v<8;v++){
+    let sum=0;
+    for(let y=0;y<N;y++){const cy=simCosTable[u][y];for(let x=0;x<N;x++)sum+=g[y*N+x]*cy*simCosTable[v][x];}
+    coef.push(sum);
+  }
+  const ac=coef.slice(1).sort((a,b)=>a-b),med=ac[Math.floor(ac.length/2)];
+  return coef.map(c=>c>med?'1':'0').join('');
+}
+function simDist(a,b){let n=0;for(let i=0;i<a.length;i++)if(a[i]!==b[i])n++;return n;}
+async function simHashOf(thumb){
+  if(simHashCache.has(thumb))return simHashCache.get(thumb);
+  const img=await simLoadImage(thumb);
+  let h=null;
+  if(img){try{h={d:simDHash(img),p:simPHash(img)};}catch(e){console.error('유사 해시 계산 실패',e);}}
+  simHashCache.set(thumb,h);return h;
+}
+async function scanSimilarCandidates(scan,onProgress){
+  // 동일 이미지 묶음에서 '남길 후보'가 아닌 나머지는 이미 동일 탭에서 처리되므로 대표 1장만 비교에 넣는다.
+  const exactExtra=new Set();
+  scan.groups.forEach(g=>g.entries.forEach((e,i)=>{if(i>0)exactExtra.add(e);}));
+  const bySig=new Map();let noSig=0;
+  for(const e of scan.snapshots){
+    if(exactExtra.has(e))continue;
+    if(!e.thumb||e.stripped)continue;
+    const sig=mergeSigOfMeta(e.image.meta);
+    if(!sig){noSig++;continue;}
+    if(!bySig.has(sig))bySig.set(sig,[]);
+    bySig.get(sig).push(e);
+  }
+  const pools=[...bySig.values()].filter(a=>a.length>1);
+  const total=pools.reduce((n,a)=>n+a.length,0);let done=0;
+  const groups=[];
+  for(const pool of pools){
+    const hs=[];
+    for(const e of pool){hs.push(await simHashOf(e.thumb));done++;if(onProgress&&done%20===0)onProgress(done,total);}
+    // union-find: 두 해시 모두 임계값 이하인 쌍을 같은 후보 묶음으로
+    const parent=pool.map((_,i)=>i),find=i=>parent[i]===i?i:(parent[i]=find(parent[i]));
+    const best=pool.map(()=>99);
+    for(let i=0;i<pool.length;i++){if(!hs[i])continue;
+      for(let j=i+1;j<pool.length;j++){if(!hs[j])continue;
+        if(pool[i].thumb===pool[j].thumb&&pool[i].hash===pool[j].hash)continue; // 동일 탭 대상
+        const dd=simDist(hs[i].d,hs[j].d);if(dd>SIM_DHASH_MAX)continue;
+        const pd=simDist(hs[i].p,hs[j].p);if(pd>SIM_PHASH_MAX)continue;
+        parent[find(i)]=find(j);
+        const sc=dd+pd;if(sc<best[i])best[i]=sc;if(sc<best[j])best[j]=sc;
+      }
+    }
+    const clusters=new Map();
+    pool.forEach((e,i)=>{if(best[i]===99)return;const r=find(i);if(!clusters.has(r))clusters.set(r,[]);clusters.get(r).push({entry:e,score:best[i]});});
+    clusters.forEach(members=>{if(members.length<2)return;
+      const rank=m=>(m.entry.card.fav?0:2)+(m.entry.sub===-1?0:1);
+      members.sort((a,b)=>rank(a)-rank(b)||a.entry.ci-b.entry.ci||a.entry.sub-b.entry.sub);
+      groups.push({members,drop:new Set()});});
+  }
+  scan.similar={groups,noSig,checked:total};
+  return scan;
+}
+/* === 유사 이미지 후보 끝 === */
 function exactScanIsCurrent(scan,items){
   if(items.length!==scan.cards.length||items.some((it,i)=>it!==scan.cards[i]))return false;
   let n=0;
@@ -5020,47 +5122,100 @@ function planExactCleanup(scan,items){
     ids.add(card.id);
   }
   const drops=new Map();let removed=0;
+  const heirs=new Map(); // 지워지는 이미지의 카드 ci → 같은 묶음에서 남는 이미지의 카드 ci 후보들 (즐겨찾기·컬렉션 이전용)
+  const addHeir=(from,to)=>{if(from===to)return;if(!heirs.has(from))heirs.set(from,[]);heirs.get(from).push(to);};
   scan.groups.forEach(group=>{
     if(!Number.isInteger(group.keep)||!group.entries[group.keep])throw Error('남길 카드를 선택해줘.');
+    const kept=group.entries[group.keep];
     group.entries.forEach((entry,i)=>{
       if(i===group.keep)return;
       if(!drops.has(entry.ci))drops.set(entry.ci,new Set());
       drops.get(entry.ci).add(entry.sub);removed++;
+      addHeir(entry.ci,kept.ci);
     });
   });
-  const emptied=[],next=[];let promoted=0;
+  // 유사 이미지 후보: 사용자가 체크한 것만 제거 (동일 묶음에서 이미 빠지는 것과 겹치면 한 번만 센다)
+  (scan.similar?.groups||[]).forEach(group=>{
+    const keptCis=group.members.filter((_,i)=>!group.drop.has(i)).map(m=>m.entry.ci);
+    group.members.forEach((m,i)=>{
+      if(!group.drop.has(i))return;
+      const e=m.entry;
+      keptCis.forEach(ci=>addHeir(e.ci,ci));
+      if(!drops.has(e.ci))drops.set(e.ci,new Set());
+      const set=drops.get(e.ci);if(set.has(e.sub))return;
+      set.add(e.sub);removed++;
+    });
+  });
+  const emptied=[],next=[],outIndex=new Map();let promoted=0;
   items.forEach((card,ci)=>{
+    outIndex.set(ci,next.length);
     const drop=drops.get(ci);if(!drop){next.push(card);return;}
     const subs=(card.subs||[]).filter((_,i)=>!drop.has(i));
     if(!drop.has(-1)){next.push({...card,subs,updatedAt:Date.now()});return;}
-    if(!subs.length){emptied.push(card);return;}
+    if(!subs.length){outIndex.delete(ci);emptied.push(card);return;}
     const first=subs[0];
     const replacement={...card,rgThumbHash:first.rgThumbHash,rgThumbHashVersion:first.rgThumbHashVersion,subs:subs.slice(1),thumb:first.thumb,fileName:first.fileName,
       size:first.size,fileHash:first.fileHash,meta:first.meta,thumbStripped:!!first.thumbStripped,updatedAt:Date.now()};
     if(card.title===card.fileName)replacement.title=first.fileName||card.title;
     next.push(replacement);promoted++;
   });
-  return {items:next,removed,emptied,promoted};
+  /* 빈 카드가 되어 삭제되는 카드의 즐겨찾기·컬렉션은 같은 묶음에서 남는 카드로 옮긴다.
+     남는 카드도 삭제되는 경우 그 카드의 상속처를 따라간다. 옮길 곳이 없으면 transferLost에 기록한다. */
+  const transfers=[],transferLost=[];
+  const cardCi=new Map(items.map((c,i)=>[c,i]));
+  const findHeir=start=>{
+    const seen=new Set([start]),queue=[...(heirs.get(start)||[])];
+    while(queue.length){const ci=queue.shift();if(seen.has(ci))continue;seen.add(ci);
+      if(outIndex.has(ci))return ci;queue.push(...(heirs.get(ci)||[]));}
+    return -1;
+  };
+  emptied.forEach(card=>{
+    const cols=Array.isArray(card.collectionIds)?card.collectionIds:[];
+    if(!card.fav&&!cols.length)return;
+    const to=findHeir(cardCi.get(card));
+    if(to<0){transferLost.push(card);return;}
+    const k=outIndex.get(to),target=next[k];
+    const merged={...target,updatedAt:Date.now()};
+    if(card.fav)merged.fav=true;
+    if(cols.length)merged.collectionIds=[...new Set([...(Array.isArray(target.collectionIds)?target.collectionIds:[]),...cols])];
+    next[k]=merged;
+    transfers.push({from:card,to:merged,fav:!!card.fav,cols});
+  });
+  return {items:next,removed,emptied,promoted,transfers,transferLost};
 }
-let exactScan=null,exactPage=0,exactBusy=false,exactPreviousOverflow='';
+let exactScan=null,exactPage=0,exactBusy=false,exactPreviousOverflow='',exactMode='exact',simPage=0,exactScanToken=0;
 const EXACT_PAGE_SIZE=12;
 function openExactCleanup(){
   resetGalleryDropHint();
   if(exactBusy)return;
-  exactScan=scanExactDuplicates(state.items);exactPage=0;
+  exactScan=scanExactDuplicates(state.items);exactPage=0;simPage=0;exactMode='exact';
   exactPreviousOverflow=document.body.style.overflow;document.body.style.overflow='hidden';
   $('#exact-overlay').classList.add('open');$('#exact-overlay').setAttribute('aria-hidden','false');
   renderExactCleanup();$('#exact-close').focus();
+  // 유사 후보는 썸네일 해시 계산이 필요해 비동기로 이어서 검사한다. 검사 중엔 정리 버튼을 잠근다.
+  const scan=exactScan,token=++exactScanToken;
+  scanSimilarCandidates(scan,(d,t)=>{if(exactScan===scan&&token===exactScanToken)$('#exact-tab-similar-n').textContent=`(검사 중 ${d}/${t})`;})
+    .catch(e=>{console.error('유사 이미지 검사 실패',e);scan.similar={groups:[],noSig:0,checked:0,failed:true};})
+    .finally(()=>{if(exactScan===scan&&token===exactScanToken)renderExactCleanup();});
 }
 function closeExactCleanup(){
   resetGalleryDropHint();
   if(exactBusy)return;
   $('#exact-overlay').classList.remove('open');$('#exact-overlay').setAttribute('aria-hidden','true');
-  $('#exact-body').innerHTML='';exactScan=null;document.body.style.overflow=exactPreviousOverflow;
+  $('#exact-body').innerHTML='';exactScan=null;exactScanToken++;document.body.style.overflow=exactPreviousOverflow;
   $('#exact-cleanup-btn').focus();
 }
 function renderExactCleanup(){
   if(!exactScan)return;
+  const sim=exactScan.similar;
+  $('#exact-tab-exact-n').textContent=`(${exactScan.groups.length})`;
+  if(sim)$('#exact-tab-similar-n').textContent=`(${sim.groups.length})`;
+  else if(!/검사 중/.test($('#exact-tab-similar-n').textContent))$('#exact-tab-similar-n').textContent='(검사 중…)';
+  document.querySelectorAll('[data-exact-mode]').forEach(b=>{const on=b.dataset.exactMode===exactMode;b.classList.toggle('on',on);b.setAttribute('aria-selected',on?'true':'false');});
+  $('#exact-intro-exact').hidden=exactMode!=='exact';$('#exact-intro-similar').hidden=exactMode!=='similar';
+  const simDrops=sim?sim.groups.reduce((n,g)=>n+g.drop.size,0):0;
+  $('#exact-apply').disabled=exactBusy||!sim||(!exactScan.groups.length&&!simDrops);
+  if(exactMode==='similar'){renderSimilarCleanup();return;}
   const {groups,unchecked}=exactScan;
   const pages=Math.max(1,Math.ceil(groups.length/EXACT_PAGE_SIZE));exactPage=Math.min(exactPage,pages-1);
   const first=exactPage*EXACT_PAGE_SIZE;
@@ -5070,7 +5225,7 @@ function renderExactCleanup(){
       if(!cards.has(e.ci))cards.set(e.ci,{entry:e,index:i,count:0});cards.get(e.ci).count++;
     });
     const chosen=group.entries[group.keep];
-    return `<section class="exact-group"><div class="exact-preview"><img alt="중복 이미지 미리보기" loading="lazy" decoding="async" data-exact-preview="${first+j}"></div><div class="exact-description"><b>중복 ${first+j+1} · ${group.entries.length}장 → 1장</b><div class="small">${cards.size===1?'같은 카드 안 중복':cards.size+'개 카드에 있는 중복'}</div><label>남길 카드<select data-exact-keep="${first+j}">${[...cards.values()].map(({entry:e,index,count})=>`<option value="${index}"${chosen.ci===e.ci?' selected':''}>카드 ${e.ci+1} · ${esc(e.card.title||e.card.fileName||'제목 없음')} · ${count}장${e.sub===-1?' · 대표 유지':' · 보조 '+(e.sub+1)+' 유지'}</option>`).join('')}</select></label><div class="small">${esc(chosen.image.fileName||'이름 없음')} · 이 카드의 한 장만 남깁니다.</div></div></section>`;
+    return `<section class="exact-group"><div class="exact-preview"><img alt="중복 이미지 미리보기" loading="lazy" decoding="async" data-exact-preview="${first+j}"></div><div class="exact-description"><b>중복 ${first+j+1} · ${group.entries.length}장 → 1장</b><div class="small">${cards.size===1?'같은 카드 안 중복':cards.size+'개 카드에 있는 중복'}</div><label>남길 카드<select data-exact-keep="${first+j}">${[...cards.values()].map(({entry:e,index,count})=>`<option value="${index}"${chosen.ci===e.ci?' selected':''}>카드 ${e.ci+1}${e.card.fav?' ★':''}${(Array.isArray(e.card.collectionIds)&&e.card.collectionIds.length)?' [컬렉션]':''} · ${esc(e.card.title||e.card.fileName||'제목 없음')} · ${count}장${e.sub===-1?' · 대표 유지':' · 보조 '+(e.sub+1)+' 유지'}</option>`).join('')}</select></label><div class="small">${esc(chosen.image.fileName||'이름 없음')} · 이 카드의 한 장만 남깁니다.</div></div></section>`;
   }).join(''):'<div class="ds-empty">정리할 동일 이미지가 없어.</div>';
   $('#exact-body').querySelectorAll('[data-exact-preview]').forEach(img=>{img.src=groups[Number(img.dataset.exactPreview)].entries[0].thumb;});
   $('#exact-body').querySelectorAll('[data-exact-keep]').forEach(select=>select.onchange=()=>{
@@ -5079,17 +5234,58 @@ function renderExactCleanup(){
   $('#exact-summary').textContent=`전체 갤러리 검사 · ${groups.length}개 중복 묶음 · ${groups.reduce((n,g)=>n+g.entries.length-1,0)}장 정리 가능 · 비교 정보 부족 ${unchecked}장 제외`;
   $('#exact-page').textContent=`${exactPage+1} / ${pages}`;
   $('#exact-prev').disabled=exactPage===0;$('#exact-next').disabled=exactPage+1>=pages;
-  $('#exact-apply').disabled=!groups.length||exactBusy;
+}
+function renderSimilarCleanup(){
+  const sim=exactScan.similar;
+  if(!sim){$('#exact-body').innerHTML='<div class="ds-empty">썸네일을 비교하는 중이에요… 잠시만 기다려주세요.</div>';$('#exact-summary').textContent='유사 이미지 검사 중';
+    $('#exact-page').textContent='';$('#exact-prev').disabled=true;$('#exact-next').disabled=true;return;}
+  const groups=sim.groups;
+  const pages=Math.max(1,Math.ceil(groups.length/EXACT_PAGE_SIZE));simPage=Math.min(simPage,pages-1);
+  const first=simPage*EXACT_PAGE_SIZE,slice=groups.slice(first,first+EXACT_PAGE_SIZE);
+  const bulk=groups.length?`<div class="sim-bulk"><button class="btn ghost" data-sim-bulk="keepfirst">전체: 각 묶음 첫 장만 남기고 모두 체크</button><button class="btn ghost" data-sim-bulk="clear">전체 체크 해제</button><span class="small">첫 장 = 즐겨찾기 카드 → 대표 이미지 → 앞 순서. 남길 것만 체크를 풀어주세요.</span></div>`:'';
+  const cardMark=c=>(c.fav?'<span class="sim-star" title="즐겨찾기">★</span>':'')+((Array.isArray(c.collectionIds)&&c.collectionIds.length)?'<span class="sim-col" title="컬렉션 소속">컬렉션</span>':'');
+  $('#exact-body').innerHTML=bulk+(slice.length?slice.map((group,j)=>{
+    const gi=first+j,cards=new Set(group.members.map(m=>m.entry.ci));
+    const all=group.drop.size===group.members.length;
+    return `<section class="exact-group"><div class="exact-description"><b>후보 ${gi+1} · ${group.members.length}장</b> <span class="small">${cards.size===1?'같은 카드 안':cards.size+'개 카드에 걸침'}${group.drop.size?` · 제거 체크 ${group.drop.size}장`:''}</span>${all?'<div class="small" style="color:#EE1166">이 묶음을 전부 체크했어요. 이대로 정리하면 한 장도 남지 않습니다.</div>':''}<div class="sim-thumbs">${group.members.map((m,i)=>{const e=m.entry,dropped=group.drop.has(i);
+      return `<label class="sim-item${dropped?' drop':''}" title="${esc(e.image.fileName||'')}"><div class="sim-img"><img alt="" loading="lazy" decoding="async" data-sim-thumb="${gi}:${i}"><input type="checkbox" data-sim-drop="${gi}:${i}"${dropped?' checked':''} aria-label="제거"></div><div class="sim-cap">${i===0?'<b>첫 장</b> · ':''}카드 ${e.ci+1} · ${e.sub===-1?'대표':'보조 '+(e.sub+1)} ${cardMark(e.card)}<br>${esc(e.image.fileName||'이름 없음')}<br><span class="sim-dist">차이 점수 ${m.score}</span></div></label>`;}).join('')}</div></div></section>`;
+  }).join(''):`<div class="ds-empty">${sim.failed?'유사 이미지 검사에 실패했어요. 창을 닫고 다시 열어주세요.':'같은 조합 안에서 비슷한 이미지 후보가 없어요.'}</div>`);
+  $('#exact-body').querySelectorAll('[data-sim-bulk]').forEach(btn=>btn.onclick=()=>{
+    if(exactBusy)return;
+    groups.forEach(g=>{g.drop.clear();if(btn.dataset.simBulk==='keepfirst')for(let i=1;i<g.members.length;i++)g.drop.add(i);});
+    renderExactCleanup(); // 전체 페이지(다른 페이지 포함)에 적용
+  });
+  $('#exact-body').querySelectorAll('[data-sim-thumb]').forEach(img=>{const [g,i]=img.dataset.simThumb.split(':').map(Number);img.src=groups[g].members[i].entry.thumb;});
+  $('#exact-body').querySelectorAll('[data-sim-drop]').forEach(cb=>cb.onchange=()=>{
+    const [g,i]=cb.dataset.simDrop.split(':').map(Number);
+    if(cb.checked)groups[g].drop.add(i);else groups[g].drop.delete(i);
+    renderExactCleanup();
+  });
+  const n=groups.reduce((s,g)=>s+g.drop.size,0);
+  $('#exact-summary').textContent=`유사 후보 ${groups.length}묶음 · 제거 체크 ${n}장 · 비교 ${sim.checked}장 · 조합 정보 없음 ${sim.noSig}장 제외 · 기준 dHash≤${SIM_DHASH_MAX}, pHash≤${SIM_PHASH_MAX}`;
+  $('#exact-page').textContent=`${simPage+1} / ${pages}`;
+  $('#exact-prev').disabled=simPage===0;$('#exact-next').disabled=simPage+1>=pages;
 }
 async function applyExactCleanup(){
-  if(exactBusy||!exactScan?.groups.length)return;
-  exactBusy=true;$('#exact-overlay').querySelectorAll('button,select').forEach(el=>el.disabled=true);
+  const simDropN=(exactScan?.similar?.groups||[]).reduce((n,g)=>n+g.drop.size,0);
+  if(exactBusy||!exactScan?.similar||(!exactScan.groups.length&&!simDropN))return; // 유사 검사가 끝나기 전엔 적용 안 함
+  exactBusy=true;$('#exact-overlay').querySelectorAll('button,select,input').forEach(el=>el.disabled=true);
   try{
     let plan=planExactCleanup(exactScan,state.items);
-    const gone=plan.emptied.map(c=>'· '+(c.title||c.fileName||'제목 없음')).join('\n');
-    const message=`중복 이미지 ${plan.removed}장을 정리하고, 각 묶음에서 선택한 카드의 한 장만 남길까?\n전체 ${exactScan.groups.length}개 묶음에 적용돼 (다른 페이지 포함).\n\n대표 교체 ${plan.promoted}개 카드 · 빈 카드 삭제 ${plan.emptied.length}개`+
-      (gone?'\n\n이미지가 없어져 삭제되는 카드 (메모·점수·태그도 함께 삭제):\n'+gone:'')+'\n\n원본 파일과 기존 백업은 삭제되지 않아. 되돌리려면 정리 전 백업이 필요해.';
-    if(!await showConfirm(message,{danger:true,confirmText:'선택대로 정리'}))return;
+    const colName=id=>((state.collections||[]).find(c=>c.id===id)||{}).name||id;
+    const marks=c=>{const cols=Array.isArray(c.collectionIds)?c.collectionIds:[];return (c.fav?' ★즐겨찾기':'')+(cols.length?' [컬렉션: '+cols.map(colName).join(', ')+']':'');};
+    const gone=plan.emptied.map(c=>{
+      const t=plan.transfers.find(x=>x.from===c);
+      const tail=t?`\n   → ${t.fav?'즐겨찾기':''}${t.fav&&t.cols.length?'·':''}${t.cols.length?'컬렉션':''}은 "${t.to.title||t.to.fileName||'제목 없음'}" 카드로 옮겨짐`
+        :(plan.transferLost.includes(c)?'\n   ⚠ 옮길 카드가 없어 즐겨찾기·컬렉션도 함께 사라짐':'');
+      return '· '+(c.title||c.fileName||'제목 없음')+marks(c)+tail;
+    }).join('\n');
+    const warnLost=plan.transferLost.length?`\n\n⚠ 즐겨찾기·컬렉션 카드 ${plan.transferLost.length}개는 묶음 전체가 지워져 옮길 곳이 없어. 그대로 진행하면 함께 사라져.`:'';
+    const simChecked=(exactScan.similar?.groups||[]).reduce((n,g)=>n+g.drop.size,0);
+    const message=`이미지 ${plan.removed}장을 정리할까?\n· 동일 이미지: ${exactScan.groups.length}개 묶음, 각 묶음에서 선택한 카드의 한 장만 남김 (다른 페이지 포함)\n· 유사 이미지 후보: 체크한 ${simChecked}장 제거`;
+    const fullMessage=message+`\n\n대표 교체 ${plan.promoted}개 카드 · 빈 카드 삭제 ${plan.emptied.length}개`+
+      (gone?'\n\n이미지가 없어져 삭제되는 카드 (메모·점수·태그도 함께 삭제, ★즐겨찾기·컬렉션은 남는 카드로 옮김):\n'+gone:'')+warnLost+'\n\n원본 파일과 기존 백업은 삭제되지 않아. 되돌리려면 정리 전 백업이 필요해.';
+    if(!await showConfirm(fullMessage,{danger:true,confirmText:'선택대로 정리'}))return;
     cleanupProgress('exact','기존 저장을 마무리하는 중… 창을 닫지 말고 기다려주세요.');
     await cleanupPaint();
     // 먼저 이전 저장을 완료한다. 메모리 원본은 DB 저장 성공 전까지 바꾸지 않는다.
@@ -5106,17 +5302,18 @@ async function applyExactCleanup(){
     selectedIds.forEach(id=>{if(!surviving.has(id))selectedIds.delete(id);});
     saveUiState();
     exactBusy=false;closeExactCleanup();exactBusy=true;
-    toast(`저장 완료 · 중복 ${plan.removed}장 정리 · 빈 카드 ${plan.emptied.length}개 삭제`);
+    toast(`저장 완료 · 중복 ${plan.removed}장 정리 · 빈 카드 ${plan.emptied.length}개 삭제${plan.transfers.length?` · 즐겨찾기/컬렉션 ${plan.transfers.length}건 이전`:''}`);
     await cleanupRefresh(()=>{render();updateSelectCount();});
   }catch(e){console.error('중복 정리 실패',e);await showAlert('정리를 완료하지 못했어.\n'+(e.message||e));}
-  finally{exactBusy=false;$('#exact-apply').textContent='선택대로 정리';$('#exact-overlay').querySelectorAll('button,select').forEach(el=>el.disabled=false);if(exactScan)renderExactCleanup();}
+  finally{exactBusy=false;$('#exact-apply').textContent='선택대로 정리';$('#exact-overlay').querySelectorAll('button,select,input').forEach(el=>el.disabled=false);if(exactScan)renderExactCleanup();}
 }
 $('#exact-cleanup-btn').onclick=openExactCleanup;
 $('#exact-close').onclick=closeExactCleanup;
 $('#exact-backup').onclick=()=>{if(!exactBusy)exportData();};
 $('#exact-apply').onclick=applyExactCleanup;
-$('#exact-prev').onclick=()=>{if(!exactBusy){exactPage--;renderExactCleanup();}};
-$('#exact-next').onclick=()=>{if(!exactBusy){exactPage++;renderExactCleanup();}};
+$('#exact-prev').onclick=()=>{if(!exactBusy){if(exactMode==='similar')simPage--;else exactPage--;renderExactCleanup();}};
+$('#exact-next').onclick=()=>{if(!exactBusy){if(exactMode==='similar')simPage++;else exactPage++;renderExactCleanup();}};
+document.querySelectorAll('[data-exact-mode]').forEach(b=>b.onclick=()=>{if(exactBusy)return;exactMode=b.dataset.exactMode;renderExactCleanup();});
 $('#exact-overlay').onclick=e=>{if(e.target.id==='exact-overlay')closeExactCleanup();};
 // 정리 창에서 뒤쪽 편집/파일 추가 단축키가 데이터를 바꾸지 않게 한다.
 window.addEventListener('keydown',e=>{
