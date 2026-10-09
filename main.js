@@ -60,10 +60,15 @@ function attachMemoDiagnostics(contents) {
       'gist.download.cancel','gist.download.apply','gist.download.success',
       'gist.request.start','gist.request.response','gist.request.error',
       'gist.prepare.phase','gist.upload.response-body-start','gist.upload.response-body-end','gist.upload.local-error',
-      'gist.verify.start','gist.verify.match','gist.verify.mismatch','gist.verify.unavailable'];
+      'gist.verify.start','gist.verify.match','gist.verify.mismatch','gist.verify.unavailable',
+      // 중복 정리 진단 (개수·힙 크기만, 이미지·문구 없음)
+      'cleanup.similar.start','cleanup.similar.progress','cleanup.similar.end','cleanup.similar.aborted','cleanup.similar.error',
+      'cleanup.apply.plan','cleanup.apply.write-start','cleanup.apply.write-end','cleanup.apply.write-error',
+      'cleanup.limit.plan','cleanup.limit.write-start','cleanup.limit.write-end','cleanup.limit.write-error'];
     if (!allowed.includes(record.event)) return;
     const fields = {wc};
-    for (const key of ['request','elapsedMs','status','chars','slots','slot','heapUsedBytes','heapTotalBytes','heapLimitBytes']) {
+    for (const key of ['request','elapsedMs','status','chars','slots','slot','heapUsedBytes','heapTotalBytes','heapLimitBytes',
+      'images','pools','cached','done','groups','cards','removed','emptied']) {
       if (Number.isFinite(record[key]) && record[key] >= 0) fields[key] = record[key];
     }
     if (typeof record.online === 'boolean') fields.online = record.online;
@@ -131,10 +136,11 @@ async function memoReadRecentDiagnostics() {
         if (!line.trim()) continue;
         try {
           const row = JSON.parse(line);
-          if (typeof row.event !== 'string' || !/^(app\.ready|renderer\.(gone|unresponsive|responsive)|child\.gone|gist\.[a-z.-]+)$/.test(row.event)) continue;
+          if (typeof row.event !== 'string' || !/^(app\.ready|renderer\.(gone|unresponsive|responsive)|child\.gone|gist\.[a-z.-]+|cleanup\.(similar|apply|limit)\.[a-z-]+)$/.test(row.event)) continue;
           if (typeof row.at !== 'string' || !/^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/.test(row.at)) continue;
           const clean = {at:row.at, event:row.event.slice(0,64)};
-          for (const key of ['wc','request','elapsedMs','status','chars','slots','slot','exitCode','heapUsedBytes','heapTotalBytes','heapLimitBytes','workingSetSize','privateBytes']) {
+          for (const key of ['wc','request','elapsedMs','status','chars','slots','slot','exitCode','heapUsedBytes','heapTotalBytes','heapLimitBytes','workingSetSize','privateBytes',
+            'images','pools','cached','done','groups','cards','removed','emptied']) {
             if (Number.isFinite(row[key])) clean[key] = row[key];
           }
           const choices = {

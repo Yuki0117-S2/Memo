@@ -5025,12 +5025,24 @@ function scanExactDuplicates(items){
    두 해시가 모두 임계값 이하일 때만 '유사'로 본다 (재저장·재인코딩된 같은 그림을 잡고, 시드만 다른 그림은 거르기 위함). */
 const SIM_DHASH_MAX=6, SIM_PHASH_MAX=8; // 64비트 중 다른 비트 수 허용치
 const simHashCache=new Map(); // thumb(dataURL) → {d,p} | null  (세션 메모리 캐시)
+/* 중복 정리 진단 기록: 기존 [memo-diag] 통로로 단계와 힙 크기를 남긴다 (데이터는 바꾸지 않음) */
+function cleanupDiag(event,fields){
+  let heap={};
+  try{const m=typeof performance!=='undefined'?performance.memory:null;if(m)heap={heapUsedBytes:m.usedJSHeapSize,heapLimitBytes:m.jsHeapSizeLimit};}catch(_){}
+  rgGistEmit({event,...heap,...(fields||{})});
+}
 function simLoadImage(src){
   return new Promise(resolve=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>resolve(null);img.src=src;});
 }
+function simReleaseImage(img){ // 디코딩된 썸네일을 바로 놓아준다 (참조·src 해제)
+  if(!img)return;
+  try{img.onload=null;img.onerror=null;img.removeAttribute('src');}catch(_){}
+}
+const simCanvases=new Map(); // "w x h" → 재사용 캔버스 (매 장 새로 만들지 않음 · 결과는 기존과 동일하게 시험 확인)
 function simGray(img,w,h){
-  const c=document.createElement('canvas');c.width=w;c.height=h;
-  const ctx=c.getContext('2d',{willReadFrequently:true});ctx.drawImage(img,0,0,w,h);
+  const key=w+'x'+h;let c=simCanvases.get(key);
+  if(!c){c=document.createElement('canvas');c.width=w;c.height=h;simCanvases.set(key,c);}
+  const ctx=c.getContext('2d',{willReadFrequently:true});ctx.clearRect(0,0,w,h);ctx.drawImage(img,0,0,w,h);
   const d=ctx.getImageData(0,0,w,h).data,g=new Float64Array(w*h);
   for(let i=0;i<w*h;i++)g[i]=d[i*4]*.299+d[i*4+1]*.587+d[i*4+2]*.114;
   return g;
@@ -5059,9 +5071,12 @@ async function simHashOf(thumb){
   const img=await simLoadImage(thumb);
   let h=null;
   if(img){try{h={d:simDHash(img),p:simPHash(img)};}catch(e){console.error('유사 해시 계산 실패',e);}}
+  simReleaseImage(img);
   simHashCache.set(thumb,h);return h;
 }
-async function scanSimilarCandidates(scan,onProgress){
+const SIM_YIELD_EVERY=25; // 이 장수마다 잠깐 쉬어 메모리 회수 틈을 준다
+async function scanSimilarCandidates(scan,onProgress,isAlive){
+  const alive=()=>typeof isAlive!=='function'||isAlive();
   // 동일 이미지 묶음에서 '남길 후보'가 아닌 나머지는 이미 동일 탭에서 처리되므로 대표 1장만 비교에 넣는다.
   const exactExtra=new Set();
   scan.groups.forEach(g=>g.entries.forEach((e,i)=>{if(i>0)exactExtra.add(e);}));
@@ -5076,10 +5091,19 @@ async function scanSimilarCandidates(scan,onProgress){
   }
   const pools=[...bySig.values()].filter(a=>a.length>1);
   const total=pools.reduce((n,a)=>n+a.length,0);let done=0;
+  const startedAt=Date.now();
+  cleanupDiag('cleanup.similar.start',{images:total,pools:pools.length,cached:simHashCache.size});
   const groups=[];
   for(const pool of pools){
     const hs=[];
-    for(const e of pool){hs.push(await simHashOf(e.thumb));done++;if(onProgress&&done%20===0)onProgress(done,total);}
+    for(const e of pool){
+      if(!alive()){cleanupDiag('cleanup.similar.aborted',{done,images:total});return null;} // 창을 닫거나 다시 열면 즉시 중단
+      hs.push(await simHashOf(e.thumb));done++;
+      if(onProgress&&done%20===0)onProgress(done,total);
+      if(done%2000===0)cleanupDiag('cleanup.similar.progress',{done,images:total});
+      if(done%SIM_YIELD_EVERY===0)await new Promise(r=>setTimeout(r,0));
+    }
+    if(!alive()){cleanupDiag('cleanup.similar.aborted',{done,images:total});return null;}
     // union-find: 두 해시 모두 임계값 이하인 쌍을 같은 후보 묶음으로
     const parent=pool.map((_,i)=>i),find=i=>parent[i]===i?i:(parent[i]=find(parent[i]));
     const best=pool.map(()=>99);
@@ -5099,7 +5123,9 @@ async function scanSimilarCandidates(scan,onProgress){
       members.sort((a,b)=>rank(a)-rank(b)||a.entry.ci-b.entry.ci||a.entry.sub-b.entry.sub);
       groups.push({members,drop:new Set()});});
   }
+  if(!alive()){cleanupDiag('cleanup.similar.aborted',{done,images:total});return null;}
   scan.similar={groups,noSig,checked:total};
+  cleanupDiag('cleanup.similar.end',{images:total,groups:groups.length,elapsedMs:Date.now()-startedAt});
   return scan;
 }
 /* === 유사 이미지 후보 끝 === */
@@ -5194,8 +5220,9 @@ function openExactCleanup(){
   renderExactCleanup();$('#exact-close').focus();
   // 유사 후보는 썸네일 해시 계산이 필요해 비동기로 이어서 검사한다. 검사 중엔 정리 버튼을 잠근다.
   const scan=exactScan,token=++exactScanToken;
-  scanSimilarCandidates(scan,(d,t)=>{if(exactScan===scan&&token===exactScanToken)$('#exact-tab-similar-n').textContent=`(검사 중 ${d}/${t})`;})
-    .catch(e=>{console.error('유사 이미지 검사 실패',e);scan.similar={groups:[],noSig:0,checked:0,failed:true};})
+  const alive=()=>exactScan===scan&&token===exactScanToken;
+  scanSimilarCandidates(scan,(d,t)=>{if(alive())$('#exact-tab-similar-n').textContent=`(검사 중 ${d}/${t})`;},alive)
+    .catch(e=>{console.error('유사 이미지 검사 실패',e);cleanupDiag('cleanup.similar.error',{error:String(e&&e.message||e)});if(alive())scan.similar={groups:[],noSig:0,checked:0,failed:true};})
     .finally(()=>{if(exactScan===scan&&token===exactScanToken)renderExactCleanup();});
 }
 function closeExactCleanup(){
@@ -5203,6 +5230,7 @@ function closeExactCleanup(){
   if(exactBusy)return;
   $('#exact-overlay').classList.remove('open');$('#exact-overlay').setAttribute('aria-hidden','true');
   $('#exact-body').innerHTML='';exactScan=null;exactScanToken++;document.body.style.overflow=exactPreviousOverflow;
+  simHashCache.clear(); // 지운 썸네일 문자열을 붙잡지 않도록 창을 닫을 때 비운다 (다시 열면 처음부터 계산)
   $('#exact-cleanup-btn').focus();
 }
 function renderExactCleanup(){
@@ -5270,6 +5298,7 @@ async function applyExactCleanup(){
   const simDropN=(exactScan?.similar?.groups||[]).reduce((n,g)=>n+g.drop.size,0);
   if(exactBusy||!exactScan?.similar||(!exactScan.groups.length&&!simDropN))return; // 유사 검사가 끝나기 전엔 적용 안 함
   exactBusy=true;$('#exact-overlay').querySelectorAll('button,select,input').forEach(el=>el.disabled=true);
+  let writeStarted=false;
   try{
     let plan=planExactCleanup(exactScan,state.items);
     const colName=id=>((state.collections||[]).find(c=>c.id===id)||{}).name||id;
@@ -5290,11 +5319,19 @@ async function applyExactCleanup(){
     await cleanupPaint();
     // 먼저 이전 저장을 완료한다. 메모리 원본은 DB 저장 성공 전까지 바꾸지 않는다.
     await savePromise;
-    await saveItemsToIndexedDBNow();
+    // 정리 전 전체 저장은 생략한다(아래 한 번의 저장에 모든 내용이 들어감).
+    // 단, 대기 중인 자동저장 타이머는 반드시 취소한다. 남겨두면 정리 결과 저장 도중 정리 전 데이터로 덮어쓸 수 있다.
+    if(saveTimer){clearTimeout(saveTimer);saveTimer=null;}
+    saveUiState();
     plan=planExactCleanup(exactScan,state.items);
+    cleanupDiag('cleanup.apply.plan',{cards:plan.items.length,removed:plan.removed,emptied:plan.emptied.length});
     cleanupProgress('exact','중복 정리 결과를 저장하는 중…');
     await cleanupPaint();
+    cleanupDiag('cleanup.apply.write-start',{cards:plan.items.length});
+    writeStarted=true;
     await idbReplaceItems(plan.items);
+    writeStarted=false;
+    cleanupDiag('cleanup.apply.write-end',{cards:plan.items.length});
     state.items=plan.items;
     const surviving=new Set(state.items.map(it=>it.id));
     if(!surviving.has(state.selectedId))state.selectedId=state.items[0]?.id||null;
@@ -5304,7 +5341,15 @@ async function applyExactCleanup(){
     exactBusy=false;closeExactCleanup();exactBusy=true;
     toast(`저장 완료 · 중복 ${plan.removed}장 정리 · 빈 카드 ${plan.emptied.length}개 삭제${plan.transfers.length?` · 즐겨찾기/컬렉션 ${plan.transfers.length}건 이전`:''}`);
     await cleanupRefresh(()=>{render();updateSelectCount();});
-  }catch(e){console.error('중복 정리 실패',e);await showAlert('정리를 완료하지 못했어.\n'+(e.message||e));}
+  }catch(e){
+    console.error('중복 정리 실패',e);
+    if(writeStarted){
+      // 저장 트랜잭션이 취소되면 디스크는 이전 상태 그대로, 메모리는 정리 전 그대로다. 현재 메모리 기준으로 저장을 다시 예약한다.
+      cleanupDiag('cleanup.apply.write-error',{error:String(e&&e.message||e)});
+      queueItemsSave();
+    }
+    await showAlert('정리를 완료하지 못했어.\n'+(e.message||e));
+  }
   finally{exactBusy=false;$('#exact-apply').textContent='선택대로 정리';$('#exact-overlay').querySelectorAll('button,select,input').forEach(el=>el.disabled=false);if(exactScan)renderExactCleanup();}
 }
 $('#exact-cleanup-btn').onclick=openExactCleanup;
@@ -5428,22 +5473,40 @@ function renderCardLimit(){
 async function applyCardLimit(){
   if(limitBusy||!limitScan?.entries.length)return;
   limitBusy=true;$('#limit-overlay').querySelectorAll('button,input,select').forEach(el=>el.disabled=true);
+  let writeStarted=false;
   try{
     let plan=planCardLimit(limitScan,state.items);
     const ok=await showConfirm(`${limitScan.scopeLabel} 중 ${plan.changed}개 카드에서 보조 이미지 ${plan.removed}장을 삭제할까?\n대표 포함 최대 ${limitScan.max}장으로 정리해.\n\n검사된 모든 초과 카드에 적용돼 (다른 페이지 포함).\n대표 이미지와 카드의 메모·태그·평가는 유지돼.\n최대 장수 이하인 카드는 변경하지 않아.\n\n원본 파일·기존 백업은 삭제되지 않아. 되돌리려면 정리 전 백업이 필요해.`,{danger:true,confirmText:'선택대로 정리'});
     if(!ok)return;
     cleanupProgress('limit','기존 저장을 마무리하는 중… 창을 닫지 말고 기다려주세요.');
     await cleanupPaint();
-    await savePromise;await saveItemsToIndexedDBNow();
+    await savePromise;
+    // 정리 전 전체 저장은 생략한다(아래 한 번의 저장에 모든 내용이 들어감). 중복 정리와 같은 방식.
+    // 단, 대기 중인 자동저장 타이머는 반드시 취소한다. 남겨두면 정리 결과 저장 도중 정리 전 데이터로 덮어쓸 수 있다.
+    if(saveTimer){clearTimeout(saveTimer);saveTimer=null;}
+    saveUiState();
     plan=planCardLimit(limitScan,state.items);
+    cleanupDiag('cleanup.limit.plan',{cards:plan.items.length,removed:plan.removed});
     cleanupProgress('limit','장수 정리 결과를 저장하는 중…');
     await cleanupPaint();
+    cleanupDiag('cleanup.limit.write-start',{cards:plan.items.length});
+    writeStarted=true;
     await idbReplaceItems(plan.items);
+    writeStarted=false;
+    cleanupDiag('cleanup.limit.write-end',{cards:plan.items.length});
     state.items=plan.items;saveUiState();
     limitBusy=false;closeCardLimit();limitBusy=true;
     toast(`저장 완료 · ${plan.changed}개 카드 · 보조 이미지 ${plan.removed}장 정리`);
     await cleanupRefresh(()=>render());
-  }catch(e){console.error('장수 정리 실패',e);await showAlert('정리를 완료하지 못했어.\n'+(e.message||e));}
+  }catch(e){
+    console.error('장수 정리 실패',e);
+    if(writeStarted){
+      // 저장 트랜잭션이 취소되면 디스크는 이전 상태 그대로, 메모리는 정리 전 그대로다. 현재 메모리 기준으로 저장을 다시 예약한다.
+      cleanupDiag('cleanup.limit.write-error',{error:String(e&&e.message||e)});
+      queueItemsSave();
+    }
+    await showAlert('정리를 완료하지 못했어.\n'+(e.message||e));
+  }
   finally{
     limitBusy=false;$('#limit-apply').textContent='선택대로 정리';$('#limit-overlay').querySelectorAll('button,input,select').forEach(el=>el.disabled=false);
     if(limitScan)renderCardLimit();
