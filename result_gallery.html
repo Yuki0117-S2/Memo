@@ -422,6 +422,7 @@ img{-webkit-user-drag:none}
     <button class="btn ghost" id="sim-scan-btn" title="오타로 갈라진 작가명 통합">유사 작가</button>
     <button class="btn ghost" id="card-limit-btn">장수 정리</button>
     <button class="btn ghost" id="exact-cleanup-btn" title="같은 이미지의 중복을 찾아 남길 카드 선택">중복 정리</button>
+    <button class="btn ghost" id="thumb-store-btn" title="썸네일 전용 저장소 채우기·점검·메모리에서 빼기">썸네일 저장소</button>
     <button class="btn ghost" id="unread-purge-btn" title="대표·보조 이미지 모두 'workflow 감지 · prompt API 없음'인 카드를 찾아 일괄 삭제">메타 못 읽은 카드 정리</button>
     <button class="btn ghost" id="dup-scan-btn" title="작가 조합(가중치 포함)이 같은 카드 찾기">작가 조합 검사</button>
     <button class="btn ghost" id="merge-scan-btn" title="같은 조합(NAI: 작가+가중치 / Comfy: 프롬프트+LoRA) 카드를 한 카드로 묶기">소급 병합</button>
@@ -1047,7 +1048,11 @@ let rgTrackingStats={hashedImages:0,changedCards:0,ready:false};
 function rgValidHash(hash){return typeof hash==='string'&&/^[a-f0-9]{64}$/.test(hash);}
 function rgImageList(card){return [card,...(Array.isArray(card.subs)?card.subs:[])].filter(x=>x&&typeof x==='object');}
 function rgCachedThumbHash(image){
-  if(!image.thumb)return '';
+  if(!image.thumb){
+    // 4단계: 썸네일이 카드에 없어도, 저장소에 실제로 있는 주소면 그 주소가 곧 SHA-256 해시다.
+    if(!image.thumbStripped&&rgValidHash(image.thumbKey)&&rgThumbKeys&&rgThumbKeys.has(image.thumbKey))return image.thumbKey;
+    return '';
+  }
   const known=rgTrackedImages.get(image);
   if(known&&known.thumb===image.thumb)return known.hash;
   // 이동/복제된 객체의 해시는 이번 세션에 실제 확인한 동일 문자열에만 재사용한다.
@@ -1108,6 +1113,9 @@ function rgNewImageRevision(){
 async function rgPrepareImageTracking(items){
   rgTrackingStats={hashedImages:0,changedCards:0,ready:false};
   try{
+    // 주소만 있는 이미지의 해시를 확인하려면 저장소 열쇠 목록이 먼저 있어야 한다. 못 열면 틀린 서명을 만들지 않도록 중단.
+    let keysReady=true;try{await rgThumbKnownKeys();}catch(_){keysReady=false;}
+    if(!keysReady&&items.some(c=>c&&rgImageList(c).some(i=>!i.thumb&&!i.thumbStripped&&rgValidHash(i.thumbKey))))throw new Error('썸네일 저장소를 열 수 없어 이미지 해시를 확인하지 못함');
     // 비동기 해시 도중 이미지가 바뀌면 다시 확인한다. 계속 변경되면 캐시 없이 데이터만 저장.
     for(let attempt=0;attempt<3;attempt++){
       const batch=items.slice();
@@ -1121,7 +1129,7 @@ async function rgPrepareImageTracking(items){
             if((image.thumb||'')!==thumb)continue;
             rgTrackedImages.set(image,{thumb,hash});rgKnownHashSources.set(hash,thumb);
           }
-          if(thumb){image.rgThumbHash=hash;image.rgThumbHashVersion=RG_TRACKING_VERSION;}
+          if(thumb||hash){image.rgThumbHash=hash;image.rgThumbHashVersion=RG_TRACKING_VERSION;} // 주소만 있는 이미지도 해시 유지
           else{delete image.rgThumbHash;delete image.rgThumbHashVersion;}
         }
         const manifest=rgTrackingManifest(card);if(manifest===null)continue;
@@ -1172,6 +1180,8 @@ async function rgPersistTrackedItems(items){
     if(!(items||[]).every(card=>getResultGalleryImageTracking(card)))rgForgetImageTracking(items||[]);
     ids.clear();
     for(const card of (items||[])){if(!card||!card.id||ids.has(card.id))throw new Error('저장 도중 카드 ID가 바뀌어 중단했어.');ids.add(card.id);}
+    await rgThumbDualWrite(items||[]); // 썸네일 저장소: 카드보다 먼저 기록 (실패해도 카드 저장은 계속)
+    if(rgThumbOutMode())rgThumbEvict(items||[]); // 5단계: 저장소에 확인된 썸네일은 카드에서 빼고 기록
     const pending=(items||[]).slice();
     const plannedIds=pending.map(card=>card.id);
     const reportStorage=done=>{try{if(typeof window.onResultGalleryStorageProgress==='function')window.onResultGalleryStorageProgress({done,total:pending.length});}catch(e){console.warn('저장 진행 표시 실패',e);}};
@@ -1196,6 +1206,382 @@ async function rgPersistTrackedItems(items){
     reportStorage(pending.length);
   }finally{db.close()}
 }
+/* === 썸네일 전용 저장소 (메모리 절감 1단계) ===
+   썸네일을 내용 해시(SHA-256, rgThumbHash와 같은 값)를 열쇠로 별도 DB에 보관한다.
+   1단계에서는 '채우기·점검'만 한다. 카드의 thumb는 그대로 두므로 화면·동작·메모리는 바뀌지 않는다.
+   기존 resultGallery.db의 버전을 올리지 않으려고 DB를 따로 둔다(예전 HTML로 되돌려도 안전). */
+const RG_THUMB_DB_NAME='resultGallery.thumbs.db', RG_THUMB_DB_VERSION=1, RG_THUMB_STORE='thumbs';
+const RG_THUMB_READY_KEY='rg_thumb_store_ready_v1'; // 기존 썸네일 이전이 끝났다는 표시 (이후 새 썸네일은 저장 때 함께 기록)
+const RG_THUMB_BATCH=200;
+let rgThumbKeys=null, rgThumbKeysPromise=null, rgThumbBusy=false;
+function openRgThumbDB(){
+  return new Promise((resolve,reject)=>{
+    if(!window.indexedDB){reject(new Error('IndexedDB를 사용할 수 없어'));return;}
+    const req=indexedDB.open(RG_THUMB_DB_NAME,RG_THUMB_DB_VERSION);
+    req.onupgradeneeded=()=>{const db=req.result;if(!db.objectStoreNames.contains(RG_THUMB_STORE))db.createObjectStore(RG_THUMB_STORE,{keyPath:'h'});};
+    req.onsuccess=()=>resolve(req.result);
+    req.onerror=()=>reject(req.error||new Error('썸네일 저장소 열기 실패'));
+  });
+}
+async function rgThumbKnownKeys(){
+  if(rgThumbKeys)return rgThumbKeys;
+  if(!rgThumbKeysPromise)rgThumbKeysPromise=(async()=>{
+    const db=await openRgThumbDB();
+    try{
+      const keys=await new Promise((resolve,reject)=>{const r=db.transaction(RG_THUMB_STORE,'readonly').objectStore(RG_THUMB_STORE).getAllKeys();r.onsuccess=()=>resolve(r.result||[]);r.onerror=()=>reject(r.error);});
+      rgThumbKeys=new Set(keys);return rgThumbKeys;
+    }finally{db.close();}
+  })().finally(()=>{rgThumbKeysPromise=null;});
+  return rgThumbKeysPromise;
+}
+async function rgThumbPutMany(records){ // records: [{h,d}] · 한 트랜잭션 · 완료 후에만 열쇠 목록에 반영
+  if(!records.length)return;
+  const keys=await rgThumbKnownKeys();
+  const db=await openRgThumbDB();
+  try{
+    const tx=db.transaction(RG_THUMB_STORE,'readwrite'),done=txDone(tx),store=tx.objectStore(RG_THUMB_STORE),at=Date.now();
+    for(const r of records)store.put({h:r.h,d:r.d,n:r.d.length,at});
+    await done;
+  }finally{db.close();}
+  for(const r of records)keys.add(r.h);
+}
+async function rgThumbGetMany(hashes){ // 점검용: 여러 개를 한 트랜잭션으로 읽는다
+  const db=await openRgThumbDB();
+  try{
+    const store=db.transaction(RG_THUMB_STORE,'readonly').objectStore(RG_THUMB_STORE);
+    return await Promise.all(hashes.map(h=>new Promise((resolve,reject)=>{const r=store.get(h);r.onsuccess=()=>resolve(r.result||null);r.onerror=()=>reject(r.error);})));
+  }finally{db.close();}
+}
+function rgThumbStoreReady(){try{return !!localStorage.getItem(RG_THUMB_READY_KEY);}catch(_){return false;}}
+function rgThumbMarkNotReady(){try{localStorage.removeItem(RG_THUMB_READY_KEY);}catch(_){}}
+// 이미지의 내용 해시: 이번 세션에 확인된 값만 쓰고, 없으면 새로 계산한다(이미지 객체는 바꾸지 않음).
+async function rgThumbHashOf(image){
+  const cached=rgCachedThumbHash(image);
+  if(cached)return cached;
+  return await rgTrackingDigest(image.thumb);
+}
+/* thumbKey: 이미지가 들고 다니는 썸네일 저장소 주소(= 썸네일 SHA-256). rgThumbHash와 값은 같지만
+   해시 준비 실패 때 지워지지 않는 영구 주소로 쓴다(5단계 이후 썸네일 대신 이 값을 들고 다님). */
+function rgCopyThumbKey(from,to){if(from&&rgValidHash(from.thumbKey))to.thumbKey=from.thumbKey;else delete to.thumbKey;}
+// 썸네일이 있는 이미지: 확인된 해시가 저장소에 있을 때만 주소를 맞추고, 아니면 틀린 주소가 남지 않게 지운다.
+// 썸네일이 없는 껍데기는 백업에서 온 주소를 그대로 둔다(나중 단계에서 저장소 존재를 확인하고 쓴다).
+function rgSyncThumbKeys(items,keys){
+  let set=0,cleared=0;
+  for(const card of items)for(const image of rgImageList(card)){
+    if(!image.thumb||image.thumbStripped)continue;
+    const h=rgCachedThumbHash(image);
+    if(h&&keys&&keys.has(h)){if(image.thumbKey!==h){image.thumbKey=h;set++;}}
+    else if('thumbKey' in image){delete image.thumbKey;cleared++;}
+  }
+  return {set,cleared};
+}
+/* 저장 경로 이중 기록: 이전이 끝난 뒤에만 동작한다. 저장 직전 확인된 rgThumbHash로 빠진 것만 기록.
+   실패해도 카드 저장은 막지 않는다(1단계에서는 카드에 thumb가 그대로 있음). 대신 '이전 완료' 표시를 지워 다시 채우게 한다. */
+async function rgThumbDualWrite(items){
+  if(!rgThumbStoreReady())return;
+  try{
+    const keys=await rgThumbKnownKeys();
+    const records=[],seen=new Set();let unverified=0;
+    for(const card of items)for(const image of rgImageList(card)){
+      if(!image.thumb||image.thumbStripped)continue;
+      const h=rgCachedThumbHash(image);
+      if(!h){unverified++;continue;}
+      if(keys.has(h)||seen.has(h))continue;
+      seen.add(h);records.push({h,d:image.thumb});
+    }
+    for(let i=0;i<records.length;i+=RG_THUMB_BATCH)await rgThumbPutMany(records.slice(i,i+RG_THUMB_BATCH));
+    rgSyncThumbKeys(items,keys); // 저장소 기록이 끝난 뒤에만 주소를 붙인다 (이 카드 저장에 함께 들어감)
+    if(unverified){rgThumbMarkNotReady();cleanupDiag('thumbs.write.unverified',{images:unverified});}
+  }catch(e){
+    console.warn('썸네일 저장소 기록 실패 (카드 저장은 계속)',e);
+    try{rgSyncThumbKeys(items,rgThumbKeys);}catch(_){} // 확인된 열쇠 목록 기준으로만 주소 유지, 나머지는 지움
+    rgThumbMarkNotReady();cleanupDiag('thumbs.write.error',{error:String(e&&e.message||e)});
+  }
+}
+// 기존 썸네일 채우기: 200장씩 기록하고 쉬어간다. 이미 있는 것은 건너뛰므로 중간에 멈춰도 다시 누르면 이어서 한다.
+async function rgThumbMigrate(){
+  const keys=await rgThumbKnownKeys();
+  let added=0,skipped=0,done=0,hashed=0;
+  const startedAt=Date.now();
+  const countImages=list=>list.reduce((n,c)=>n+rgImageList(c).filter(i=>i.thumb&&!i.thumbStripped).length,0);
+  cleanupDiag('thumbs.migrate.start',{images:countImages(state.items||[]),cached:keys.size});
+  for(let pass=0;pass<3;pass++){ // 진행 중 새로 들어온 이미지까지 잡도록 최대 3번 훑는다
+    const snapshot=(state.items||[]).slice();
+    let batch=[],missingThisPass=0;const seen=new Set();
+    for(const card of snapshot){
+      for(const image of rgImageList(card)){
+        if(!image.thumb||image.thumbStripped)continue;
+        const thumb=image.thumb;
+        const fromCache=rgCachedThumbHash(image);
+        const h=fromCache||await rgTrackingDigest(thumb);
+        if(!fromCache)hashed++;
+        if(pass===0)done++;
+        if(keys.has(h)||seen.has(h)){if(pass===0)skipped++;continue;}
+        seen.add(h);missingThisPass++;batch.push({h,d:thumb});
+        if(batch.length>=RG_THUMB_BATCH){
+          await rgThumbPutMany(batch);added+=batch.length;batch=[];
+          toast(`썸네일 저장소 채우는 중 · 새로 기록 ${added.toLocaleString()}장`);
+          if(added%2000<RG_THUMB_BATCH)cleanupDiag('thumbs.migrate.progress',{done,added});
+          await new Promise(r=>setTimeout(r,0));
+        }
+      }
+    }
+    if(batch.length){await rgThumbPutMany(batch);added+=batch.length;batch=[];}
+    if(!missingThisPass)break;
+  }
+  try{localStorage.setItem(RG_THUMB_READY_KEY,JSON.stringify({at:new Date().toISOString(),keys:keys.size}));}catch(_){}
+  cleanupDiag('thumbs.migrate.end',{added,cached:keys.size,elapsedMs:Date.now()-startedAt});
+  return {added,skipped,keys:keys.size,hashed};
+}
+// 점검: 모든 썸네일이 저장소에 있고 내용이 맞는지 확인한다. 읽기만 한다(repair=true면 저장소만 고침).
+// · 카드에 썸네일 글자가 있는 이미지: 저장소 내용이 글자와 같은지 비교 (복구 가능)
+// · 5단계 이후 주소만 있는 이미지: 저장소에 있는지, 저장소 내용의 SHA-256이 주소와 같은지 확인 (원본이 저장소뿐이라 복구는 불가)
+async function rgThumbVerify(repair=false,light=false){ // light=true: 저장소 내용은 읽지 않고 '있음·주소'만 확인 (메모리 사용 최소)
+  const keys=await rgThumbKnownKeys();
+  let images=0,missing=0,mismatch=0,stripped=0,checked=0,repaired=0,keyMissing=0,keyWrong=0,keyOnly=0,keyOnlyBad=0;
+  let fixes=[];
+  const putFixes=async()=>{if(repair&&fixes.length){await rgThumbPutMany(fixes);repaired+=fixes.length;fixes=[];}};
+  const startedAt=Date.now();
+  cleanupDiag('thumbs.verify.start',{images:countThumbImages(),cached:keys.size});
+  let batch=[],kbatch=[];
+  const flush=async()=>{
+    if(!batch.length)return;
+    const rows=await rgThumbGetMany(batch.map(b=>b.h));
+    rows.forEach((row,i)=>{checked++;if(!row||row.d!==batch[i].thumb){mismatch++;fixes.push({h:batch[i].h,d:batch[i].thumb});}});
+    batch=[];await putFixes();
+    toast(`썸네일 저장소 점검 중 · ${checked.toLocaleString()}장 확인`);
+    await new Promise(r=>setTimeout(r,0));
+  };
+  const kflush=async()=>{ // 주소만 있는 이미지: 저장소 내용을 다시 해시해 주소와 비교 (읽은 글자는 바로 버림)
+    if(!kbatch.length)return;
+    const rows=await rgThumbGetMany(kbatch);
+    for(let i=0;i<rows.length;i++){checked++;const row=rows[i];if(!row||typeof row.d!=='string'||await rgTrackingDigest(row.d)!==kbatch[i])keyOnlyBad++;}
+    kbatch=[];
+    toast(`썸네일 저장소 점검 중 · ${checked.toLocaleString()}장 확인`);
+    await new Promise(r=>setTimeout(r,0));
+  };
+  for(const card of (state.items||[]).slice()){
+    for(const image of rgImageList(card)){
+      if(image.thumbStripped&&!image.thumb){stripped++;continue;}
+      if(!image.thumb){
+        if(!rgValidHash(image.thumbKey))continue; // 이미지가 원래 없는 자리
+        images++;keyOnly++;
+        if(!keys.has(image.thumbKey)){missing++;continue;}
+        if(!light){kbatch.push(image.thumbKey);if(kbatch.length>=RG_THUMB_BATCH)await kflush();}
+        continue;
+      }
+      images++;
+      const thumb=image.thumb,h=await rgThumbHashOf(image);
+      if(!rgValidHash(image.thumbKey))keyMissing++;else if(image.thumbKey!==h)keyWrong++;
+      if(!keys.has(h)){missing++;fixes.push({h,d:thumb});if(fixes.length>=RG_THUMB_BATCH)await putFixes();continue;}
+      if(!light){batch.push({h,thumb});if(batch.length>=RG_THUMB_BATCH)await flush();}
+    }
+  }
+  await flush();await kflush();await putFixes();
+  mismatch+=keyOnlyBad;
+  if(repair&&(keyMissing||keyWrong))await saveItemsToIndexedDBNow();
+  cleanupDiag('thumbs.verify.end',{images,missing,mismatch,added:repaired,keyMissing,keyWrong,elapsedMs:Date.now()-startedAt});
+  return {images,missing,mismatch,stripped,repaired,keyMissing,keyWrong,keyOnly,keyOnlyBad,keys:keys.size};
+}
+function countThumbImages(){return (state.items||[]).reduce((n,c)=>n+rgImageList(c).filter(i=>rgHasThumb(i)).length,0);}
+/* ── 5단계: 썸네일을 카드 메모리에서 빼기 ──
+   저장소 기록과 주소가 확인된 썸네일만 뺀다. 저장 함수(rgPersistTrackedItems)에서 카드를 쓰기 직전에 호출되므로
+   켜진 뒤에는 새로 추가한 이미지도 저장할 때 자동으로 빠진다. 빠진 썸네일은 화면·내보내기·Drive가 저장소에서 읽는다. */
+function rgThumbEvict(items){
+  if(!rgThumbKeys)return 0;
+  let n=0;
+  for(const card of items)for(const image of rgImageList(card)){
+    if(!image.thumb||image.thumbStripped)continue;
+    const h=rgCachedThumbHash(image);
+    if(!h||h!==image.thumbKey||!rgThumbKeys.has(h))continue; // 확인 안 된 것은 그대로 둔다
+    delete image.thumb;
+    rgTrackedImages.delete(image);           // 추적 캐시가 썸네일 글자를 붙잡지 않게
+    if(rgKnownHashSources.has(h))rgKnownHashSources.delete(h);
+    n++;
+  }
+  return n;
+}
+async function rgThumbOutOn(){
+  // 내용 비교는 앞선 '점검'에서 끝났으므로, 여기서는 메모리를 아끼려고 저장소를 읽지 않는 가벼운 확인만 한다.
+  const v=await rgThumbVerify(false,true);
+  if(v.missing||v.mismatch||v.keyMissing||v.keyWrong){
+    await showAlert(`점검에서 문제가 있어 썸네일을 빼지 않았어.\n저장소에 없음 ${v.missing} · 불일치 ${v.mismatch} · 주소 없음 ${v.keyMissing} · 주소 틀림 ${v.keyWrong}\n"점검"에서 복구한 뒤 다시 시도해줘.`);
+    return;
+  }
+  if(!await showConfirm(`빠른 확인 결과 모두 정상이야 (${v.images.toLocaleString()}장 · 저장소 존재·주소 일치).\n\n이제 카드 메모리에서 썸네일을 빼고 저장할까?\n· 화면·내보내기·Drive는 저장소에서 읽어 와서 쓰는 방식은 그대로야\n· 끝나면 앱을 완전히 껐다 켜야 메모리가 실제로 줄어\n· 되돌리기 버튼으로 언제든 카드에 다시 채울 수 있어`,{confirmText:'메모리에서 빼기',cancelText:'취소'}))return;
+  try{localStorage.setItem(RG_THUMB_OUT_KEY,JSON.stringify({at:new Date().toISOString()}));}catch(e){await showAlert('설정을 저장하지 못해 중단했어.\n'+(e.message||e));return;}
+  await savePromise;
+  if(saveTimer){clearTimeout(saveTimer);saveTimer=null;}
+  await saveItemsToIndexedDBNow(); // 저장 함수 안에서 확인된 썸네일만 빠진 채로 기록됨
+  const left=(state.items||[]).reduce((n,c)=>n+rgImageList(c).filter(i=>i.thumb&&!i.thumbStripped).length,0);
+  cleanupDiag('thumbs.out.on',{images:v.images,missing:left});
+  await showAlert(`완료 · 카드 메모리에서 썸네일을 뺐어.\n남아 있는 썸네일(확인이 안 돼 그대로 둔 것): ${left.toLocaleString()}장\n\n앱을 완전히 껐다 켠 뒤, 진단 창의 heapUsedBytes가 줄었는지 봐줘.`);
+}
+async function rgThumbOutOff(){
+  if(!await showConfirm(`썸네일을 저장소에서 읽어 카드에 다시 채우고, 빼기 모드를 끌까?\n· 예전 HTML로 되돌려야 할 때 쓰는 기능이야\n· 메모리를 다시 약 2.6GB 더 쓰게 돼 (지금보다 무거워짐)`,{danger:true,confirmText:'되돌리기',cancelText:'취소'}))return;
+  const todo=[];
+  for(const card of (state.items||[]))for(const image of rgImageList(card))if(!image.thumb&&!image.thumbStripped&&rgValidHash(image.thumbKey))todo.push(image);
+  let filled=0,fail=0;
+  for(let i=0;i<todo.length;i+=RG_THUMB_BATCH){
+    const part=todo.slice(i,i+RG_THUMB_BATCH);
+    const rows=await rgThumbGetMany(part.map(x=>x.thumbKey));
+    rows.forEach((row,j)=>{if(row&&typeof row.d==='string'){part[j].thumb=row.d;filled++;}else fail++;});
+    toast(`카드에 썸네일 다시 채우는 중 · ${filled.toLocaleString()} / ${todo.length.toLocaleString()}`);
+    await new Promise(r=>setTimeout(r,0));
+  }
+  if(fail){await showAlert(`저장소에서 ${fail}장을 읽지 못해 되돌리기를 멈췄어. 빼기 모드는 그대로 켜져 있어.\n(채운 ${filled}장은 다음 저장 때 다시 빠져)`);return;}
+  try{localStorage.removeItem(RG_THUMB_OUT_KEY);}catch(_){}
+  await saveItemsToIndexedDBNow();
+  cleanupDiag('thumbs.out.off',{images:filled});
+  await showAlert(`되돌리기 완료 · 카드에 썸네일 ${filled.toLocaleString()}장을 다시 채웠어.`);
+}
+async function openThumbStoreMenu(){
+  if(rgThumbBusy){toast('썸네일 저장소 작업이 진행 중이야');return}
+  if(exactBusy||limitBusy||importBusy||(typeof exportDataBusy!=='undefined'&&exportDataBusy)||window.rgDriveSaveBusy||(typeof rgGistOperation!=='undefined'&&rgGistOperation)){
+    toast('다른 작업(정리·불러오기·내보내기·Drive/Gist 저장)이 끝난 뒤에 다시 눌러줘');return;
+  }
+  let keys;
+  try{keys=await rgThumbKnownKeys();}catch(e){await showAlert('썸네일 저장소를 열지 못했어.\n'+(e.message||e));return;}
+  const total=countThumbImages(),ready=rgThumbStoreReady(),out=rgThumbOutMode();
+  const inMem=(state.items||[]).reduce((n,c)=>n+rgImageList(c).filter(i=>i.thumb&&!i.thumbStripped).length,0);
+  let readyInfo='';try{const r=JSON.parse(localStorage.getItem(RG_THUMB_READY_KEY)||'null');if(r&&r.at)readyInfo='채우기 완료 기록: '+r.at;}catch(_){}
+  const msg=`썸네일 저장소\n\n이미지: ${total.toLocaleString()}장 (그중 카드 메모리에 썸네일이 있는 것 ${inMem.toLocaleString()}장)\n저장소에 기록된 썸네일: ${keys.size.toLocaleString()}개 (같은 그림은 1개로 저장)\n${readyInfo||'채우기 완료 기록: 없음'}\n메모리에서 빼기: ${out?'켜짐':'꺼짐'}\n\n`+
+    (!ready?'· 채우기: 저장소에 없는 썸네일만 200장씩 기록해.\n· 점검: 저장소 내용이 맞는지 읽어서 확인만 해.'
+     :out?'· 점검: 저장소 내용이 맞는지 확인해.\n· 되돌리기: 저장소의 썸네일을 카드에 다시 채우고 빼기 모드를 꺼.'
+         :'· 점검: 저장소 내용이 맞는지 확인해.\n· 메모리에서 빼기: 점검을 한 번 더 한 뒤, 확인된 썸네일을 카드 메모리에서 빼고 저장해.');
+  const action=!ready?{ok:'채우기',third:'점검'}:out?{ok:'점검',third:'되돌리기'}:{ok:'점검',third:'메모리에서 빼기'};
+  const choice=await showConfirm(msg,{confirmText:action.ok,thirdText:action.third,cancelText:'닫기'});
+  if(!choice)return;
+  const picked=choice==='third'?action.third:action.ok;
+  rgThumbBusy=true;
+  try{
+    if(picked==='점검'){
+      const r=await rgThumbVerify(false);
+      const report=`확인한 썸네일: ${r.images.toLocaleString()}장 (그중 저장소에만 있는 것 ${r.keyOnly.toLocaleString()}장)\n저장소에 없음: ${r.missing.toLocaleString()}장\n내용 불일치: ${r.mismatch.toLocaleString()}장\n(동기화 껍데기라 이미지가 없는 자리: ${r.stripped.toLocaleString()}개 · 점검 대상 아님)\n카드의 저장소 주소(thumbKey) 없음: ${r.keyMissing.toLocaleString()}장 · 틀림: ${r.keyWrong.toLocaleString()}장`;
+      if(!r.missing&&!r.mismatch&&!r.keyMissing&&!r.keyWrong){await showAlert(`썸네일 저장소 점검 결과\n\n${report}\n\n모두 정상이야.`);}
+      else if(r.keyOnly&&(r.keyOnlyBad||r.missing)){await showAlert(`썸네일 저장소 점검 결과\n\n${report}\n\n저장소에만 있는 썸네일에 문제가 있어. 카드에 원본 글자가 없어 자동 복구를 할 수 없어.\n이 결과를 그대로 전달해줘. 전체 JSON 백업으로 복구할 수 있어.`);}
+      else if(await showConfirm(`썸네일 저장소 점검 결과\n\n${report}\n\n문제가 있는 항목을 바로잡을까?\n· 저장소: 현재 카드의 썸네일로 다시 기록\n· 주소: 카드를 한 번 저장해서 확인된 값으로 맞춤 (썸네일·내용은 그대로)`,{confirmText:'복구',cancelText:'나중에'})){
+        const f=await rgThumbVerify(true);
+        const again=await rgThumbVerify(false);
+        if(!again.missing&&!again.mismatch&&!again.keyMissing&&!again.keyWrong&&!rgThumbStoreReady()){try{localStorage.setItem(RG_THUMB_READY_KEY,JSON.stringify({at:new Date().toISOString(),keys:again.keys}));}catch(_){}}
+        await showAlert(`복구 완료 · 다시 기록 ${f.repaired.toLocaleString()}장\n\n복구 후 다시 점검한 결과\n저장소에 없음: ${again.missing.toLocaleString()}장\n내용 불일치: ${again.mismatch.toLocaleString()}장\n주소 없음: ${again.keyMissing.toLocaleString()}장 · 주소 틀림: ${again.keyWrong.toLocaleString()}장`);
+      }
+    }else if(picked==='채우기'){
+      const r=await rgThumbMigrate();
+      await showAlert(`썸네일 저장소 채우기 완료\n\n새로 기록: ${r.added.toLocaleString()}장\n이미 있어서 건너뜀: ${r.skipped.toLocaleString()}장\n저장소 전체: ${r.keys.toLocaleString()}개\n\n이제부터 새로 추가되는 썸네일은 저장할 때 함께 기록돼.\n확인을 위해 "점검"도 한 번 실행해줘.`);
+    }else if(picked==='메모리에서 빼기'){
+      await rgThumbOutOn();
+    }else if(picked==='되돌리기'){
+      await rgThumbOutOff();
+    }
+  }catch(e){
+    console.error('썸네일 저장소 작업 실패',e);
+    cleanupDiag(picked==='점검'?'thumbs.verify.error':picked==='채우기'?'thumbs.migrate.error':'thumbs.out.error',{error:String(e&&e.message||e)});
+    if(picked==='채우기')rgThumbMarkNotReady();
+    await showAlert('썸네일 저장소 작업을 끝내지 못했어.\n'+(e.message||e));
+  }finally{rgThumbBusy=false;}
+}
+// drive_sync.js가 Drive 저장·복원 단계와 그 순간의 힙 크기를 남길 때 쓰는 통로 (개수만 기록)
+window.rgDriveDiag=function(event,fields){try{cleanupDiag(event,fields||{});}catch(_){}};
+/* ── 3단계: 화면이 저장소에서도 썸네일을 읽게 하는 공용 함수 ──
+   카드에 thumb가 있으면 지금처럼 그것을 쓰고, 없을 때만 thumbKey로 저장소에서 꺼낸다.
+   저장소에서 꺼낸 것은 Blob 주소(object URL)로 띄워 JS 힙(4GB 한도) 바깥에 둔다. 한 번 만든 주소는 이번 세션 동안 재사용한다. */
+function rgHasThumb(image){return !!(image&&(image.thumb||(rgValidHash(image.thumbKey)&&!image.thumbStripped)));}
+let rgThumbReadConn=null;
+function rgThumbReadDB(){
+  if(!rgThumbReadConn)rgThumbReadConn=openRgThumbDB().then(db=>{db.onversionchange=()=>{db.close();rgThumbReadConn=null;};db.onclose=()=>{rgThumbReadConn=null;};return db;}).catch(e=>{rgThumbReadConn=null;throw e;});
+  return rgThumbReadConn;
+}
+async function rgThumbData(key){ // 저장소에서 썸네일 글자(dataURL) 한 개를 읽는다. 없으면 ''
+  if(!rgValidHash(key))return '';
+  const db=await rgThumbReadDB();
+  const row=await new Promise((resolve,reject)=>{const r=db.transaction(RG_THUMB_STORE,'readonly').objectStore(RG_THUMB_STORE).get(key);r.onsuccess=()=>resolve(r.result||null);r.onerror=()=>reject(r.error);});
+  return row&&typeof row.d==='string'?row.d:'';
+}
+function rgDataUrlToBlob(d){
+  const comma=d.indexOf(',');const head=d.slice(0,comma);const mime=(head.match(/^data:([^;,]+)/)||[])[1]||'application/octet-stream';
+  const bin=atob(d.slice(comma+1));const bytes=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+  return new Blob([bytes],{type:mime});
+}
+const rgThumbUrls=new Map(), rgThumbUrlJobs=new Map();
+function rgThumbUrl(key){ // thumbKey → Blob 주소. 같은 열쇠는 한 번만 만든다.
+  if(rgThumbUrls.has(key))return Promise.resolve(rgThumbUrls.get(key));
+  if(rgThumbUrlJobs.has(key))return rgThumbUrlJobs.get(key);
+  const job=(async()=>{
+    const d=await rgThumbData(key);
+    if(!d)return '';
+    const url=URL.createObjectURL(rgDataUrlToBlob(d));
+    rgThumbUrls.set(key,url);return url;
+  })().catch(e=>{console.warn('썸네일 저장소 읽기 실패',e);return '';}).finally(()=>rgThumbUrlJobs.delete(key));
+  rgThumbUrlJobs.set(key,job);return job;
+}
+// <img>에 썸네일을 넣는다. 카드에 thumb가 있으면 즉시(기존과 동일), 없으면 저장소에서 비동기로.
+// 그 사이 같은 <img>에 다른 이미지를 넣으라는 요청이 오면 늦게 온 결과는 버린다.
+function rgLoadThumbInto(img,image){
+  if(!img)return;
+  const tok={};img._rgThumbTok=tok;
+  if(image&&image.thumb){img.src=image.thumb;return;}
+  if(!rgHasThumb(image)){img.src='';return;}
+  rgThumbUrl(image.thumbKey).then(u=>{if(img._rgThumbTok===tok&&u)img.src=u;});
+}
+/* ── 4단계: 썸네일 없이도 내보내기·불러오기 ── */
+const RG_THUMB_OUT_KEY='rg_thumb_out_v1'; // 5단계에서 켜는 표시: 켜지면 저장소에 확인된 썸네일은 카드에서 뺀다
+function rgThumbOutMode(){try{return !!localStorage.getItem(RG_THUMB_OUT_KEY);}catch(_){return false;}}
+// 내보내기용 사본: 카드나 보조에 썸네일 글자가 없고 저장소 주소만 있으면 저장소에서 읽어 채운다(원본 카드는 바꾸지 않음).
+async function rgItemWithThumbs(it){
+  const need=img=>img&&!img.thumb&&rgHasThumb(img);
+  if(!need(it)&&!(it.subs||[]).some(need))return it;
+  const out={...it};
+  if(need(it)){const d=await rgThumbData(it.thumbKey);if(d)out.thumb=d;}
+  if(Array.isArray(it.subs))out.subs=await Promise.all(it.subs.map(async sb=>{if(!need(sb))return sb;const d=await rgThumbData(sb.thumbKey);return d?{...sb,thumb:d}:sb;}));
+  return out;
+}
+/* 불러오기용 흡수기: 카드 안의 썸네일을 해시해 저장소에 200장씩 기록하고 주소를 붙인다.
+   5단계(썸네일 빼기)가 켜져 있으면, 기록이 끝난 것만 카드에서 썸네일을 뺀다.
+   저장소를 못 쓰면 조용히 꺼지고 예전처럼 카드에 썸네일을 그대로 둔다(불러오기는 계속). */
+async function rgThumbAbsorber(){
+  let keys=null,enabled=true;
+  try{keys=await rgThumbKnownKeys();}catch(e){enabled=false;console.warn('썸네일 저장소를 열 수 없어 불러오기에서는 기록하지 않음',e);}
+  const out=rgThumbOutMode();
+  let records=[],evict=[];
+  const flush=async()=>{
+    if(!enabled||(!records.length&&!evict.length))return;
+    try{
+      await rgThumbPutMany(records);records=[];
+      if(out)for(const img of evict)if(img.thumbKey&&keys.has(img.thumbKey))delete img.thumb;
+      evict=[];
+    }catch(e){enabled=false;records=[];evict=[];console.warn('썸네일 저장소 기록 실패 · 불러온 썸네일은 카드에 그대로 둠',e);cleanupDiag('thumbs.write.error',{error:String(e&&e.message||e)});}
+  };
+  return {
+    async add(card){
+      if(!enabled||!card||typeof card!=='object')return;
+      for(const img of rgImageList(card)){
+        if(typeof img.thumb==='string'&&img.thumb.startsWith('data:')&&!img.thumbStripped){
+          const h=await rgTrackingDigest(img.thumb);
+          if(!keys.has(h)&&!records.some(r=>r.h===h))records.push({h,d:img.thumb});
+          img.thumbKey=h;evict.push(img);
+        }else if(!img.thumb&&img.thumbKey&&!keys.has(img.thumbKey)){
+          delete img.thumbKey; // 저장소에 없는 주소는 믿지 않는다
+        }
+      }
+      if(records.length>=RG_THUMB_BATCH)await flush();
+    },
+    flush
+  };
+}
+// 확인창 미리보기용: {t:카드의 thumb, k:저장소 주소(thumb가 없을 때만), cap}
+function rgVisThumb(image,cap){
+  const t=image&&image.thumb||'';
+  return {t,k:!t&&rgHasThumb(image)?image.thumbKey:'',cap:cap||''};
+}
+// HTML 문자열로 그린 <img data-rg-thumb="열쇠">를 찾아 채운다.
+function rgHydrateThumbAttrs(root){
+  (root||document).querySelectorAll('img[data-rg-thumb]').forEach(img=>{
+    const k=img.getAttribute('data-rg-thumb');img.removeAttribute('data-rg-thumb');
+    rgLoadThumbInto(img,{thumbKey:k});
+  });
+}
+/* === 썸네일 전용 저장소 끝 === */
 let saveTimer=null;
 let savePromise=Promise.resolve();
 function queueItemsSave(){
@@ -1222,6 +1608,7 @@ async function load(){
     const items=await idbGetAllItems();
     if(items.length){
       state.items=items;
+      try{await rgThumbKnownKeys();}catch(e){console.warn('썸네일 저장소 열쇠 목록 읽기 실패',e);} // 주소만 있는 이미지의 해시 확인용
       rgAdoptLocalImageTracking(items);
       if(oldState&&!localStorage.getItem(UI_STORE_KEY))applyUiState(oldState);
       if(oldRaw){localStorage.setItem(STORE_KEY+'.migratedAt',new Date().toISOString());localStorage.removeItem(STORE_KEY);}
@@ -1894,7 +2281,7 @@ async function processFile(file,buffer){
 async function pushAsNewCards(list,singles){
   if(list.length>1){
     const bundle=await showConfirm(`이번에 넣은 ${list.length}장이 서로 같은 조합이야.\n한 카드로 묶을까? (첫 장이 대표가 돼)\n장수를 줄이면 앞에서부터 그만큼만 넣고 나머지는 버려.`,{confirmText:'한 카드로',cancelText:'각각 새 카드',thirdText:'건너뛰기 (추가 안 함)',visualHTML:mergeVisualHTML([
-      {label:`묶일 이미지 ${list.length}장 (첫 장이 대표)`,color:'#8888CC',thumbs:list.map((x,i)=>({t:x.thumb,cap:i===0?'대표':x.fileName}))}
+      {label:`묶일 이미지 ${list.length}장 (첫 장이 대표)`,color:'#8888CC',thumbs:list.map((x,i)=>rgVisThumb(x,i===0?'대표':x.fileName))}
     ],list.map((x,i)=>({label:i===0?`대표 · ${x.fileName||''}`:(x.fileName||''),color:i===0?'#8888CC':'#BB6688',text:(x.meta&&x.meta.positive)||''}))),numberInput:{label:'넣을 장수 (대표 포함)',max:list.length,hint:`/ ${list.length}장 · 앞에서부터`}});
     if(bundle==='third')return {merged:0,discarded:list.length}; // 건너뛰기: 이번에 넣은 같은 조합 묶음을 통째로 추가하지 않음
     if(bundle){
@@ -1999,7 +2386,7 @@ async function addFiles(files){
       const names=list.slice(0,6).map(x=>'· '+x.fileName).join('\n')+(list.length>6?`\n... 외 ${list.length-6}장`:'');
       const attach=await showConfirm(`${list.length}장이 기존 카드 "${target.title||target.fileName}" 와 같은 조합이야.\n그림체가 맞는지 아래에서 눈으로 대조해봐.\n\n${names}\n\n이 카드에 이어서 붙일까?\n장수를 줄이면 앞에서부터 그만큼만 붙이고 나머지는 버려.`,{confirmText:'붙이기',cancelText:'새 카드로',thirdText:'건너뛰기 (추가 안 함)',visualHTML:mergeVisualHTML([
         {label:'기존 카드 (대표+보조)',color:'#8888CC',thumbs:cardVisualThumbs(target)},
-        {label:`붙일 이미지 ${list.length}장`,color:'#BB6688',thumbs:list.map(x=>({t:x.thumb,cap:x.fileName}))}
+        {label:`붙일 이미지 ${list.length}장`,color:'#BB6688',thumbs:list.map(x=>rgVisThumb(x,x.fileName))}
       ],[{label:`기존 카드 대표 · ${target.title||target.fileName||''}`,color:'#8888CC',text:(target.meta&&target.meta.positive)||''},...list.map(x=>({label:x.fileName||'',color:'#BB6688',text:(x.meta&&x.meta.positive)||''}))]),numberInput:{label:'붙일 장수',max:list.length,hint:`/ ${list.length}장 · 앞에서부터`}});
       if(attach==='third'){discarded+=list.length;continue;} // 이 조합은 이미 충분 → 이번 이미지들 버림
       if(typeof attach==='number'){ // 붙이기 (숫자 입력칸이 있어 true 대신 장수가 돌아온다)
@@ -2061,7 +2448,7 @@ function cardHtml(it){
   const expanded=state.expandedIds.includes(it.id);
   const tagsArr=it.tags||[];
   const tagsMini=tagsArr.slice(0,5).map(t=>`<span class="tag-mini">#${esc(t)}</span>`).join('')+(tagsArr.length>5?`<span class="tag-mini">+${tagsArr.length-5}</span>`:'');
-  return `<article class="card ${it.id===state.selectedId?'active':''}${selectMode&&selectedIds.has(it.id)?' selected':''}" data-id="${it.id}">${collectionCardHtml(it)}<div class="fav ${it.fav?'on':''}">${it.fav?'★':'☆'}</div><div class="thumb${it.thumbStripped?' stripped':''}">${it.thumb?`<img class="lazy-thumb" alt="" decoding="async">`:it.thumbStripped?'<span class="sync-noimg" title="원본 PNG를 다시 드롭하면 자동으로 채워져"><span class="sn-icon">☁</span>다른 기기에서<br>동기화됨<span class="sn-sub">원본 PNG 드롭 시 자동 매칭</span></span>':'<span class="noimg">이미지 없음</span>'}</div><div class="card-info"><div class="card-title">${esc(it.title)}</div><div class="card-meta"><span class="pill ${statusClass(it.status)}">${esc(it.status)}</span><span class="pill">${stars(it.score)}</span>${(g=>{if(!g)return '';const v=g==='nai'?naiVerKey(it):'';return `<span class="pill meta ${g}">${g==='nai'?('NAI'+(v&&v!=='기타'?' '+v:'')):'Comfy'}</span>`})(genOf(it))}${(n=>`<span class="pill imgs${n>1?' multi':''}" title="이미지 수 (대표+보조)">${n}장</span>`)(imgCountOf(it))}</div><div class="card-tags-mini">${tagsMini}</div><div class="card-note">${esc(it.notes||(m=>{const a=[];if(m.steps!=null)a.push('Steps '+m.steps);if(m.cfg!=null)a.push('CFG '+m.cfg);if(m.naiCfgRescale!=null)a.push('Rescale '+m.naiCfgRescale);return a.join(' · ')})(it.meta||{})||it.meta?.model||it.meta?.source||'메모 없음')}</div><button class="card-expand-btn" data-expand="${it.id}"><span class="ce-arrow">${expanded?'▴':'▾'}</span><span class="ce-label">${expanded?'정보 접기':'정보 보기'}</span></button><div class="card-expanded ${expanded?'open':''}"${expanded?' data-filled="1"':''} data-eid="${it.id}">${expanded?cardExpandedHTML(it):''}</div></div></article>`;
+  return `<article class="card ${it.id===state.selectedId?'active':''}${selectMode&&selectedIds.has(it.id)?' selected':''}" data-id="${it.id}">${collectionCardHtml(it)}<div class="fav ${it.fav?'on':''}">${it.fav?'★':'☆'}</div><div class="thumb${it.thumbStripped?' stripped':''}">${rgHasThumb(it)?`<img class="lazy-thumb" alt="" decoding="async">`:it.thumbStripped?'<span class="sync-noimg" title="원본 PNG를 다시 드롭하면 자동으로 채워져"><span class="sn-icon">☁</span>다른 기기에서<br>동기화됨<span class="sn-sub">원본 PNG 드롭 시 자동 매칭</span></span>':'<span class="noimg">이미지 없음</span>'}</div><div class="card-info"><div class="card-title">${esc(it.title)}</div><div class="card-meta"><span class="pill ${statusClass(it.status)}">${esc(it.status)}</span><span class="pill">${stars(it.score)}</span>${(g=>{if(!g)return '';const v=g==='nai'?naiVerKey(it):'';return `<span class="pill meta ${g}">${g==='nai'?('NAI'+(v&&v!=='기타'?' '+v:'')):'Comfy'}</span>`})(genOf(it))}${(n=>`<span class="pill imgs${n>1?' multi':''}" title="이미지 수 (대표+보조)">${n}장</span>`)(imgCountOf(it))}</div><div class="card-tags-mini">${tagsMini}</div><div class="card-note">${esc(it.notes||(m=>{const a=[];if(m.steps!=null)a.push('Steps '+m.steps);if(m.cfg!=null)a.push('CFG '+m.cfg);if(m.naiCfgRescale!=null)a.push('Rescale '+m.naiCfgRescale);return a.join(' · ')})(it.meta||{})||it.meta?.model||it.meta?.source||'메모 없음')}</div><button class="card-expand-btn" data-expand="${it.id}"><span class="ce-arrow">${expanded?'▴':'▾'}</span><span class="ce-label">${expanded?'정보 접기':'정보 보기'}</span></button><div class="card-expanded ${expanded?'open':''}"${expanded?' data-filled="1"':''} data-eid="${it.id}">${expanded?cardExpandedHTML(it):''}</div></div></article>`;
 }
 /* 펼침 영역 내부 버튼(프롬프트 복사·보조 승격·보조 삭제) 바인딩. scope는 카드 하나 또는 card-expanded 하나 */
 function bindExpandedControls(scope){
@@ -2134,8 +2521,8 @@ function hydrateSubThumb(im){
   if(!im.isConnected){if(subThumbObserver)subThumbObserver.unobserve(im);return;}
   if(im.dataset.loaded==='1'||!im.closest('.card-expanded')?.classList.contains('open'))return;
   const sub=subThumbSources.get(im);
-  if(!sub?.thumb)return;
-  im.src=sub.thumb;
+  if(!rgHasThumb(sub))return;
+  rgLoadThumbInto(im,sub);
   im.dataset.loaded='1';
   if(subThumbObserver)subThumbObserver.unobserve(im);
   subThumbSources.delete(im);
@@ -2150,7 +2537,7 @@ function observeSubThumbs(scope){
   scope.querySelectorAll('img.lazy-sub-thumb').forEach(im=>{
     if(im.dataset.loaded==='1')return;
     const sub=(it.subs||[])[Number(im.dataset.subIndex)];
-    if(!sub?.thumb)return;
+    if(!rgHasThumb(sub))return;
     subThumbSources.set(im,sub);
     if(subThumbObserver)subThumbObserver.observe(im);
     else hydrateSubThumb(im);
@@ -2168,9 +2555,8 @@ function hydrateCardThumb(el){
   const im=el.querySelector('.thumb img.lazy-thumb');
   if(!im||im.dataset.loaded==='1')return;
   const it=state.items.find(x=>x.id===el.dataset.id);
-  const src=it?(it.thumb||''):'';
-  if(!src)return;
-  im.src=src;
+  if(!rgHasThumb(it))return;
+  rgLoadThumbInto(im,it); // thumb가 있으면 즉시, 없으면 저장소에서
   im.dataset.loaded='1';
   if(thumbObserver)thumbObserver.unobserve(el);
 }
@@ -2327,7 +2713,7 @@ function detailMetadataRows(it,m){
   rows.push(['크기',(m.width&&m.height)?`${m.width}×${m.height}`:'확인 불가'],['파일',bytes(it.size)]);
   return rows;
 }
-function renderDetail(){const it=current();$('#detail-empty').style.display=it?'none':'block';$('#detail').style.display=it?'block':'none';const dsb=detailSubOf(it);$('#selected-state').textContent=it?(dsb?`편집 중 · 보조 ${dsb.i+1}/${(it.subs||[]).length} 이미지`:'편집 중'):'선택 없음';if(!it)return;const m=dsb?(dsb.s.meta||{}):(it.meta||{});$('#d-img').src=(dsb?dsb.s.thumb:it.thumb)||'';$('#d-title').value=it.title||'';$('#d-status').value=it.status||'보류';$('#d-score').value=String(it.score||0);$('#d-tags').value=(it.tags||[]).join(', ');$('#d-notes').value=it.notes||'';$('#toggle-fav-btn').textContent=it.fav?'즐겨찾기 해제':'즐겨찾기';const rows=detailMetadataRows(it,m);
+function renderDetail(){const it=current();$('#detail-empty').style.display=it?'none':'block';$('#detail').style.display=it?'block':'none';const dsb=detailSubOf(it);$('#selected-state').textContent=it?(dsb?`편집 중 · 보조 ${dsb.i+1}/${(it.subs||[]).length} 이미지`:'편집 중'):'선택 없음';if(!it)return;const m=dsb?(dsb.s.meta||{}):(it.meta||{});rgLoadThumbInto($('#d-img'),dsb?dsb.s:it);$('#d-title').value=it.title||'';$('#d-status').value=it.status||'보류';$('#d-score').value=String(it.score||0);$('#d-tags').value=(it.tags||[]).join(', ');$('#d-notes').value=it.notes||'';$('#toggle-fav-btn').textContent=it.fav?'즐겨찾기 해제':'즐겨찾기';const rows=detailMetadataRows(it,m);
   $('#d-kv').innerHTML=rows.map(([k,v])=>`<b>${esc(k)}</b><span>${esc(v)}</span>`).join('');$('#d-positive').textContent=m.positive||'확인 불가';$('#d-negative').textContent=m.negative||'확인 불가'}
 // [C단계] 무거운 용량 계산을 렌더링 경로에서 분리한다.
 // JSON.stringify(state)와 estimateGistPayloadBytes()(내부에서 state를 깊은 복제)는
@@ -2436,7 +2822,7 @@ function cardExpandedHTML(it){
   let h='<div class="ce-viewing" hidden></div><div class="ce-meta">'+(ceMetaHTML(it.meta)||'<div class="ce-empty">메타 정보 없음</div>')+'</div>';
   if(it.subs&&it.subs.length){
     h+=`<div class="ce-prompt-label"><span>보조 이미지 ${it.subs.length}장 (같은 조합)</span></div><div class="ce-subs">`+
-      it.subs.map((s,i)=>`<div class="ce-sub" data-sub-view="${i}" title="${esc(s.fileName||'')} · 누르면 이 이미지의 프롬프트 보기">${s.thumb?`<img class="lazy-sub-thumb" data-sub-index="${i}" decoding="async" loading="lazy" alt="">`:'<span class="ce-sub-noimg" title="다른 기기에서 동기화됨 · 원본 PNG 드롭 시 자동 매칭">☁</span>'}<div class="ce-sub-acts"><button class="ce-sub-btn" data-sub-promote="${i}" title="이 이미지를 대표로 승격">★</button><button class="ce-sub-btn" data-sub-del="${i}" title="보조 이미지 삭제">×</button></div></div>`).join('')+'</div>';
+      it.subs.map((s,i)=>`<div class="ce-sub" data-sub-view="${i}" title="${esc(s.fileName||'')} · 누르면 이 이미지의 프롬프트 보기">${rgHasThumb(s)?`<img class="lazy-sub-thumb" data-sub-index="${i}" decoding="async" loading="lazy" alt="">`:'<span class="ce-sub-noimg" title="다른 기기에서 동기화됨 · 원본 PNG 드롭 시 자동 매칭">☁</span>'}<div class="ce-sub-acts"><button class="ce-sub-btn" data-sub-promote="${i}" title="이 이미지를 대표로 승격">★</button><button class="ce-sub-btn" data-sub-del="${i}" title="보조 이미지 삭제">×</button></div></div>`).join('')+'</div>';
   }
   return h;
 }
@@ -2445,9 +2831,10 @@ function promoteSub(it,idx){
   const s=(it.subs||[])[idx]; if(!s)return;
   const old={id:uid(),rgThumbHash:it.rgThumbHash,rgThumbHashVersion:it.rgThumbHashVersion,thumb:it.thumb,fileName:it.fileName,size:it.size,fileHash:it.fileHash,meta:it.meta,addedAt:Date.now()};
   if(it.thumbStripped){old.thumbStripped=true;delete old.thumb;}
+  rgCopyThumbKey(it,old);
   const titleWasFileName=(it.title===it.fileName);
   it.thumb=s.thumb; it.thumbStripped=!!s.thumbStripped;
-  it.rgThumbHash=s.rgThumbHash;it.rgThumbHashVersion=s.rgThumbHashVersion;
+  it.rgThumbHash=s.rgThumbHash;it.rgThumbHashVersion=s.rgThumbHashVersion;rgCopyThumbKey(s,it);
   it.fileName=s.fileName; it.size=s.size; it.fileHash=s.fileHash; it.meta=s.meta;
   if(titleWasFileName&&s.fileName)it.title=s.fileName;
   it.subs[idx]=old;
@@ -2665,14 +3052,15 @@ function mergeVisualHTML(groups,compare){
   /* 확대 뷰용 평탄 목록. 화면엔 그룹당 12장까지만 그리지만 목록엔 전부 담아
      '+N'으로 접힌 것들도 좌우 이동으로 볼 수 있게 한다. 이 모달이 들고 있는 이미지만 담는다. */
   cmvZoomList=[]; cmvZoomPos=-1;
-  groups.forEach(g=>{(g.thumbs||[]).forEach(x=>cmvZoomList.push({t:x.t,cap:x.cap||'',label:g.label||'',color:g.color||'#8888CC'}))});
+  groups.forEach(g=>{(g.thumbs||[]).forEach(x=>cmvZoomList.push({t:x.t,k:x.k||'',cap:x.cap||'',label:g.label||'',color:g.color||'#8888CC'}))});
+  if(cmvZoomList.some(x=>!x.t&&x.k))setTimeout(()=>rgHydrateThumbAttrs(),0); // 확인창이 그려진 뒤 저장소 썸네일 채우기
   let base=0;
   return '<div class="cmv">'+groups.map(g=>{
     const thumbs=g.thumbs||[];
     const start=base; base+=thumbs.length;
     const shown=thumbs.slice(0,12);
     const more=thumbs.length-shown.length;
-    return `<div class="cmv-group"><div class="cmv-label" style="color:${g.color||'#8888CC'}">${esc(g.label)}</div><div class="cmv-grid">${shown.map((x,i)=>`<div class="cmv-item" data-cmv="${start+i}"${x.cap?` title="${esc(x.cap)}"`:''}>${x.t?`<img src="${x.t}" alt="">`:'<span class="cmv-noimg" title="다른 기기에서 동기화됨">☁</span>'}${x.cap?`<span class="cmv-cap">${esc(x.cap)}</span>`:''}</div>`).join('')}${more>0?`<div class="cmv-item cmv-more" data-cmv="${start+shown.length}" title="접힌 ${more}장부터 크게 보기">+${more}</div>`:''}</div></div>`;
+    return `<div class="cmv-group"><div class="cmv-label" style="color:${g.color||'#8888CC'}">${esc(g.label)}</div><div class="cmv-grid">${shown.map((x,i)=>`<div class="cmv-item" data-cmv="${start+i}"${x.cap?` title="${esc(x.cap)}"`:''}>${x.t?`<img src="${x.t}" alt="">`:x.k?`<img data-rg-thumb="${x.k}" alt="">`:'<span class="cmv-noimg" title="다른 기기에서 동기화됨">☁</span>'}${x.cap?`<span class="cmv-cap">${esc(x.cap)}</span>`:''}</div>`).join('')}${more>0?`<div class="cmv-item cmv-more" data-cmv="${start+shown.length}" title="접힌 ${more}장부터 크게 보기">+${more}</div>`:''}</div></div>`;
   }).join('')+mergePositiveCompareHTML(compare)+'</div>';
 }
 /* ── 모달 전용 확대 뷰 ──
@@ -2682,7 +3070,7 @@ function mergeVisualHTML(groups,compare){
 function renderCmvZoom(){
   const e=cmvZoomList[cmvZoomPos]; if(!e)return;
   const img=$('#cz-img'), no=$('#cz-noimg');
-  if(e.t){img.src=e.t;img.style.display='';no.style.display='none';}
+  if(e.t||e.k){rgLoadThumbInto(img,{thumb:e.t,thumbKey:e.k});img.style.display='';no.style.display='none';}
   else{img.removeAttribute('src');img.style.display='none';no.style.display='block';}
   const lb=$('#cz-label'); lb.textContent=e.label||''; lb.style.color=e.color||'#8888CC';
   $('#cz-cap').textContent=e.cap||'';
@@ -2719,13 +3107,14 @@ function cmvZoomKey(e){
   else if(e.key==='ArrowRight')cmvZoomStep(1);
 }
 function cardVisualThumbs(it){ // 카드의 대표 + 보조 전부
-  return [{t:it.thumb,cap:''},...(it.subs||[]).map(s=>({t:s&&s.thumb,cap:''}))];
+  return [rgVisThumb(it,''),...(it.subs||[]).map(s=>rgVisThumb(s,''))];
 }
 /* 신규 아이템(또는 기존 카드)을 다른 카드의 보조 이미지로 변환.
    thumbStripped 승계: 동기화 껍데기 카드를 소급 병합해도 나중에 원본 드롭으로 채울 수 있게. */
 function itemToSub(x){
   const sub={id:x.id,rgThumbHash:x.rgThumbHash,rgThumbHashVersion:x.rgThumbHashVersion,thumb:x.thumb,fileName:x.fileName,size:x.size,fileHash:x.fileHash,meta:x.meta,addedAt:Date.now()};
   if(x.thumbStripped){sub.thumbStripped=true;delete sub.thumb;}
+  rgCopyThumbKey(x,sub);
   return sub;
 }
 /* ── 병합 제외 짝 기록 ──
@@ -2780,7 +3169,7 @@ async function runMergeScan(){
       const names=rest.slice(0,6).map(x=>'· '+(x.title||x.fileName||'(제목 없음)')).join('\n')+(rest.length>6?`\n... 외 ${rest.length-6}장`:'');
       const ok=await showConfirm(`대표: "${head.title||head.fileName||'(제목 없음)'}"\n그림체가 맞는지 아래에서 눈으로 대조해봐.\n\n다음 ${rest.length}장을 이 카드의 보조로 붙일까?\n${names}\n\n건너뛰면 이 짝은 기억해서 다음부터 안 물어봐.`,{confirmText:'붙이기',cancelText:'건너뛰기',visualHTML:mergeVisualHTML([
         {label:'대표 카드 (대표+보조)',color:'#8888CC',thumbs:cardVisualThumbs(head)},
-        {label:`붙일 카드 ${rest.length}장`,color:'#BB6688',thumbs:rest.map(x=>({t:x.thumb,cap:x.title||x.fileName||''}))}
+        {label:`붙일 카드 ${rest.length}장`,color:'#BB6688',thumbs:rest.map(x=>rgVisThumb(x,x.title||x.fileName||''))}
       ],[{label:`대표 · ${head.title||head.fileName||''}`,color:'#8888CC',text:(head.meta&&head.meta.positive)||''},...rest.map(x=>({label:x.title||x.fileName||'',color:'#BB6688',text:(x.meta&&x.meta.positive)||''}))])});
       if(!ok){ // 건너뛰기 → 이 묶음 안의 모든 짝을 제외 기록에 저장
         const before=ignored.size;
@@ -2843,7 +3232,7 @@ function subToNewItem(src,sb,restSubs){
   const n={id:uid(),title:sb.fileName||(src.title||'분리된 카드'),fileName:sb.fileName||'',size:sb.size,type:'',fileHash:sb.fileHash,
     createdAt:Date.now(),updatedAt:Date.now(),status:src.status,score:src.score,fav:!!src.fav,
     tags:uniq(tags),notes:src.notes||'',meta:sb.meta,subs:(restSubs||[]).slice()};
-  n.rgThumbHash=sb.rgThumbHash;n.rgThumbHashVersion=sb.rgThumbHashVersion;
+  n.rgThumbHash=sb.rgThumbHash;n.rgThumbHashVersion=sb.rgThumbHashVersion;rgCopyThumbKey(sb,n);
   if(sb.thumbStripped){n.thumbStripped=true;}else{n.thumb=sb.thumb;}
   return n;
 }
@@ -2885,9 +3274,9 @@ async function runArtistSplitScan(){
     if(!state.items.includes(it))continue; // 진행 중 다른 경로로 삭제됐을 가능성 방어
     const moving=new Set(); move.forEach(list=>list.forEach(sb=>moving.add(sb)));
     const stay=(it.subs||[]).filter(sb=>!moving.has(sb));
-    const groups=[{label:`남는 카드 (대표+같은 조합 ${stay.length}장)`,color:'#8888CC',thumbs:[{t:it.thumb,cap:'대표'},...stay.map(s=>({t:s&&s.thumb,cap:s&&s.fileName||''}))]}];
+    const groups=[{label:`남는 카드 (대표+같은 조합 ${stay.length}장)`,color:'#8888CC',thumbs:[rgVisThumb(it,'대표'),...stay.map(s=>rgVisThumb(s,s&&s.fileName||''))]}];
     const lines=[]; let gi=0;
-    for(const [,list] of move){gi++;groups.push({label:`분리 ${gi} → 새 카드 (${list.length}장, 첫 장이 대표)`,color:'#BB6688',thumbs:list.map(s=>({t:s.thumb,cap:s.fileName||''}))});lines.push(`· 분리 ${gi} (${list.length}장): ${artistSplitDiffText(it.meta,list[0].meta)}`);}
+    for(const [,list] of move){gi++;groups.push({label:`분리 ${gi} → 새 카드 (${list.length}장, 첫 장이 대표)`,color:'#BB6688',thumbs:list.map(s=>rgVisThumb(s,s.fileName||''))});lines.push(`· 분리 ${gi} (${list.length}장): ${artistSplitDiffText(it.meta,list[0].meta)}`);}
     const compare=[{label:`대표 · ${it.title||it.fileName||''}`,color:'#8888CC',text:(it.meta&&it.meta.positive)||''},...[...moving].map(sb=>({label:sb.fileName||'',color:'#BB6688',text:(sb.meta&&sb.meta.positive)||''}))];
     const ok=await showConfirm(
       `"${it.title||it.fileName||'(제목 없음)'}"\n대표와 작가 조합이 다른 보조가 섞여 있어.\n아래에서 눈으로 대조하고 결정해.\n\n${lines.join('\n')}`,
@@ -3016,7 +3405,7 @@ function renderDupScan(){
       const tiles=arr.map((it,ii)=>`<div class="ds-tile${dsSelected.has(it.id)?' sel':''}" data-id="${it.id}">
         <div class="ds-mark">${dsSelected.has(it.id)?'✓':''}</div>
         ${ii===0?'<div class="ds-keep">최신</div>':''}
-        <div class="ds-img">${it.thumb?`<img src="${it.thumb}" alt="">`:'<span style="font-size:10px;color:var(--text3)">이미지 없음</span>'}</div>
+        <div class="ds-img">${it.thumb?`<img src="${it.thumb}" alt="">`:rgHasThumb(it)?`<img data-rg-thumb="${it.thumbKey}" alt="">`:'<span style="font-size:10px;color:var(--text3)">이미지 없음</span>'}</div>
         <div class="ds-cap" title="${esc(it.title||'')}">${esc(shortTitle(it.title))}<br><span style="opacity:.6">${stars(it.score)} · ${esc(it.status)}</span></div>
       </div>`).join('');
       // 원문 대조: 카드마다 파싱 결과와 실제 프롬프트를 같이 보여줘서 파서가 맞는지 눈으로 확인 가능
@@ -3040,6 +3429,7 @@ function renderDupScan(){
         <div class="ds-raw" data-raw="${gi}">${raw}</div>
       </div>`;
     }).join('');
+    rgHydrateThumbAttrs(body);
     $('#ds-summary').textContent=`${groups.length}개 그룹 · ${dupTotal}장 중복 · 최대 ${removable}장 정리 가능`;
     body.querySelectorAll('.ds-toggle').forEach(b=>{
       const gi=b.dataset.g;
@@ -3439,7 +3829,7 @@ async function exportData(list){ // list 생략 시 전체 (우클릭 메뉴용)
     for(let s=0;s<items.length;s+=EXPORT_CHUNK){
       let parts=[];
       const e=Math.min(s+EXPORT_CHUNK,items.length);
-      for(let i=s;i<e;i++){parts.push('    '+JSON.stringify(items[i],null,2).replace(/\n/g,'\n    '));parts.push(i<items.length-1?',\n':'\n')}
+      for(let i=s;i<e;i++){const out=await rgItemWithThumbs(items[i]);parts.push('    '+JSON.stringify(out,null,2).replace(/\n/g,'\n    '));parts.push(i<items.length-1?',\n':'\n')} // 카드에 없는 썸네일은 저장소에서 채워 넣는다
       blobs.push(new Blob(parts));
       parts=null;
       toast(`내보내는 중 ${e.toLocaleString()}/${items.length.toLocaleString()}`);
@@ -3509,7 +3899,7 @@ function exportMetaRows(it){
 }
 /* HTML 내보내기(조회 전용): 카드별 대표 썸네일(data URL) + 메타 + 상태/점수/태그/메모.
    카드 단위 문자열 조각을 Blob에 넣어 대용량에서도 문자열 길이 제한을 피한다. 뷰어 쪽 검색/필터/복사/확대는 내장 스크립트로 처리. */
-function exportHtml(items){
+async function exportHtml(items){
   try{
     if(!items||!items.length){toast('내보낼 카드가 없어');return}
     const date=new Date();
@@ -3560,12 +3950,13 @@ button.cp:hover{background:var(--c1);color:#fff}
 <label><input type="checkbox" id="fv"> 즐겨찾기만</label><span id="cnt"></span></header>
 <main>
 `;
-    const parts=[head];
-    items.forEach(it=>{
+    const parts=[head],chunks=[];
+    for(const it of items){
       const m=it.meta||{};
       const q=[it.title,it.fileName,m.model,m.source,(m.loras||[]).map(l=>l.name).join(' '),m.positive,m.negative,(it.tags||[]).join(' '),it.notes,it.status].filter(Boolean).join(' ').toLowerCase();
       const rows=exportMetaRows(it).map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(String(v))}</dd>`).join('');
-      const img=it.thumb?`<img src="${esc(it.thumb)}" loading="lazy" alt="">`:`<div class="noimg">썸네일 없음 (동기화로 제외됨)</div>`;
+      const src=it.thumb||(rgHasThumb(it)?await rgThumbData(it.thumbKey):''); // 카드에 없으면 저장소에서
+      const img=src?`<img src="${esc(src)}" loading="lazy" alt="">`:`<div class="noimg">썸네일 없음 (동기화로 제외됨)</div>`;
       const tags=(it.tags||[]).map(t=>`<span class="pill tag">${esc(t)}</span>`).join('');
       parts.push(`<article data-q="${esc(q)}" data-st="${esc(it.status||'보류')}" data-sc="${Number(it.score)||0}" data-fav="${it.fav?1:0}">
 <div class="im">${img}</div>
@@ -3578,7 +3969,8 @@ button.cp:hover{background:var(--c1);color:#fff}
 ${it.notes?`<div class="notes">${esc(it.notes)}</div>`:''}
 </div></article>
 `);
-    });
+      if(parts.length>=200){chunks.push(new Blob(parts));parts.length=0;await new Promise(r=>setTimeout(r,0));} // 큰 문자열을 오래 들고 있지 않게
+    }
     parts.push(`</main>
 <div id="lb"><img alt=""></div><div id="toast"></div>
 <script>
@@ -3602,7 +3994,7 @@ $('#lb').addEventListener('click',function(){$('#lb').classList.remove('on')});
 document.addEventListener('keydown',function(e){if(e.key==='Escape')$('#lb').classList.remove('on')});
 })();
 <\/script></body></html>`);
-    const blob=new Blob(parts,{type:'text/html;charset=utf-8'});
+    const blob=new Blob([...chunks,...parts],{type:'text/html;charset=utf-8'});
     downloadBlob(blob,'result_gallery_'+localDate+'.html');
     toast(`HTML ${items.length}장 · ${bytes(blob.size)} 내보내기 시작`);
   }catch(e){toast('HTML 내보내기 실패 — '+((e&&e.message)||e));console.error('exportHtml',e)}
@@ -3697,6 +4089,7 @@ async function importData(file){
     if(selectMode)exitSelectMode();
     if(lightboxItemId)closeLightbox(false);
     const seen=new Set();let skippedDup=0,skippedNoId=0;
+    const absorb=await rgThumbAbsorber(); // 불러온 썸네일을 저장소에 기록 (5단계 이후에는 카드에서 빼서 메모리를 아낌)
     const progress=n=>{if(n%200===0)toast(`불러오는 중 ${n.toLocaleString()}장`)};
     const tick=async n=>{progress(n);if(n%200===0)await new Promise(r=>setTimeout(r,0))};
     if(mode==='merge'){
@@ -3705,8 +4098,9 @@ async function importData(file){
       const res=await rgStreamImportItems(file,async it=>{
         if(!it.id){skippedNoId++;return}
         if(existing.has(it.id)||seen.has(it.id)){skippedDup++;return}
-        seen.add(it.id);added.push(it);await tick(added.length);
+        seen.add(it.id);await absorb.add(it);added.push(it);await tick(added.length);
       });
+      await absorb.flush();
       if(!added.length){toast(`추가할 새 카드가 없어 (읽은 ${res.count.toLocaleString()}장 · 중복 ${skippedDup.toLocaleString()} · 형식 오류 ${res.bad})`);return}
       state.collections=rgPlanCollectionImport(res.collections,added,true);
       state.items=[...added,...state.items];
@@ -3724,8 +4118,9 @@ async function importData(file){
       const res=await rgStreamImportItems(file,async it=>{
         if(!it.id){skippedNoId++;return}
         if(seen.has(it.id)){skippedDup++;return}
-        seen.add(it.id);next.push(it);await tick(next.length);
+        seen.add(it.id);await absorb.add(it);next.push(it);await tick(next.length);
       });
+      await absorb.flush();
       if(!next.length)throw new Error('파일에 불러올 카드가 없어');
       toast(`${next.length.toLocaleString()}장 저장 중…`);
       const nextCollections=rgPlanCollectionImport(res.collections,next,false);
@@ -3766,30 +4161,31 @@ function lbIsMobile(){try{return window.matchMedia(LB_MOBILE_MQ).matches}catch(_
 function buildLbPlaylist(){
   const out=[];
   filtered().forEach(it=>{
-    if(it.thumb)out.push({id:it.id,sub:-1});
-    (it.subs||[]).forEach((s,i)=>{if(s&&s.thumb)out.push({id:it.id,sub:i})});
+    if(rgHasThumb(it))out.push({id:it.id,sub:-1});
+    (it.subs||[]).forEach((s,i)=>{if(rgHasThumb(s))out.push({id:it.id,sub:i})});
   });
   return out;
 }
-function lbEntryThumb(e){
-  if(!e)return '';
-  const it=state.items.find(x=>x.id===e.id); if(!it)return '';
-  return e.sub<0?(it.thumb||''):(((it.subs||[])[e.sub]||{}).thumb||'');
+function lbEntryImage(e){ // 재생목록 엔트리의 이미지 객체 (대표 또는 보조)
+  if(!e)return null;
+  const it=state.items.find(x=>x.id===e.id); if(!it)return null;
+  return e.sub<0?it:((it.subs||[])[e.sub]||null);
 }
 function lbPrefetch(){
   if(lbPlaylist.length<2||lbPos<0)return;
-  const t=lbEntryThumb(lbPlaylist[(lbPos+1)%lbPlaylist.length]);
-  if(t){const p=new Image();p.src=t;}
+  const image=lbEntryImage(lbPlaylist[(lbPos+1)%lbPlaylist.length]);
+  if(image&&image.thumb){const p=new Image();p.src=image.thumb;}
+  else if(rgHasThumb(image))rgThumbUrl(image.thumbKey); // 저장소 것은 Blob 주소만 미리 만들어 둔다
 }
 function renderLightbox(){
   const box=$('#lightbox');
   if(!box||lbPos<0||!lbPlaylist.length)return;
   const entry=lbPlaylist[lbPos];
   const it=state.items.find(x=>x.id===entry.id);
-  const thumb=lbEntryThumb(entry);
-  if(!it||!thumb){closeLightbox(false);return;}
+  const lbImage=lbEntryImage(entry);
+  if(!it||!rgHasThumb(lbImage)){closeLightbox(false);return;}
   lightboxItemId=it.id;
-  $('#lb-img').src=thumb;
+  rgLoadThumbInto($('#lb-img'),lbImage);
   $('#lb-title').textContent=(it.title||'결과')+(entry.sub>=0?` · 보조 ${entry.sub+1}/${(it.subs||[]).length}`:'');
   $('#lb-count').textContent=stars(it.score);
   const fav=$('#lb-fav');
@@ -3831,7 +4227,7 @@ function openLbPrompt(){
   const meta=image.meta||{};
   $('#lb-prompt-title').textContent=(it.title||'결과')+(entry.sub>=0?' · 보조 '+(entry.sub+1):' · 대표')+' · 이미지 정보';
   const rowsHTML=rows=>rows.map(([k,v])=>`<b>${esc(k)}</b><span>${esc(String(v??''))}</span>`).join('');
-  $('#lb-info-image').src=image.thumb||'';
+  rgLoadThumbInto($('#lb-info-image'),image);
   $('#lb-info-kv').innerHTML=rowsHTML(detailMetadataRows(image,meta));
   $('#lb-info-card').innerHTML=rowsHTML([['제목',it.title||'제목 없음'],['상태',it.status||'보류'],['점수',stars(it.score)],['태그',(it.tags||[]).join(', ')||'없음'],['즐겨찾기',it.fav?'켜짐':'꺼짐']]);
   $('#lb-info-notes').textContent=it.notes||'메모가 없습니다.';
@@ -3861,7 +4257,7 @@ function closeLbPrompt(resume=true){
 }
 function openLightbox(){
   const it=current();
-  if(!it||!it.thumb)return;
+  if(!it||!rgHasThumb(it))return;
   let list=buildLbPlaylist();
   let pos=list.findIndex(e=>e.id===it.id&&e.sub===-1);
   if(pos<0){list=[{id:it.id,sub:-1}];pos=0;} // 필터 밖 아이템(상세에서 연 경우)은 단독 재생
@@ -4061,6 +4457,7 @@ async function purgeUnreadCards(){
   toast(`메타 못 읽은 카드 ${targets.length}개 삭제됨`);
 }
 $('#unread-purge-btn').onclick=purgeUnreadCards;
+$('#thumb-store-btn').onclick=openThumbStoreMenu;
 $('#dup-scan-btn').onclick=openDupScan;
 document.addEventListener('click',e=>{
   const t=e.target&&e.target.closest&&e.target.closest('.cmv-item[data-cmv]');
@@ -4784,11 +5181,16 @@ async function gistDownload(){
 function rgGistApplySlot(slot,token,gistId,onClose=()=>{}){
   try{
       // 로컬 썸네일 백업 (파일명+크기 기준)
-      const localThumbs=new Map();
+      const localThumbs=new Map(),localKeys=new Map(); // 썸네일 글자 / 저장소 주소 (4단계: 카드에 글자가 없을 때 주소로 연결)
       (state.items||[]).forEach(it=>{
         if(it.thumb && it.fileName){ localThumbs.set(it.fileName+'|'+it.size, it.thumb); }
-        (it.subs||[]).forEach(sb=>{ if(sb&&sb.thumb&&sb.fileName){ localThumbs.set(sb.fileName+'|'+sb.size, sb.thumb); } });
+        else if(rgHasThumb(it) && it.fileName){ localKeys.set(it.fileName+'|'+it.size, it.thumbKey); }
+        (it.subs||[]).forEach(sb=>{ if(sb&&sb.thumb&&sb.fileName){ localThumbs.set(sb.fileName+'|'+sb.size, sb.thumb); } else if(rgHasThumb(sb)&&sb.fileName){ localKeys.set(sb.fileName+'|'+sb.size, sb.thumbKey); } });
       });
+      const keyInStore=k=>rgValidHash(k)&&rgThumbKeys&&rgThumbKeys.has(k);
+      // 백업에 들어 있는 주소가 저장소에 있으면 그 주소로 바로 연결한다(썸네일 글자를 메모리에 올리지 않음).
+      const outMode=rgThumbOutMode(); // 주소만으로 연결은 5단계(썸네일 빼기) 이후에만. 그 전에는 예전과 똑같이 동작
+      const relinkByKey=img=>{if(outMode&&img&&img.thumbStripped&&!img.thumb&&keyInStore(img.thumbKey)){img.thumbStripped=false;return true;}return false;};
       // 새 state 적용
       state=slot.state;
       // 마이그레이션 (download된 state에 새 필드 없을 수 있음)
@@ -4803,13 +5205,18 @@ function rgGistApplySlot(slot,token,gistId,onClose=()=>{}){
       (state.items||[]).forEach(it=>{
         if(it.thumbStripped){
           const k=it.fileName+'|'+it.size;
-          const t=localThumbs.get(k);
-          if(t){ it.thumb=t; it.thumbStripped=false; restored++; }
+          const t=localThumbs.get(k),lk=localKeys.get(k);
+          if(relinkByKey(it))restored++;
+          else if(t){ it.thumb=t; it.thumbStripped=false; restored++; }
+          else if(outMode&&keyInStore(lk)){ it.thumbKey=lk; it.thumbStripped=false; restored++; }
         }
         (it.subs||[]).forEach(sb=>{
           if(sb&&sb.thumbStripped){
-            const t=localThumbs.get(sb.fileName+'|'+sb.size);
-            if(t){ sb.thumb=t; sb.thumbStripped=false; restored++; }
+            const k=sb.fileName+'|'+sb.size;
+            const t=localThumbs.get(k),lk=localKeys.get(k);
+            if(relinkByKey(sb))restored++;
+            else if(t){ sb.thumb=t; sb.thumbStripped=false; restored++; }
+            else if(outMode&&keyInStore(lk)){ sb.thumbKey=lk; sb.thumbStripped=false; restored++; }
           }
         });
       });
@@ -5004,13 +5411,17 @@ function scanExactDuplicates(items){
   const buckets=new Map(), snapshots=[];let unchecked=0;
   items.forEach((card,ci)=>{
     [card,...(card.subs||[])].forEach((image,si)=>{
-      const entry={card,image,ci,sub:si-1,hash:image.fileHash,thumb:image.thumb,stripped:image.thumbStripped};
+      const entry={card,image,ci,sub:si-1,hash:image.fileHash,thumb:image.thumb,tk:image.thumbKey,stripped:image.thumbStripped};
       snapshots.push(entry);
-      if(!image.fileHash||!image.thumb||image.thumbStripped){unchecked++;return;}
+      if(!image.fileHash||!rgHasThumb(image)){unchecked++;return;}
       let variants=buckets.get(image.fileHash);
       if(!variants)buckets.set(image.fileHash,variants=new Map());
-      let group=variants.get(image.thumb);
-      if(!group)variants.set(image.thumb,group=[]);
+      // 같은 그림 판별: 확인된 내용 해시(썸네일 글자의 SHA-256 또는 저장소에 있는 주소)로, 없으면 썸네일 글자로
+      const vh=rgCachedThumbHash(image);
+      if(!image.thumb&&!vh){unchecked++;return;} // 주소가 저장소에 없으면 비교하지 않음
+      const vk=vh?'k:'+vh:'t:'+image.thumb;
+      let group=variants.get(vk);
+      if(!group)variants.set(vk,group=[]);
       group.push(entry);
     });
   });
@@ -5075,6 +5486,14 @@ async function simHashOf(thumb){
   simHashCache.set(thumb,h);return h;
 }
 const SIM_YIELD_EVERY=25; // 이 장수마다 잠깐 쉬어 메모리 회수 틈을 준다
+async function simHashOfKey(key){ // 저장소 썸네일의 dHash·pHash (캐시는 'k:열쇠'로 구분)
+  const ck='k:'+key;
+  if(simHashCache.has(ck))return simHashCache.get(ck);
+  const d=await rgThumbData(key);
+  let h=null;
+  if(d){const img=await simLoadImage(d);if(img){try{h={d:simDHash(img),p:simPHash(img)};}catch(e){console.error('유사 해시 계산 실패',e);}}simReleaseImage(img);}
+  simHashCache.set(ck,h);return h;
+}
 async function scanSimilarCandidates(scan,onProgress,isAlive){
   const alive=()=>typeof isAlive!=='function'||isAlive();
   // 동일 이미지 묶음에서 '남길 후보'가 아닌 나머지는 이미 동일 탭에서 처리되므로 대표 1장만 비교에 넣는다.
@@ -5083,7 +5502,7 @@ async function scanSimilarCandidates(scan,onProgress,isAlive){
   const bySig=new Map();let noSig=0;
   for(const e of scan.snapshots){
     if(exactExtra.has(e))continue;
-    if(!e.thumb||e.stripped)continue;
+    if(e.stripped||!(e.thumb||rgValidHash(e.image.thumbKey)))continue; // 썸네일이 카드에 없으면 저장소 주소로 검사
     const sig=mergeSigOfMeta(e.image.meta);
     if(!sig){noSig++;continue;}
     if(!bySig.has(sig))bySig.set(sig,[]);
@@ -5098,7 +5517,7 @@ async function scanSimilarCandidates(scan,onProgress,isAlive){
     const hs=[];
     for(const e of pool){
       if(!alive()){cleanupDiag('cleanup.similar.aborted',{done,images:total});return null;} // 창을 닫거나 다시 열면 즉시 중단
-      hs.push(await simHashOf(e.thumb));done++;
+      hs.push(e.thumb?await simHashOf(e.thumb):await simHashOfKey(e.image.thumbKey));done++;
       if(onProgress&&done%20===0)onProgress(done,total);
       if(done%2000===0)cleanupDiag('cleanup.similar.progress',{done,images:total});
       if(done%SIM_YIELD_EVERY===0)await new Promise(r=>setTimeout(r,0));
@@ -5109,7 +5528,7 @@ async function scanSimilarCandidates(scan,onProgress,isAlive){
     const best=pool.map(()=>99);
     for(let i=0;i<pool.length;i++){if(!hs[i])continue;
       for(let j=i+1;j<pool.length;j++){if(!hs[j])continue;
-        if(pool[i].thumb===pool[j].thumb&&pool[i].hash===pool[j].hash)continue; // 동일 탭 대상
+        if((pool[i].thumb||pool[i].image.thumbKey)===(pool[j].thumb||pool[j].image.thumbKey)&&pool[i].hash===pool[j].hash)continue; // 동일 탭 대상
         const dd=simDist(hs[i].d,hs[j].d);if(dd>SIM_DHASH_MAX)continue;
         const pd=simDist(hs[i].p,hs[j].p);if(pd>SIM_PHASH_MAX)continue;
         parent[find(i)]=find(j);
@@ -5135,7 +5554,7 @@ function exactScanIsCurrent(scan,items){
   for(const card of items){
     for(const image of [card,...(card.subs||[])]){
       const snap=scan.snapshots[n++];
-      if(!snap||snap.image!==image||snap.hash!==image.fileHash||snap.thumb!==image.thumb||snap.stripped!==image.thumbStripped)return false;
+      if(!snap||snap.image!==image||snap.hash!==image.fileHash||snap.thumb!==image.thumb||snap.tk!==image.thumbKey||snap.stripped!==image.thumbStripped)return false;
     }
   }
   return n===scan.snapshots.length;
@@ -5182,6 +5601,7 @@ function planExactCleanup(scan,items){
     const first=subs[0];
     const replacement={...card,rgThumbHash:first.rgThumbHash,rgThumbHashVersion:first.rgThumbHashVersion,subs:subs.slice(1),thumb:first.thumb,fileName:first.fileName,
       size:first.size,fileHash:first.fileHash,meta:first.meta,thumbStripped:!!first.thumbStripped,updatedAt:Date.now()};
+    rgCopyThumbKey(first,replacement);
     if(card.title===card.fileName)replacement.title=first.fileName||card.title;
     next.push(replacement);promoted++;
   });
@@ -5255,7 +5675,7 @@ function renderExactCleanup(){
     const chosen=group.entries[group.keep];
     return `<section class="exact-group"><div class="exact-preview"><img alt="중복 이미지 미리보기" loading="lazy" decoding="async" data-exact-preview="${first+j}"></div><div class="exact-description"><b>중복 ${first+j+1} · ${group.entries.length}장 → 1장</b><div class="small">${cards.size===1?'같은 카드 안 중복':cards.size+'개 카드에 있는 중복'}</div><label>남길 카드<select data-exact-keep="${first+j}">${[...cards.values()].map(({entry:e,index,count})=>`<option value="${index}"${chosen.ci===e.ci?' selected':''}>카드 ${e.ci+1}${e.card.fav?' ★':''}${(Array.isArray(e.card.collectionIds)&&e.card.collectionIds.length)?' [컬렉션]':''} · ${esc(e.card.title||e.card.fileName||'제목 없음')} · ${count}장${e.sub===-1?' · 대표 유지':' · 보조 '+(e.sub+1)+' 유지'}</option>`).join('')}</select></label><div class="small">${esc(chosen.image.fileName||'이름 없음')} · 이 카드의 한 장만 남깁니다.</div></div></section>`;
   }).join(''):'<div class="ds-empty">정리할 동일 이미지가 없어.</div>';
-  $('#exact-body').querySelectorAll('[data-exact-preview]').forEach(img=>{img.src=groups[Number(img.dataset.exactPreview)].entries[0].thumb;});
+  $('#exact-body').querySelectorAll('[data-exact-preview]').forEach(img=>{rgLoadThumbInto(img,groups[Number(img.dataset.exactPreview)].entries[0].image);});
   $('#exact-body').querySelectorAll('[data-exact-keep]').forEach(select=>select.onchange=()=>{
     groups[Number(select.dataset.exactKeep)].keep=Number(select.value);renderExactCleanup();
   });
@@ -5283,7 +5703,7 @@ function renderSimilarCleanup(){
     groups.forEach(g=>{g.drop.clear();if(btn.dataset.simBulk==='keepfirst')for(let i=1;i<g.members.length;i++)g.drop.add(i);});
     renderExactCleanup(); // 전체 페이지(다른 페이지 포함)에 적용
   });
-  $('#exact-body').querySelectorAll('[data-sim-thumb]').forEach(img=>{const [g,i]=img.dataset.simThumb.split(':').map(Number);img.src=groups[g].members[i].entry.thumb;});
+  $('#exact-body').querySelectorAll('[data-sim-thumb]').forEach(img=>{const [g,i]=img.dataset.simThumb.split(':').map(Number);rgLoadThumbInto(img,groups[g].members[i].entry.image);});
   $('#exact-body').querySelectorAll('[data-sim-drop]').forEach(cb=>cb.onchange=()=>{
     const [g,i]=cb.dataset.simDrop.split(':').map(Number);
     if(cb.checked)groups[g].drop.add(i);else groups[g].drop.delete(i);
@@ -5382,7 +5802,7 @@ function scanCardLimit(items,targets,max,scopeLabel){
   items.forEach((card,ci)=>{
     const subs=card.subs||[];
     if(targetSet.has(card)&&1+subs.length>max)entries.push({card,ci,
-      snapshots:subs.map(image=>({image,hash:image?.fileHash,thumb:image?.thumb})),
+      snapshots:subs.map(image=>({image,hash:image?.fileHash,thumb:image?.thumb,tk:image?.thumbKey})),
       keep:new Set(subs.map((_,i)=>i).slice(0,max-1)),page:0});
   });
   return {cards:items.slice(),entries,max,scopeLabel,targetCount:targetSet.size};
@@ -5398,7 +5818,7 @@ function planCardLimit(scan,items){
   scan.entries.forEach(entry=>{
     const subs=entry.card.subs||[];
     if(subs.length!==entry.snapshots.length||subs.some((image,i)=>{
-      const snap=entry.snapshots[i];return image!==snap.image||image?.fileHash!==snap.hash||image?.thumb!==snap.thumb;
+      const snap=entry.snapshots[i];return image!==snap.image||image?.fileHash!==snap.hash||image?.thumb!==snap.thumb||image?.thumbKey!==snap.tk;
     }))throw Error('검사 후 이미지가 바뀌었어. 다시 검사해줘.');
     if(entry.keep.size>scan.max-1||[...entry.keep].some(i=>!Number.isInteger(i)||i<0||i>=subs.length))throw Error('남길 이미지 선택을 확인해줘.');
     const kept=subs.filter((_,i)=>entry.keep.has(i));
@@ -5452,10 +5872,10 @@ function renderCardLimit(){
   if(!entry){$('#limit-body').innerHTML='<div class="ds-empty">정리할 초과 카드가 없어. 기존 카드는 그대로 유지돼.</div>';return;}
   const pages=Math.max(1,Math.ceil(entry.snapshots.length/LIMIT_IMAGE_PAGE));
   entry.page=Math.max(0,Math.min(entry.page,pages-1));const start=entry.page*LIMIT_IMAGE_PAGE;
-  const tile=(image,i,head)=>`<label class="limit-tile${head||entry.keep.has(i)?' kept':''}"><span class="limit-thumb">${image?.thumb?`<img alt="${head?'대표 이미지':'보조 이미지'}" loading="lazy" decoding="async" data-limit-image="${i}">`:'<span>미리보기 없음</span>'}</span><span class="limit-caption"><input type="checkbox" ${head?'checked disabled':`data-limit-sub="${i}"${entry.keep.has(i)?' checked':''}`}> ${head?'대표 · 항상 유지':'보조 '+(i+1)}<br>${esc(image?.fileName||'이름 없음')}</span></label>`;
+  const tile=(image,i,head)=>`<label class="limit-tile${head||entry.keep.has(i)?' kept':''}"><span class="limit-thumb">${rgHasThumb(image)?`<img alt="${head?'대표 이미지':'보조 이미지'}" loading="lazy" decoding="async" data-limit-image="${i}">`:'<span>미리보기 없음</span>'}</span><span class="limit-caption"><input type="checkbox" ${head?'checked disabled':`data-limit-sub="${i}"${entry.keep.has(i)?' checked':''}`}> ${head?'대표 · 항상 유지':'보조 '+(i+1)}<br>${esc(image?.fileName||'이름 없음')}</span></label>`;
   $('#limit-body').innerHTML=`<div class="limit-card-title"><b>${esc(entry.card.title||entry.card.fileName||'제목 없음')}</b><div class="small">현재 ${entry.snapshots.length+1}장 → ${entry.keep.size+1}장 유지 · 체크 해제한 보조 이미지만 삭제</div><button class="btn ghost" id="limit-reset-card">대표 + 앞쪽 ${scan.max-1}장으로 초기화</button></div><div class="limit-grid">${tile(entry.card,-1,true)}${entry.snapshots.slice(start,start+LIMIT_IMAGE_PAGE).map((snap,j)=>tile(snap.image,start+j,false)).join('')}</div><div class="limit-image-nav"><button class="btn ghost" id="limit-image-prev"${entry.page===0?' disabled':''}>이미지 이전</button><span>${entry.page+1} / ${pages}</span><button class="btn ghost" id="limit-image-next"${entry.page+1>=pages?' disabled':''}>이미지 다음</button></div>`;
   $('#limit-body').querySelectorAll('[data-limit-image]').forEach(img=>{
-    const i=Number(img.dataset.limitImage);img.src=i<0?entry.card.thumb:entry.snapshots[i].thumb;
+    const i=Number(img.dataset.limitImage);rgLoadThumbInto(img,i<0?entry.card:entry.snapshots[i].image);
   });
   $('#limit-body').querySelectorAll('[data-limit-sub]').forEach(input=>input.onchange=()=>{
     if(limitBusy)return;

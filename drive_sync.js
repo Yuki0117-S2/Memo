@@ -346,27 +346,49 @@
     return meta;
   }
 
+  // ── 썸네일 저장소 연동 (Result Gallery 4단계) ──
+  // 카드에 썸네일 글자가 없어도 갤러리의 썸네일 저장소 주소(thumbKey)가 있으면 '이미지 있음'으로 본다.
+  // 주소 = 썸네일 글자의 SHA-256 이므로, 서명 계산에서는 주소를 해시 그대로 쓴다(서명 값이 바뀌지 않음).
+  function rgImgKey(img){return img&&!img.thumb&&typeof rgHasThumb==='function'&&rgHasThumb(img)?img.thumbKey:'';}
+  function rgImgPresent(img){return !!(img&&(img.thumb||rgImgKey(img)));}
+  // 업로드·비교 순간에만 썸네일 글자를 얻는다: 카드에 있으면 그대로, 없으면 저장소에서 읽음
+  async function rgImgData(x){
+    if(x&&x.thumb)return x.thumb;
+    const k=x&&(x.key||rgImgKey(x));
+    if(k&&typeof rgThumbData==='function')return await rgThumbData(k);
+    return '';
+  }
   // SHA-256은 이미지별로 계산해 카드 전체 base64를 한 문자열로 합치지 않는다.
   async function rgSha256(text){
     if(!globalThis.crypto?.subtle)throw new Error('이 환경에서는 안전한 이미지 비교를 사용할 수 없어. 저장을 중단했어.');
     const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text));
     return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
   }
+  async function rgImageHash(x){ // 썸네일 글자가 있으면 그 SHA-256, 없으면 주소(=같은 값), 둘 다 없으면 빈 문자열의 SHA-256
+    if(x&&x.thumb)return await rgSha256(x.thumb);
+    const k=x&&(x.key||rgImgKey(x));
+    return k||await rgSha256('');
+  }
   async function rgStrongImageSig(it){
     const hashes=[];
     for(const sub of (Array.isArray(it.subs)?it.subs:[])){
-      if(sub&&sub.thumb)hashes.push([sub.id||'',await rgSha256(sub.thumb)]);
+      if(sub&&(sub.thumb||sub.key||rgImgKey(sub)))hashes.push([sub.id||'',await rgImageHash(sub)]);
     }
-    return 'sha256:'+await rgSha256(JSON.stringify([await rgSha256(it.thumb||''),hashes]));
+    return 'sha256:'+await rgSha256(JSON.stringify([await rgImageHash(it),hashes]));
   }
   function rgDriveFileStamp(file){
     return file?.version&&file?.md5Checksum&&file?.size!=null
       ?JSON.stringify([String(file.version),file.md5Checksum,String(file.size)]):'';
   }
-  function rgSameImageContents(a,b){
-    if((a.thumb||'')!==(b.thumb||''))return false;
-    const left=(a.subs||[]).filter(s=>s&&s.thumb),right=(b.subs||[]).filter(s=>s&&s.thumb);
-    return left.length===right.length&&left.every((s,i)=>(s.id||'')===(right[i].id||'')&&s.thumb===right[i].thumb);
+  async function rgSameImageContents(a,b){ // a: 로컬(글자 또는 주소), b: Drive 파일(글자)
+    if((await rgImgData(a))!==(b.thumb||''))return false;
+    const left=(a.subs||[]).filter(s=>s&&(s.thumb||s.key)),right=(b.subs||[]).filter(s=>s&&s.thumb);
+    if(left.length!==right.length)return false;
+    for(let i=0;i<left.length;i++){
+      if((left[i].id||'')!==(right[i].id||''))return false;
+      if((await rgImgData(left[i]))!==right[i].thumb)return false;
+    }
+    return true;
   }
   async function rgReadFileStamp(id){
     const params=new URLSearchParams({fields:'id,version,md5Checksum,size'});
@@ -839,7 +861,7 @@
       const missing=[];
       function inspect(img,position){
         totalImages++;
-        if(img.thumb){if(img.thumbStripped)presentWithFlag++;return;}
+        if(rgImgPresent(img)){if(img.thumbStripped)presentWithFlag++;return;}
         if(!img.thumbStripped){emptyWithoutFlag++;return;}
         missing.push({position,id:String(img.id||''),fileName:String(img.fileName||img.title||'')});
       }
@@ -1173,10 +1195,13 @@
   }
 
   let rgDriveUploading=false;
+  // 진단 기록: 갤러리가 제공하는 통로로 단계와 그 순간의 힙 크기를 남긴다(개수만, 내용 없음). 실패해도 저장에는 영향 없음.
+  function rgDriveDiag(event,fields){try{if(typeof window!=='undefined'&&typeof window.rgDriveDiag==='function')window.rgDriveDiag(event,fields||{});}catch(_){}}
   async function uploadDriveSlotRG(){
     if(rgDriveUploading||rgDriveRecovering){setStatus('현재 Drive 저장이 완료될 때까지 기다려줘.','loading');return;}
     rgDriveUploading=true;
     try{window.rgDriveSaveBusy=true;}catch(_){}
+    rgDriveDiag('drive.save.start',{cards:Array.isArray(state?.items)?state.items.length:0});
     let mainWriteStarted=false,slotWriteStarted=false;
     const trackingWindow=typeof window!=='undefined'?window:null;
     let previousProgress,trackingProgress,previousStorageProgress,storageProgress;
@@ -1203,15 +1228,17 @@
       // 로컬 저장 진행 연결은 여기서 해제한다. 저장 도중 다른 편집으로 로컬 저장이 다시 돌아도 Drive 단계 기록을 덮지 않게.
       if(storageProgress&&trackingWindow.onResultGalleryStorageProgress===storageProgress)trackingWindow.onResultGalleryStorageProgress=previousStorageProgress;
       storageProgress=null;
+      rgDriveDiag('drive.save.local-done',{cards:state.items?.length||0});
       setStatus('Drive 비교용 카드 정보 준비 중…','loading');
       rgRecordSaveStage('Drive 비교용 카드 정보 준비',0,state.items?.length||0);
       // 메타는 사본, 큰 이미지 문자열은 참조만 유지하여 저장 중 편집과 분리한다.
       const collections=jsonClone(state.collections||[]);
       const items=(Array.isArray(state?.items)?state.items:[]).map(it=>({
-        meta:jsonClone(rgStripItem(it)),thumb:it.thumb||'',
+        meta:jsonClone(rgStripItem(it)),thumb:it.thumb||'',key:rgImgKey(it), // 썸네일 글자가 없으면 저장소 주소
         tracking:typeof trackingWindow?.getResultGalleryImageTracking==='function'?trackingWindow.getResultGalleryImageTracking(it):null,
-        subs:(it.subs||[]).map(s=>({id:s.id,thumb:s.thumb||''}))
+        subs:(it.subs||[]).map(s=>({id:s.id,thumb:s.thumb||'',key:rgImgKey(s)}))
       }));
+      rgDriveDiag('drive.save.prepared',{cards:items.length});
       // Recheck the snapshot after asynchronous local persistence.
       rgCheckImagesBeforeSave(items.map(item=>({...item.meta,thumb:item.thumb,subs:(item.meta.subs||[]).map((sub,i)=>({...sub,thumb:item.subs[i]?.thumb||''}))})));
       const cardIds=new Set();
@@ -1220,7 +1247,7 @@
         cardIds.add(item.meta.id);
         const subIds=new Set();
         for(const sub of item.subs){
-          if(sub.thumb&&(!sub.id||subIds.has(sub.id)))throw new Error('보조 이미지 ID가 없거나 중복돼 있어. 저장을 중단했어.');
+          if((sub.thumb||sub.key)&&(!sub.id||subIds.has(sub.id)))throw new Error('보조 이미지 ID가 없거나 중복돼 있어. 저장을 중단했어.');
           if(sub.id)subIds.add(sub.id);
         }
       }
@@ -1233,6 +1260,26 @@
         for(const r of (Array.isArray(v3.index.ref)?v3.index.ref:[]))prevRef.set(r[0],{id:r[0],imageFileId:r[1],imageSig:r[2],rgImageRevision:r[3],rgTrackingVersion:r[4]});
         const latest=rgV3LatestValid(v3);
         if(latest)prevInfo={count:Number(latest.entry.itemCount)||0,savedAt:latest.entry.savedAt,label:'슬롯 '+latest.letter};
+        // 연결 복구: 최신 색인에 이미지 파일 연결이 빈 카드가 있으면, 이전 정상 슬롯을 한 카드씩 흘려 읽어
+        // '서명이 같은' 카드의 이미지 파일 연결만 가져온다(파일 존재는 아래 재사용 판단에서 다시 확인). 다시 올릴 양을 줄이기 위함.
+        const emptyIds=new Set([...prevRef.values()].filter(p=>!p.imageFileId&&p.imageSig).map(p=>p.id));
+        if(emptyIds.size&&latest){
+          const older=RG_V3_SLOTS.filter(L=>L!==latest.letter&&v3.slotStates[L]==='ok').sort((a,b)=>Number(v3.index.slots[b].generation)-Number(v3.index.slots[a].generation));
+          let filled=0;
+          rgDriveDiag('drive.save.ref-recover-start',{cards:emptyIds.size});
+          for(const L of older){
+            if(!emptyIds.size)break;
+            const e=v3.index.slots[L],total=Number(e.bytes)||0;
+            rgRecordSaveStage('이전 슬롯 '+L+'에서 이미지 연결 찾기',filled,emptyIds.size+filled);
+            await rgNetRetry('이전 슬롯 '+L+' 읽기',()=>rgStreamMainSlots(e.fileId,{v3:true,onItem:async it=>{
+              if(!it||!emptyIds.has(it.id)||!it.imageFileId)return;
+              const p=prevRef.get(it.id);
+              if(!p||p.imageSig!==it.imageSig)return; // 그림 구성이 같은 경우만
+              p.imageFileId=it.imageFileId;emptyIds.delete(it.id);filled++;
+            },onProgress:read=>setStatus('이미지 연결이 빈 카드 '+(emptyIds.size+filled)+'장 · 이전 슬롯 '+L+'에서 찾는 중… '+rgMb(read)+(total?' / '+rgMb(total):'')+'\n찾음 '+filled+'장','loading')}));
+          }
+          rgDriveDiag('drive.save.ref-recover-end',{cards:filled,missing:emptyIds.size});
+        }
       }else{
         // 첫 v3 저장: 구형 v2 백업을 흘려 읽어 최신 슬롯의 비교 정보만 뽑는다(이미지 재업로드 방지). v2 파일은 건드리지 않는다.
         v2File=await findDriveFileByName(rgMainFileName());
@@ -1273,7 +1320,7 @@
           rehashedCards++;delete meta.rgImageRevision;delete meta.rgImageSignature;delete meta.rgImageManifest;delete meta.rgTrackingVersion;
         }
         meta.imagesStripped=true;meta.imageSig=sig;
-        meta.imageHadVisual=!!item.thumb||item.subs.some(s=>s.thumb);
+        meta.imageHadVisual=!!(item.thumb||item.key)||item.subs.some(s=>s.thumb||s.key);
         delete meta.imageUploadError;
         if(!meta.imageHadVisual){meta.imageFileId='';mainItems[index]=meta;idx++;progress();return;}
         const sameRevision=tracked&&prev?.rgTrackingVersion===tracked.version&&prev.rgImageRevision===tracked.revision&&prev.imageSig===sig;
@@ -1291,7 +1338,7 @@
           const legacy=await rgNetRetry('기존 이미지 파일 읽기',()=>readDriveFile(prev.imageFileId));
           if(legacy.kind!=='result-gallery-item-images'||legacy.itemId!==meta.id)throw new Error('기존 이미지 파일의 카드 정보가 일치하지 않아. 저장을 중단했어.');
           // Exact string equality, not length equality: no second image-hash pass is needed.
-          reusable=rgSameImageContents(item,legacy);migrated++;
+          reusable=await rgSameImageContents(item,legacy);migrated++;
           if(reusable){
             reuseId=prev.imageFileId;
             // Both version observations must agree: don't cache content read across a remote edit.
@@ -1305,7 +1352,17 @@
         }
         if(reusable){meta.imageFileId=reuseId;skipped++;}
         else{
-          const imgPayload={version:1,kind:'result-gallery-item-images',itemId:meta.id,thumb:item.thumb,subs:item.subs.filter(s=>s.thumb)};
+          // 올릴 때만 썸네일 글자를 만든다(카드에 없으면 저장소에서 읽음). 파일 형식은 예전과 같다.
+          const mainData=(item.thumb||item.key)?await rgImgData(item):'';
+          if((item.thumb||item.key)&&!mainData)throw new Error('썸네일 저장소에서 대표 이미지를 읽지 못해 저장을 중단했어. 기존 백업은 그대로야.');
+          const subsData=[];
+          for(const s of item.subs){
+            if(!(s.thumb||s.key))continue;
+            const d=await rgImgData(s);
+            if(!d)throw new Error('썸네일 저장소에서 보조 이미지를 읽지 못해 저장을 중단했어. 기존 백업은 그대로야.');
+            subsData.push({id:s.id,thumb:d});
+          }
+          const imgPayload={version:1,kind:'result-gallery-item-images',itemId:meta.id,thumb:mainData,subs:subsData};
           const name=rgImgFileName(meta.id).replace(/\.json$/,'')+'_'+sig.slice(7)+'.json';
           const written=await rgNetRetryCreate('새 이미지 파일 업로드',name,()=>writeDriveFile(null,imgPayload,name));
           if(!written?.id)throw new Error('새 이미지 파일 ID를 확인하지 못했어.');
@@ -1367,8 +1424,10 @@
       setStatus('Drive 저장 완료!\n슬롯 '+target+' · 세대 '+generation+' · '+rgFormatSavedAt(savedAt)+' · 카드 '+mainItems.length+'장 · '+formatBytes(slotBlob.size)+'\n보관 중인 슬롯: '+kept+'\n새 이미지 파일 '+uploaded+' · 기존 재사용 '+skipped+'\n저장된 해시 재사용 '+cached+'카드 · 전체 해시 계산 '+rehashedCards+'카드\n중단 전 작업 재사용 '+resumed+'카드\n검증 OK'+(migrated?' · 기존 형식 내용 비교 '+migrated+'개':'')+(v2File?'\n구형 v2 백업은 그대로 보존했어.':'')+backupNote,'ok');
       safeToast('☁️ Drive 저장 완료 · 슬롯 '+target+' (세대 '+generation+')'+(rgNetStats&&rgNetStats.retries?' · 네트워크 재시도 '+rgNetStats.retries+'회':''));
       rgRecordSaveStage('Drive 저장 완료',idx,items.length);
+      rgDriveDiag('drive.save.end',{cards:items.length,uploaded,skipped});
       rgDriveHistoryResolve();
     }catch(e){
+      rgDriveDiag('drive.save.error',{cards:state.items?.length||0});
       if(!(e&&e.rgUserCancel))try{
         const st=rgLsGet('rg_drive_last_stage_v1',null);
         rgDriveHistoryAdd({at:new Date().toISOString(),stage:st?.phase?(st.phase+' ('+(st.done??'?')+'/'+(st.total??'?')+')'):'?',error:String((e&&e.message)||e),mainWriteStarted,mainRead:rgTakeMainReadDiag(),
@@ -1385,6 +1444,7 @@
 
   async function applyDriveStateRG(slot){
     if(rgDriveRecovering)throw new Error("대표 이미지 복구가 진행 중이야. 완료 후 다시 시도해줘.");
+    rgDriveDiag('drive.restore.start',{cards:Number(slot?.itemCount)||0});
     const items=(slot&&Array.isArray(slot.items))?slot.items:[];
     // 복원 전, 현재 로컬 항목에서 id -> {thumb, 보조 thumb 맵, sig}를 만든다.
     // 슬롯의 imageSig와 로컬 sig가 같으면 Drive에서 다시 받지 않고 로컬 이미지를 재사용한다.
@@ -1393,21 +1453,25 @@
     curItems.forEach(li=>{
       if(!li||!li.id)return;
       const subT={};
-      (Array.isArray(li.subs)?li.subs:[]).forEach(s=>{ if(s&&s.id&&s.thumb) subT[s.id]=s.thumb; });
-      localMap[li.id]={thumb:li.thumb||'', subThumbs:subT, imageSource:li};
+      // 값은 썸네일 글자 또는 {k:저장소 주소}(카드에 글자가 없을 때)
+      (Array.isArray(li.subs)?li.subs:[]).forEach(s=>{ if(s&&s.id&&s.thumb) subT[s.id]=s.thumb; else if(s&&s.id&&rgImgKey(s)) subT[s.id]={k:rgImgKey(s)}; });
+      localMap[li.id]={thumb:li.thumb||(rgImgKey(li)?{k:rgImgKey(li)}:''), subThumbs:subT, imageSource:li};
     });
 
     // 항목의 껍데기 subs에 thumb 맵(id→dataUrl)을 입힌다. 못 입힌 쪽은 thumbStripped 껍데기로 남겨
     // 앱의 기존 "원본 PNG 드롭 시 자동 매칭" 경로로 나중에 채울 수 있게 한다.
     function dressItem(item, mainThumb, subThumbMap){
       let miss=0;
-      if(mainThumb){ item.thumb=mainThumb; item.thumbStripped=false; }
-      else { delete item.thumb; item.thumbStripped=true; miss++; }
+      // v: 썸네일 글자 → 카드에 넣음 / {k:주소} → 글자 없이 주소로 연결 / 없음 → 껍데기
+      const put=(o,v)=>{
+        if(typeof v==='string'&&v){ o.thumb=v; o.thumbStripped=false; return 0; }
+        if(v&&v.k){ delete o.thumb; o.thumbKey=v.k; o.thumbStripped=false; return 0; }
+        delete o.thumb; o.thumbStripped=true; return 1;
+      };
+      miss+=put(item,mainThumb);
       item.subs=(Array.isArray(item.subs)?item.subs:[]).map(s=>{
         const sub=Object.assign({},s);
-        const t=sub.id?subThumbMap[sub.id]:'';
-        if(t){ sub.thumb=t; sub.thumbStripped=false; }
-        else { delete sub.thumb; sub.thumbStripped=true; miss++; }
+        miss+=put(sub,sub.id?subThumbMap[sub.id]:'');
         return sub;
       });
       return miss;
@@ -1448,6 +1512,8 @@
     if(typeof slot?.rgStreamItems==='function'){total=Number(slot.itemCount)||0;const metadata=await slot.rgStreamItems(handle);collectionCatalog=metadata?.collections||collectionCatalog;}
     else for(const src of items)await handle(src);
     // 2차: 미뤄둔 이미지 다운로드. 하나라도 실패하면 로컬 데이터를 바꾸지 않고 중단한다.
+    // 내려받은 썸네일은 갤러리 썸네일 저장소에도 기록한다(5단계 모드면 카드에서는 빼고 주소만 남김).
+    const absorb=typeof rgThumbAbsorber==='function'?await rgThumbAbsorber():null;
     let di=0;
     for(const p of pending){
       di++;const item=p.item;
@@ -1458,9 +1524,11 @@
         const subT={};
         (Array.isArray(imgData.subs)?imgData.subs:[]).forEach(s=>{ if(s&&s.id&&s.thumb) subT[s.id]=s.thumb; });
         dressItem(item, imgData.thumb||'', subT); fetched++;
+        if(absorb)await absorb.add(item);
       }catch(e){ throw new Error('이미지 복원을 중단했어. 로컬 데이터는 아직 변경하지 않았어: '+(e.message||e)); }
       clearImageFields(item);
     }
+    if(absorb)await absorb.flush();
     if(typeof rgPlanCollectionImport==='function'){state.collections=rgPlanCollectionImport(collectionCatalog,rebuilt,false);state.collectionTarget='';state.collectionFilter='';}
     state.items=rebuilt;
     if(!state.view) state.view='default';
@@ -1470,6 +1538,7 @@
     state.selectedId=state.items[0]?.id||null;
     if(typeof saveResultGalleryToIndexedDBNow==='function') await saveResultGalleryToIndexedDBNow();
     else if(typeof save==='function') save();
+    rgDriveDiag('drive.restore.end',{cards:rebuilt.length,skipped:reused,uploaded:fetched});
     if(typeof render==='function') render();
     if(reused||fetched) safeToast(`☁️ 복원: 로컬 재사용 ${reused} · 새로 받음 ${fetched}`);
     if(missing>0) safeToast(`⚠ 이미지 파일 ${missing}개를 못 찾아 해당 항목은 ☁ 껍데기로 복원했어. 원본 PNG를 드롭하면 자동으로 채워져.`);
