@@ -42,6 +42,10 @@ header{display:flex;align-items:center;gap:10px;border-bottom:.5px solid var(--b
 /* 칩 필터 (갤러리 뷰에서만 표시) */
 .chip-filters{display:none;flex-direction:column;gap:7px;margin-bottom:10px;padding:9px 11px;background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius-sm)}
 .chip-filters.visible{display:flex}
+.chip-group:not(.expanded) .chip-row{max-height:var(--chip-row-height,28px);overflow:hidden}
+.chip-group-toggle{flex:0 0 68px;border:.5px solid var(--border);border-radius:999px;background:var(--bg);color:var(--accent);padding:4px 6px;font:inherit;font-size:11px;font-weight:700;white-space:nowrap;cursor:pointer}
+.chip-group-toggle[hidden]{display:block;visibility:hidden}
+.chip-group-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .chip-group{display:flex;align-items:flex-start;gap:8px;flex-wrap:nowrap}
 .chip-label{font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;flex-shrink:0;padding-top:4px;min-width:36px}
 .chip-row{display:flex;gap:4px;flex-wrap:wrap;flex:1;min-width:0}
@@ -485,14 +489,17 @@ img{-webkit-user-drag:none}
         <div class="chip-group">
           <span class="chip-label">태그</span>
           <div class="chip-row" id="tag-chips"></div>
+          <button type="button" class="chip-group-toggle" aria-expanded="false" aria-controls="tag-chips" aria-label="태그 필터 펼치기" hidden>펼치기 ▾</button>
         </div>
         <div class="chip-group">
           <span class="chip-label">출처</span>
           <div class="chip-row" id="gen-chips"></div>
+          <button type="button" class="chip-group-toggle" aria-expanded="false" aria-controls="gen-chips" aria-label="출처 필터 펼치기" hidden>펼치기 ▾</button>
         </div>
         <div class="chip-group">
           <span class="chip-label">LoRA</span>
           <div class="chip-row" id="lora-chips"></div>
+          <button type="button" class="chip-group-toggle" aria-expanded="false" aria-controls="lora-chips" aria-label="LoRA 필터 펼치기" hidden>펼치기 ▾</button>
         </div>
       </div>
       <div id="list"></div>
@@ -2342,10 +2349,12 @@ async function addFiles(files){
 
   /* 3단계 — 실제 반영 (신규 카드는 바로 넣지 않고 모아서 4단계 병합 판정으로 넘긴다) */
   let ok=0, filled=0, skipped=0; const newItems=[];
+  const changedCardIds=new Set();
   for(const p of plan){
     const f=p.file;
     try{
       if(p.stripped){
+        changedCardIds.add(p.stripped.id);
         const img=await makeThumb(f);
         p.stripped.thumb=img.thumb;
         p.stripped.thumbStripped=false;
@@ -2357,6 +2366,8 @@ async function addFiles(files){
         }
         filled++;
       } else if(p.strippedSub){
+        const parent=state.items.find(it=>(it.subs||[]).includes(p.strippedSub));
+        if(parent)changedCardIds.add(parent.id);
         const img=await makeThumb(f);
         p.strippedSub.thumb=img.thumb;
         p.strippedSub.thumbStripped=false;
@@ -2390,6 +2401,7 @@ async function addFiles(files){
       ],[{label:`기존 카드 대표 · ${target.title||target.fileName||''}`,color:'#8888CC',text:(target.meta&&target.meta.positive)||''},...list.map(x=>({label:x.fileName||'',color:'#BB6688',text:(x.meta&&x.meta.positive)||''}))]),numberInput:{label:'붙일 장수',max:list.length,hint:`/ ${list.length}장 · 앞에서부터`}});
       if(attach==='third'){discarded+=list.length;continue;} // 이 조합은 이미 충분 → 이번 이미지들 버림
       if(typeof attach==='number'){ // 붙이기 (숫자 입력칸이 있어 true 대신 장수가 돌아온다)
+        changedCardIds.add(target.id);
         target.subs=target.subs||[];
         list.slice(0,attach).forEach(x=>{target.subs.push(itemToSub(x));merged++;});
         discarded+=list.length-attach; // 입력 장수 초과분은 버림
@@ -2402,8 +2414,9 @@ async function addFiles(files){
     }
   }
   for(const ni of singles){state.items.unshift(ni);ok++;}
+  const listPosition=captureListPosition(changedCardIds);
   state.selectedId=state.items[0]?.id||null;
-  save();render();
+  save();render(listPosition);
   const parts=[];
   if(ok) parts.push(ok+'개 추가');
   if(merged) parts.push(merged+'개 기존 카드에 붙임');
@@ -2627,6 +2640,10 @@ function appendListChunk(){
   const nodes=[...tpl.content.children];
   nodes.forEach(n=>{box.appendChild(n);bindCardEl(n);});
   listShown+=slice.length;
+  appendListSentinel();
+}
+function appendListSentinel(){
+  const box=$('#list');
   if(listShown<listItems.length){
     const s=document.createElement('button');
     s.type='button';
@@ -2652,7 +2669,83 @@ function activeFilterDesc(){
   if(state.loraFilter.length)f.push('LoRA: '+state.loraFilter.join(', '));
   return f;
 }
-function renderList(){
+/* 이미지 추가 시 기존 카드 DOM과 실측 크기를 유지하고, 보던 카드 기준으로 위치를 맞춘다. */
+let cancelListRestore=null;
+function captureListPosition(changedIds){
+  const cards=[...document.querySelectorAll('#list .card')];
+  let anchor=null,top=0;
+  for(const card of cards){
+    const rect=card.getBoundingClientRect();
+    if(rect.top>=window.innerHeight)break;
+    if(rect.bottom>0){anchor=card.dataset.id;top=rect.top;break;}
+  }
+  return {anchor,top,x:window.scrollX,y:window.scrollY,cards,changedIds};
+}
+function restoreListPosition(pos){
+  const anchor=pos.anchor&&[...document.querySelectorAll('#list .card')].find(el=>el.dataset.id===pos.anchor);
+  const root=document.documentElement,previous=root.style.overflowAnchor;
+  root.style.overflowAnchor='none';
+  let frame=0,tries=0,stable=0,done=false;
+  const events=['wheel','touchstart','pointerdown','keydown'];
+  const stop=()=>{
+    if(done)return;
+    done=true;cancelAnimationFrame(frame);
+    root.style.overflowAnchor=previous;
+    events.forEach(type=>window.removeEventListener(type,stop,true));
+    if(cancelListRestore===stop)cancelListRestore=null;
+  };
+  cancelListRestore=stop;
+  events.forEach(type=>window.addEventListener(type,stop,{capture:true,passive:true}));
+  const align=()=>{
+    if(done)return;
+    if(anchor&&!anchor.isConnected){stop();return;}
+    const delta=anchor?anchor.getBoundingClientRect().top-pos.top:pos.y-window.scrollY;
+    if(Math.abs(delta)>1){window.scrollTo({left:pos.x,top:window.scrollY+delta,behavior:'instant'});stable=0;}
+    else stable++;
+    if(++tries>=12||stable>=3){stop();return;}
+    frame=requestAnimationFrame(align);
+  };
+  align();
+}
+function renderListPreservingPosition(pos){
+  const box=$('#list'),oldCards=new Map(pos.cards.map(card=>[card.dataset.id,card]));
+  listItems=filtered();
+  if(!listItems.length){renderList();return;}
+  $('#view-info').textContent=listItems.length+'개 표시';
+  $('#total-count').textContent=state.items.length+'개';
+  const oldS=box.querySelector('.list-sentinel');
+  if(oldS&&listObserver)listObserver.unobserve(oldS);
+  let needed=Math.max(LIST_CHUNK,pos.cards.length);
+  listItems.forEach((it,i)=>{if(oldCards.has(it.id))needed=Math.max(needed,i+1);});
+  const visible=listItems.slice(0,Math.ceil(needed/LIST_CHUNK)*LIST_CHUNK);
+  const fragment=document.createDocumentFragment(),fresh=[];
+  for(const it of visible){
+    let card=oldCards.get(it.id);
+    if(!card||pos.changedIds.has(it.id)){
+      if(card){
+        if(thumbObserver)thumbObserver.unobserve(card);
+        if(subThumbObserver)card.querySelectorAll('img.lazy-sub-thumb').forEach(im=>subThumbObserver.unobserve(im));
+      }
+      const tpl=document.createElement('template');tpl.innerHTML=cardHtml(it);
+      card=tpl.content.firstElementChild;fresh.push(card);
+    }
+    card.classList.toggle('active',it.id===state.selectedId);
+    fragment.appendChild(card);
+  }
+  // 기존 카드의 지연 렌더 크기·썸네일·펼친 내용을 유지한다.
+  box.replaceChildren(fragment);
+  for(const card of pos.cards){
+    if(card.isConnected)continue;
+    if(thumbObserver)thumbObserver.unobserve(card);
+    if(subThumbObserver)card.querySelectorAll('img.lazy-sub-thumb').forEach(im=>subThumbObserver.unobserve(im));
+  }
+  fresh.forEach(bindCardEl);
+  listShown=visible.length;
+  appendListSentinel();
+  box.classList.toggle('select-mode',selectMode);
+}
+function renderList(pos){
+  if(pos){renderListPreservingPosition(pos);return;}
   if(thumbObserver)thumbObserver.disconnect(); // 제거할 대표 카드의 관찰 해제; 새 카드는 bindCardEl에서 다시 등록
   if(subThumbObserver)subThumbObserver.disconnect(); // 이전 카드 DOM의 관찰 해제 (빈 결과 포함)
   listItems=filtered(); const box=$('#list');
@@ -3334,6 +3427,26 @@ function renderGenChips(){
     saveUiState();render();
   });
 }
+function refreshChipGroups(){
+  document.querySelectorAll('#chip-filters .chip-group').forEach(group=>{
+    const row=group.querySelector('.chip-row'),button=group.querySelector('.chip-group-toggle');
+    if(!row.clientWidth)return; // 기본 보기에서는 숨겨져 있으므로 갤러리를 열 때 측정한다.
+    const first=row.firstElementChild,height=first?first.offsetHeight:28;
+    row.style.setProperty('--chip-row-height',height+'px');
+    const expanded=group.classList.contains('expanded'),overflow=row.scrollHeight>height+1;
+    button.hidden=!overflow;
+    button.setAttribute('aria-expanded',String(expanded));
+    button.textContent=expanded?'접기 ▴':'펼치기 ▾';
+    button.setAttribute('aria-label',group.querySelector('.chip-label').textContent+' 필터 '+(expanded?'접기':'펼치기'));
+    // 접힌 영역의 보이지 않는 칩으로 키보드 포커스가 넘어가지 않게 한다.
+    const firstTop=first?first.offsetTop:0;
+    row.querySelectorAll('.fchip').forEach(chip=>{
+      const clipped=!expanded&&chip.offsetTop>firstTop+1;
+      chip.tabIndex=clipped?-1:0;
+      if(clipped)chip.setAttribute('aria-hidden','true');else chip.removeAttribute('aria-hidden');
+    });
+  });
+}
 function renderChips(){
   renderGenChips();
   const tagBox=$('#tag-chips'),loraBox=$('#lora-chips');
@@ -3353,6 +3466,7 @@ function renderChips(){
     if(i>=0)state.loraFilter.splice(i,1); else state.loraFilter.push(l);
     saveUiState();render();
   });
+  refreshChipGroups();
 }
 /* ── 작가 TXT 내보내기 (형식 가: 이름만, 중복 제거) ── */
 function collectArtists(items){
@@ -3810,7 +3924,7 @@ function openCtxMenu(x,y,items){
 function cardMenuItems(it){return[{icon:it.fav?'★':'☆',label:it.fav?'즐겨찾기 해제':'즐겨찾기',action:()=>toggleItemFav(it)},{sep:true},{icon:'📋',label:'카드 복제',action:()=>duplicateItem(it)},{icon:'📄',label:'메타 텍스트 복사',action:()=>copyItemMeta(it)},{icon:'＋',label:'일괄 선택 모드',action:()=>enterSelectMode()},{sep:true},{icon:'🏷',label:'상태 변경',submenu:['보류','성공','재작업','폐기'].map(st=>({icon:it.status===st?'●':' ',label:st,action:()=>setItemStatus(it,st)}))},{sep:true},{icon:'🗑',label:'삭제',danger:true,action:()=>deleteItem(it)}]}
 function boardMenuItems(){return[{icon:'＋',label:'이미지 추가',action:()=>$('#file-input').click()},{icon:'☐',label:'일괄 선택 모드',action:()=>enterSelectMode()},{sep:true},{icon:'⤺',label:'필터 초기화',action:()=>{$('#clear-filter-btn').click()}},{icon:'⬆',label:'JSON 내보내기',action:()=>exportData()},{icon:'⬇',label:'JSON 불러오기',action:()=>$('#import-input').click()}]}
 
-function render(){ normalizeStateShape(state); $('#search').value=state.query;$('#search-clear').classList.toggle('visible',!!state.query);$('#sort-select').value=state.sort;$('#score-filter').value=state.scoreFilter;$('#imgcount-filter').value=state.imgCountFilter||'all';$('#fav-only').checked=state.favOnly;renderStatuses();renderCollections();renderChips();renderList();renderDetail();renderStats();renderCollapseAllBtn()}
+function render(listPosition){ if(cancelListRestore)cancelListRestore();normalizeStateShape(state); $('#search').value=state.query;$('#search-clear').classList.toggle('visible',!!state.query);$('#sort-select').value=state.sort;$('#score-filter').value=state.scoreFilter;$('#imgcount-filter').value=state.imgCountFilter||'all';$('#fav-only').checked=state.favOnly;renderStatuses();renderCollections();renderChips();renderList(listPosition);renderDetail();renderStats();renderCollapseAllBtn();if(listPosition)restoreListPosition(listPosition)}
 function saveDetail(){const it=current();if(!it)return;it.title=$('#d-title').value.trim()||'제목 없음';it.status=$('#d-status').value;it.score=Number($('#d-score').value)||0;it.tags=uniq($('#d-tags').value.split(','));it.notes=$('#d-notes').value.trim();it.updatedAt=Date.now();save();render();toast('저장했어')}
 /* 내보내기(전체): 카드 단위로 조각내어 Blob에 넣는다.
    한 덩어리 JSON.stringify는 썸네일 data URL이 쌓이면 문자열 최대 길이(RangeError)에 걸려 조용히 실패하므로,
@@ -4424,6 +4538,13 @@ let lastTap={t:0,x:0,y:0};document.addEventListener('touchend',e=>{if(selectMode
 $('#pick-btn').onclick=()=>$('#file-input').click();$('#file-input').onchange=e=>addFiles(e.target.files);$('#export-btn').onclick=openExportPicker;$('#import-btn').onclick=()=>$('#import-input').click();$('#import-input').onchange=e=>{if(e.target.files[0])importData(e.target.files[0])};$('#clear-filter-btn').onclick=()=>{state.status='전체';state.query='';state.scoreFilter='all';state.imgCountFilter='all';state.favOnly=false;state.collectionFilter='';state.tagFilter=[];state.loraFilter=[];state.genFilter=[];state.naiVerFilter=[];saveUiState();render()};
 $('#search').oninput=e=>{state.query=e.target.value;saveUiState();render()};$('#search-clear').onclick=()=>{state.query='';saveUiState();render()};$('#sort-select').onchange=e=>{state.sort=e.target.value;saveUiState();render()};$('#score-filter').onchange=e=>{state.scoreFilter=e.target.value;saveUiState();render()};$('#imgcount-filter').onchange=e=>{state.imgCountFilter=e.target.value;saveUiState();render()};$('#fav-only').onchange=e=>{state.favOnly=e.target.checked;saveUiState();render()};
 $('#collapse-all').onclick=e=>{e.preventDefault();collapseAllCards()};
+document.querySelectorAll('.chip-group-toggle').forEach(button=>button.onclick=()=>{
+  button.closest('.chip-group').classList.toggle('expanded');refreshChipGroups();
+});
+if(typeof ResizeObserver==='function'){
+  const chipResizeObserver=new ResizeObserver(()=>refreshChipGroups());
+  document.querySelectorAll('#chip-filters .chip-row').forEach(row=>chipResizeObserver.observe(row));
+}else window.addEventListener('resize',refreshChipGroups);
 $('#save-detail-btn').onclick=saveDetail;['#d-title','#d-status','#d-score','#d-tags','#d-notes'].forEach(s=>$(s).addEventListener('change',saveDetail));$('#copy-positive-btn').onclick=()=>{navigator.clipboard.writeText(detailMetaOf(current()).positive||'');toast('Positive 복사했어')};$('#copy-negative-btn').onclick=()=>{navigator.clipboard.writeText(detailMetaOf(current()).negative||'');toast('Negative 복사했어')};$('#toggle-fav-btn').onclick=()=>{const it=current();if(it)toggleItemFav(it,false)};$('#delete-btn').onclick=async()=>{const it=current();if(!it)return;if(!await showConfirm('이 결과를 삭제할까? 원본 파일은 삭제되지 않아.',{danger:true}))return;state.items=state.items.filter(x=>x.id!==it.id);state.selectedId=state.items[0]?.id||null;save();render();toast('삭제했어')};$('#open-lightbox-btn').onclick=openLightbox;bindLightbox();
 /* === patch: 오버레이 바인딩 === */
 $('#eo-close').onclick=()=>closeEditOverlay();
