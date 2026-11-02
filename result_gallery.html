@@ -4030,7 +4030,13 @@ header{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:.5px s
 header h1{font-size:15px;margin:0 6px 0 0;font-weight:700}header h1 span{color:var(--c1)}
 header .sub{font-size:11px;color:var(--text3)}
 header input,header select{font:inherit;font-size:12px;padding:5px 8px;border:.5px solid var(--border);border-radius:7px;background:var(--bg2);color:var(--text)}
-header #q{min-width:220px}header label{font-size:12px;color:var(--text2);display:flex;align-items:center;gap:4px}
+header .export-search{position:relative;flex:1 1 280px;min-width:220px}
+header #q{display:block;width:100%;min-width:0;min-height:44px;padding:9px 48px 9px 12px;font-size:16px;line-height:24px}
+header #q:focus{outline:2px solid var(--c1);outline-offset:1px}
+header #q-clear{position:absolute;right:1px;top:50%;transform:translateY(-50%);width:44px;height:44px;display:flex;align-items:center;justify-content:center;padding:0;border:0;border-radius:7px;background:transparent;color:var(--text2);font:24px/1 system-ui;cursor:pointer;touch-action:manipulation}
+header #q-clear[hidden]{display:none}
+header #q-clear:focus-visible{outline:2px solid var(--c1);outline-offset:-3px}
+header label{font-size:12px;color:var(--text2);display:flex;align-items:center;gap:4px}
 #cnt{font-size:11px;color:var(--text2);margin-left:auto}
 main{padding:14px 18px 40px;display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:14px}
 article{background:var(--bg2);border:.5px solid var(--border);border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
@@ -4055,10 +4061,10 @@ button.cp:hover{background:var(--c1);color:#fff}
 #lb.on{display:flex}#lb img{max-width:96vw;max-height:96vh;object-fit:contain}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--text);color:var(--bg);font-size:12px;padding:8px 16px;border-radius:999px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:60}
 #toast.on{opacity:1}
-@media(max-width:720px){main{grid-template-columns:1fr;padding:10px}header{padding:10px}header #q{min-width:0;flex:1}}
+@media(max-width:720px){main{grid-template-columns:1fr;padding:10px}header{padding:10px}header .sub{flex-basis:100%}header .export-search{flex:0 0 100%;min-width:0}header select,header label{min-height:36px}}
 </style></head><body>
 <header><h1><span>✦</span> Result Gallery</h1><span class="sub">${esc(date.toLocaleString('ko-KR'))} 내보냄 · ${items.length}장 · 조회 전용</span>
-<input id="q" placeholder="제목 / 모델 / 프롬프트 / 태그 / 메모 검색…">
+<div class="export-search"><input id="q" type="text" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="갤러리 검색" placeholder="제목 / 모델 / 프롬프트 / 태그 / 메모 검색…"><button id="q-clear" type="button" aria-label="검색어 지우기" title="검색어 지우기" hidden>×</button></div>
 <select id="st"><option value="">전체 상태</option>${statuses.map(s=>`<option>${esc(s)}</option>`).join('')}</select>
 <select id="sc"><option value="0">전체 점수</option><option value="5">★5</option><option value="4">★4 이상</option><option value="3">★3 이상</option></select>
 <label><input type="checkbox" id="fv"> 즐겨찾기만</label><span id="cnt"></span></header>
@@ -4092,9 +4098,12 @@ ${it.notes?`<div class="notes">${esc(it.notes)}</div>`:''}
 var $=function(s){return document.querySelector(s)},cards=[].slice.call(document.querySelectorAll('article'));
 function toast(m){var t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toast._t);toast._t=setTimeout(function(){t.classList.remove('on')},1500)}
 function apply(){var q=$('#q').value.trim().toLowerCase(),st=$('#st').value,sc=+$('#sc').value,fv=$('#fv').checked,n=0;
+  $('#q-clear').hidden=!$('#q').value;
   cards.forEach(function(c){var ok=(!q||c.dataset.q.indexOf(q)>-1)&&(!st||c.dataset.st===st)&&(+c.dataset.sc>=sc)&&(!fv||c.dataset.fav==='1');c.hidden=!ok;if(ok)n++});
   $('#cnt').textContent=n+' / '+cards.length+'장'}
 ['input','change'].forEach(function(ev){$('#q').addEventListener(ev,apply);$('#st').addEventListener(ev,apply);$('#sc').addEventListener(ev,apply);$('#fv').addEventListener(ev,apply)});
+$('#q-clear').addEventListener('pointerdown',function(e){e.preventDefault()});
+$('#q-clear').addEventListener('click',function(){$('#q').value='';$('#q').focus();apply()});
 apply();
 document.addEventListener('click',function(e){
   var b=e.target.closest('button.cp');
