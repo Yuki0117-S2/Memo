@@ -4025,9 +4025,7 @@ async function exportHtml(items){
 <style>
 :root{--c1:#8888CC;--c2:#DDAACC;--c3:#CCAA88;--c4:#BB6688;--bg:#FAFAFB;--bg2:#F1F1F5;--text:#2A2A33;--text2:#66667A;--text3:#9A9AAE;--border:#E2E2EA;--code:#F4F4F8}
 @media(prefers-color-scheme:dark){:root{--bg:#16161C;--bg2:#1F1F27;--text:#E8E8F0;--text2:#A8A8BC;--text3:#70708A;--border:#2E2E3A;--code:#1C1C24}}
-html{scrollbar-color:var(--c1) var(--bg2)}
-html.export-scroll-ready{scrollbar-width:none}html.export-scroll-ready::-webkit-scrollbar{display:none}
-*{box-sizing:border-box}body{margin:0;padding-right:22px;background:var(--bg);color:var(--text);font:13px/1.55 system-ui,-apple-system,"Segoe UI","Malgun Gothic",sans-serif}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:13px/1.55 system-ui,-apple-system,"Segoe UI","Malgun Gothic",sans-serif}
 header{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:.5px solid var(--border);padding:12px 18px;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
 header h1{font-size:15px;margin:0 6px 0 0;font-weight:700}header h1 span{color:var(--c1)}
 header .sub{font-size:11px;color:var(--text3)}
@@ -4061,12 +4059,12 @@ h2{font-size:13.5px;margin:0;word-break:break-all}
 summary:focus-visible{outline:2px solid var(--c1);outline-offset:-2px;border-radius:7px}
 .details-body{padding:10px;display:flex;flex-direction:column;gap:8px;border-top:.5px solid var(--border)}
 .details-body .row{overflow-wrap:anywhere}.details-body .pill{max-width:100%}
-#page-scroll{position:fixed;right:1px;top:8px;bottom:8px;width:20px;z-index:40;touch-action:none;user-select:none;cursor:pointer;border-radius:10px;opacity:0;pointer-events:none;transition:opacity .2s}
-#page-scroll.scrolling,#page-scroll:focus-visible{opacity:1;pointer-events:auto}
-#page-scroll[hidden]{display:none}
-#page-scroll::before{content:'';position:absolute;top:0;bottom:0;left:7px;width:6px;background:var(--border);border-radius:8px}
-#page-scroll-thumb{position:absolute;left:5px;top:0;width:10px;min-height:36px;background:var(--c1);border-radius:8px;pointer-events:none}
-#page-scroll:focus-visible{outline:2px solid var(--c4);outline-offset:-2px}
+#jump-nav{position:fixed;right:14px;bottom:84px;z-index:40;display:flex;flex-direction:column;gap:8px;opacity:0;pointer-events:none;transform:translateX(8px);transition:opacity .18s,transform .18s}
+#jump-nav.show,#jump-nav:has(button:focus-visible){opacity:1;pointer-events:auto;transform:none}
+#jump-nav button{width:40px;height:40px;border:.5px solid var(--border);border-radius:999px;background:var(--bg);color:var(--c1);font-size:14px;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.18);font-family:inherit;touch-action:manipulation}
+#jump-nav button:hover{background:var(--c1);color:#fff}
+#jump-nav button:focus-visible{outline:2px solid var(--c4);outline-offset:2px}
+@media(max-width:720px){#jump-nav{right:10px;bottom:78px}#jump-nav button{width:44px;height:44px}}
 dl{display:grid;grid-template-columns:92px 1fr;gap:3px 8px;margin:0;font-size:11.5px}dt{color:var(--text3)}dd{margin:0;word-break:break-all}
 details{border:.5px solid var(--border);border-radius:8px;background:var(--bg)}
 summary{cursor:pointer;padding:6px 10px;font-size:11.5px;color:var(--text2);display:flex;justify-content:space-between;align-items:center}
@@ -4118,30 +4116,25 @@ ${it.notes?`<div class="notes">${esc(it.notes)}</div>`:''}
       if(parts.length>=200){chunks.push(new Blob(parts));parts.length=0;await new Promise(r=>setTimeout(r,0));} // 큰 문자열을 오래 들고 있지 않게
     }
     parts.push(`</main>
-<div id="page-scroll" role="scrollbar" tabindex="0" aria-label="페이지 위아래 스크롤" aria-controls="gallery" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden><div id="page-scroll-thumb"></div></div>
+<div id="jump-nav" aria-label="페이지 이동"><button type="button" id="jump-top" title="맨 위로" aria-label="맨 위로">▲</button><button type="button" id="jump-bottom" title="맨 아래로" aria-label="맨 아래로">▼</button></div>
 <div id="lb"><img alt=""></div><div id="toast"></div>
 <script>
 (function(){
 var $=function(s){return document.querySelector(s)},cards=[].slice.call(document.querySelectorAll('article'));
-var rail=$('#page-scroll'),thumb=$('#page-scroll-thumb'),scrollFrame=0,drag=null,scrollTimer=0;
-document.documentElement.classList.add('export-scroll-ready');
-function scrollMetrics(){var root=document.scrollingElement||document.documentElement,h=rail.clientHeight,max=Math.max(0,root.scrollHeight-root.clientHeight),size=Math.min(h,Math.max(36,h*root.clientHeight/Math.max(1,root.scrollHeight)));return{root:root,max:max,size:size,travel:Math.max(0,h-size)}}
-function updateScroll(){scrollFrame=0;rail.hidden=false;var m=scrollMetrics();rail.hidden=m.max<=0;thumb.style.height=m.size+'px';thumb.style.transform='translateY('+(m.max?Math.max(0,Math.min(1,m.root.scrollTop/m.max))*m.travel:0)+'px)';rail.setAttribute('aria-valuenow',String(m.max?Math.round(m.root.scrollTop/m.max*100):0))}
-function scheduleScroll(){if(!scrollFrame)scrollFrame=requestAnimationFrame(updateScroll)}
-function showScroll(){rail.classList.add('scrolling');clearTimeout(scrollTimer);scrollTimer=setTimeout(function(){if(!drag)rail.classList.remove('scrolling')},900)}
-function moveScroll(y){var m=scrollMetrics(),top=rail.getBoundingClientRect().top;if(m.travel>0)m.root.scrollTop=Math.max(0,Math.min(1,(y-top-drag.offset)/m.travel))*m.max}
-rail.addEventListener('pointerdown',function(e){if(e.button!==0||drag)return;e.preventDefault();var r=thumb.getBoundingClientRect(),m=scrollMetrics();drag={id:e.pointerId,offset:e.clientY>=r.top&&e.clientY<=r.bottom?e.clientY-r.top:m.size/2};rail.setPointerCapture(e.pointerId);rail.focus({preventScroll:true});moveScroll(e.clientY)});
-rail.addEventListener('pointermove',function(e){if(drag&&drag.id===e.pointerId)moveScroll(e.clientY)});
-['pointerup','pointercancel','lostpointercapture'].forEach(function(ev){rail.addEventListener(ev,function(e){if(drag&&drag.id===e.pointerId){drag=null;showScroll()}})});
-rail.addEventListener('keydown',function(e){var m=scrollMetrics(),step=m.root.clientHeight*.85,next=m.root.scrollTop;switch(e.key){case 'ArrowDown':next+=60;break;case 'ArrowUp':next-=60;break;case 'PageDown':next+=step;break;case 'PageUp':next-=step;break;case 'Home':next=0;break;case 'End':next=m.max;break;default:return}e.preventDefault();m.root.scrollTop=next});
-window.addEventListener('scroll',function(){scheduleScroll();showScroll()},{passive:true});window.addEventListener('resize',scheduleScroll);
-document.addEventListener('toggle',scheduleScroll,true);document.addEventListener('load',scheduleScroll,true);
-if(window.ResizeObserver)new ResizeObserver(scheduleScroll).observe(document.body);
+var nav=$('#jump-nav'),hideTimer=null,hover=false,touching=false;
+function restartJump(){clearTimeout(hideTimer);hideTimer=setTimeout(function(){if(!hover&&!touching)nav.classList.remove('show')},1800)}
+window.addEventListener('scroll',function(){nav.classList.add('show');restartJump()},{passive:true});
+nav.addEventListener('mouseenter',function(){hover=true;clearTimeout(hideTimer)});
+nav.addEventListener('mouseleave',function(){hover=false;restartJump()});
+nav.addEventListener('touchstart',function(){touching=true;clearTimeout(hideTimer)},{passive:true});
+['touchend','touchcancel'].forEach(function(ev){nav.addEventListener(ev,function(){touching=false;restartJump()},{passive:true})});
+$('#jump-top').onclick=function(){window.scrollTo({top:0,behavior:'smooth'})};
+$('#jump-bottom').onclick=function(){window.scrollTo({top:document.documentElement.scrollHeight,behavior:'smooth'})};
 function toast(m){var t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toast._t);toast._t=setTimeout(function(){t.classList.remove('on')},1500)}
 function apply(){var q=$('#q').value.trim().toLowerCase(),st=$('#st').value,sc=+$('#sc').value,fv=$('#fv').checked,n=0;
   $('#q-clear').hidden=!$('#q').value;
   cards.forEach(function(c){var ok=(!q||c.dataset.q.indexOf(q)>-1)&&(!st||c.dataset.st===st)&&(+c.dataset.sc>=sc)&&(!fv||c.dataset.fav==='1');c.hidden=!ok;if(ok)n++});
-  $('#cnt').textContent=n+' / '+cards.length+'장';scheduleScroll()}
+  $('#cnt').textContent=n+' / '+cards.length+'장'}
 ['input','change'].forEach(function(ev){$('#q').addEventListener(ev,apply);$('#st').addEventListener(ev,apply);$('#sc').addEventListener(ev,apply);$('#fv').addEventListener(ev,apply)});
 $('#q-clear').addEventListener('pointerdown',function(e){e.preventDefault()});
 $('#q-clear').addEventListener('click',function(){$('#q').value='';$('#q').focus();apply()});
