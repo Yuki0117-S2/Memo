@@ -3770,17 +3770,23 @@ function openEditOverlay(){
 function closeEditOverlay(doRender=true){
   const panel=$('#detail-panel'),ov=$('#edit-overlay');
   if(!ov||!ov.classList.contains('open'))return;
+  // 닫으면서 목록을 다시 그릴 때 보던 위치를 유지한다 (편집한 카드만 새로 그림)
+  if(state.selectedId)editTouchedIds.add(state.selectedId);
+  const listPosition=doRender?captureListPosition(new Set(editTouchedIds)):null;
+  editTouchedIds.clear();
   detailSub=null; // 닫으면 다음엔 대표 이미지 기준으로
   ov.classList.remove('open');
   ov.setAttribute('aria-hidden','true');
   document.body.classList.remove('eo-open');
   if(panel&&detailPanelHome.parent)detailPanelHome.parent.insertBefore(panel,detailPanelHome.next);
-  if(doRender)render();
+  if(doRender)render(listPosition);
 }
 /* 뷰어에서 보조 이미지를 보다가 편집을 누르면 그 보조 이미지의 사진·메타(프롬프트)를 상세에 보여준다.
    제목·상태·점수·태그·메모·즐겨찾기는 카드 단위라 그대로 카드 값을 편집한다.
    보조 객체를 참조로 기억 → 승격·삭제로 순서가 바뀌어도 엉뚱한 이미지를 가리키지 않는다. */
 let detailSub=null; // {id, ref}
+function editOverlayIsOpen(){const ov=$('#edit-overlay');return !!(ov&&ov.classList.contains('open'));}
+const editTouchedIds=new Set(); // 편집 오버레이가 열린 동안 연 카드 id — 닫을 때 이 카드들만 다시 그린다
 function detailSubOf(it){
   if(!it||!detailSub||detailSub.id!==it.id)return null;
   const i=(it.subs||[]).indexOf(detailSub.ref);
@@ -3792,7 +3798,12 @@ function openEdit(id,sub){
   detailSub=subRef?{id,ref:subRef}:null;
   if(id)state.selectedId=id;
   saveUiState();
-  if(useOverlayForEdit()){renderList();openEditOverlay()}
+  if(useOverlayForEdit()){
+    // 목록을 다시 그리면 처음 120장만 남아 스크롤이 튄다 → 선택 표시만 옮긴다
+    if(id)editTouchedIds.add(id);
+    document.querySelectorAll('#list .card').forEach(card=>card.classList.toggle('active',card.dataset.id===state.selectedId));
+    openEditOverlay();
+  }
   else render();
 }
 
@@ -3925,7 +3936,7 @@ function cardMenuItems(it){return[{icon:it.fav?'★':'☆',label:it.fav?'즐겨�
 function boardMenuItems(){return[{icon:'＋',label:'이미지 추가',action:()=>$('#file-input').click()},{icon:'☐',label:'일괄 선택 모드',action:()=>enterSelectMode()},{sep:true},{icon:'⤺',label:'필터 초기화',action:()=>{$('#clear-filter-btn').click()}},{icon:'⬆',label:'JSON 내보내기',action:()=>exportData()},{icon:'⬇',label:'JSON 불러오기',action:()=>$('#import-input').click()}]}
 
 function render(listPosition){ if(cancelListRestore)cancelListRestore();normalizeStateShape(state); $('#search').value=state.query;$('#search-clear').classList.toggle('visible',!!state.query);$('#sort-select').value=state.sort;$('#score-filter').value=state.scoreFilter;$('#imgcount-filter').value=state.imgCountFilter||'all';$('#fav-only').checked=state.favOnly;renderStatuses();renderCollections();renderChips();renderList(listPosition);renderDetail();renderStats();renderCollapseAllBtn();if(listPosition)restoreListPosition(listPosition)}
-function saveDetail(){const it=current();if(!it)return;it.title=$('#d-title').value.trim()||'제목 없음';it.status=$('#d-status').value;it.score=Number($('#d-score').value)||0;it.tags=uniq($('#d-tags').value.split(','));it.notes=$('#d-notes').value.trim();it.updatedAt=Date.now();save();render();toast('저장했어')}
+function saveDetail(){const it=current();if(!it)return;it.title=$('#d-title').value.trim()||'제목 없음';it.status=$('#d-status').value;it.score=Number($('#d-score').value)||0;it.tags=uniq($('#d-tags').value.split(','));it.notes=$('#d-notes').value.trim();it.updatedAt=Date.now();save();render(editOverlayIsOpen()?captureListPosition(new Set([it.id])):undefined);toast('저장했어')}
 /* 내보내기(전체): 카드 단위로 조각내어 Blob에 넣는다.
    한 덩어리 JSON.stringify는 썸네일 data URL이 쌓이면 문자열 최대 길이(RangeError)에 걸려 조용히 실패하므로,
    카드마다 따로 직렬화한 조각 배열을 Blob이 이어붙이게 한다. 결과 파일 구조({version,exportedAt,items})는 이전과 동일. */
@@ -4588,7 +4599,7 @@ if(typeof ResizeObserver==='function'){
   const chipResizeObserver=new ResizeObserver(()=>refreshChipGroups());
   document.querySelectorAll('#chip-filters .chip-row').forEach(row=>chipResizeObserver.observe(row));
 }else window.addEventListener('resize',refreshChipGroups);
-$('#save-detail-btn').onclick=saveDetail;['#d-title','#d-status','#d-score','#d-tags','#d-notes'].forEach(s=>$(s).addEventListener('change',saveDetail));$('#copy-positive-btn').onclick=()=>{navigator.clipboard.writeText(detailMetaOf(current()).positive||'');toast('Positive 복사했어')};$('#copy-negative-btn').onclick=()=>{navigator.clipboard.writeText(detailMetaOf(current()).negative||'');toast('Negative 복사했어')};$('#toggle-fav-btn').onclick=()=>{const it=current();if(it)toggleItemFav(it,false)};$('#delete-btn').onclick=async()=>{const it=current();if(!it)return;if(!await showConfirm('이 결과를 삭제할까? 원본 파일은 삭제되지 않아.',{danger:true}))return;state.items=state.items.filter(x=>x.id!==it.id);state.selectedId=state.items[0]?.id||null;save();render();toast('삭제했어')};$('#open-lightbox-btn').onclick=openLightbox;bindLightbox();
+$('#save-detail-btn').onclick=saveDetail;['#d-title','#d-status','#d-score','#d-tags','#d-notes'].forEach(s=>$(s).addEventListener('change',saveDetail));$('#copy-positive-btn').onclick=()=>{navigator.clipboard.writeText(detailMetaOf(current()).positive||'');toast('Positive 복사했어')};$('#copy-negative-btn').onclick=()=>{navigator.clipboard.writeText(detailMetaOf(current()).negative||'');toast('Negative 복사했어')};$('#toggle-fav-btn').onclick=()=>{const it=current();if(it)toggleItemFav(it,false)};$('#delete-btn').onclick=async()=>{const it=current();if(!it)return;if(!await showConfirm('이 결과를 삭제할까? 원본 파일은 삭제되지 않아.',{danger:true}))return;const inOverlay=editOverlayIsOpen(),listPosition=inOverlay?captureListPosition(new Set()):undefined;state.items=state.items.filter(x=>x.id!==it.id);state.selectedId=state.items[0]?.id||null;save();if(inOverlay)closeEditOverlay(false);render(listPosition);toast('삭제했어')};$('#open-lightbox-btn').onclick=openLightbox;bindLightbox();
 /* === patch: 오버레이 바인딩 === */
 $('#eo-close').onclick=()=>closeEditOverlay();
 $('#edit-overlay').addEventListener('click',e=>{if(e.target.id==='edit-overlay')closeEditOverlay()});
